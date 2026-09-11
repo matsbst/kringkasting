@@ -142,6 +142,11 @@ type EpisodeRow = {
   bytes: number | null;
 };
 
+/** cheap existence check without loading episodes */
+function hasSeries(seriesId: string): boolean {
+  return getDb().prepare("SELECT 1 FROM series WHERE id = ?").get(seriesId) !== undefined;
+}
+
 function readSeries(options: { id: string }): Series | null {
   const database = getDb();
   const row = database
@@ -359,6 +364,7 @@ function deleteStaleSeries(maxAgeMs: number): number {
 }
 
 export const storage = {
+  hasSeries,
   readSeries,
   writeSeries,
   addEpisodes,

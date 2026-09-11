@@ -1,6 +1,8 @@
 import { STATUS_CODE } from "@std/http/status";
 import { define } from "../../../utils.ts";
 import { caching } from "../../../lib/caching.ts";
+import { storage } from "../../../lib/storage.ts";
+import { allowRequest, getClientKey } from "../../../lib/rate-limit.ts";
 import { renderFeed } from "../../../lib/feed-cache.ts";
 import {
   etagMatches,
@@ -22,6 +24,16 @@ export const handler = define.handlers({
     const seriesId = ctx.params.seriesId;
     if (!isValidResourceId(seriesId)) {
       return responseJSON({ message: "Invalid series id" }, STATUS_CODE.BadRequest);
+    }
+
+    // fetching an unknown series costs real upstream work; cap the rate
+    // per client (12 cold fetches/min, burst 10). Known series are cheap
+    // and never limited.
+    if (!storage.hasSeries(seriesId) && !allowRequest(`coldfeed:${getClientKey(ctx.req)}`, 10, 0.2)) {
+      const response = responseJSON({ message: "Too many requests" }, STATUS_CODE.TooManyRequests);
+      response.headers.set("Retry-After", "60");
+      response.headers.set("Cache-Control", "no-store");
+      return response;
     }
 
     let series;
