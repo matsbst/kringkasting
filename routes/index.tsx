@@ -1,3 +1,4 @@
+// deno-lint-ignore-file react-no-danger -- JSON-LD requires an inline script
 import { page } from "fresh";
 import { Head } from "fresh/runtime";
 import { define } from "../utils.ts";
@@ -38,6 +39,7 @@ export default define.page<typeof handler>(function Home({ data }) {
         {data.query && <title>Søk: {data.query} – Kringkasting</title>}
         {/* search-result URLs are duplicates of the front page for crawlers */}
         {data.query && <meta name="robots" content="noindex,follow" />}
+        {/* JSON-LD structured data is the legitimate use of raw HTML injection */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
