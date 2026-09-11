@@ -38,6 +38,7 @@ export default define.page(function App(ctx) {
         <meta name="twitter:image" content={`${origin}/og.png`} />
       </head>
       <body class="relative min-h-screen flex flex-col overflow-x-clip bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
+        <a href="#innhold" class="skip-link">Hopp til innhold</a>
         {/* broadcast arcs radiating from the page's own corner */}
         <BroadcastArcs class="pointer-events-none absolute top-0 right-0 w-72 sm:w-[27rem] text-ink/10 dark:text-ink-dark/15" />
         <header class="w-full max-w-2xl mx-auto px-6 pt-10">
@@ -48,7 +49,7 @@ export default define.page(function App(ctx) {
           </a>
         </header>
 
-        <main class="flex-1 w-full max-w-2xl mx-auto px-6">
+        <main id="innhold" class="flex-1 w-full max-w-2xl mx-auto px-6">
           <Component />
         </main>
 
