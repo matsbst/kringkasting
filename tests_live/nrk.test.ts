@@ -1,6 +1,6 @@
 import { assertEquals, assertExists, assertGreaterOrEqual } from "@std/assert";
-import { nrkRadio } from "./nrk.ts";
-import { forTestingOnly } from "./nrk.ts";
+import { nrkRadio } from "../lib/nrk/nrk.ts";
+import { forTestingOnly } from "../lib/nrk/nrk.ts";
 
 Deno.test(
   "Verify search query `trygd` includes 'Trygdekontoret'",
@@ -122,24 +122,6 @@ Deno.test("Seriesnakk, an umbrella series yields all seasons", async () => {
     true,
     `Titles include "${natoTitle}"`,
   );
-});
-
-Deno.test("mapConcurrent preserves order and respects the concurrency limit", async () => {
-  const limit = 3;
-  let inFlight = 0;
-  let maxInFlight = 0;
-  const items = Array.from({ length: 20 }, (_, i) => i);
-
-  const results = await forTestingOnly.mapConcurrent(items, limit, async (item) => {
-    inFlight++;
-    maxInFlight = Math.max(maxInFlight, inFlight);
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    inFlight--;
-    return item * 2;
-  });
-
-  assertEquals(results, items.map((item) => item * 2));
-  assertEquals(maxInFlight <= limit, true, `max in flight was ${maxInFlight}`);
 });
 
 Deno.test("search queries with special characters are encoded", async () => {

@@ -6,7 +6,8 @@
     "build": "vite build",
     "start": "deno serve -A _fresh/server.js",
     "test": "KRINGKASTING_DB_PATH=:memory: deno test -A lib/",
-    "types:nrk": "deno run -A generate-types.ts && deno fmt ./lib"
+    "types:nrk": "deno run -A generate-types.ts && deno fmt ./lib",
+    "test:live": "KRINGKASTING_DB_PATH=:memory: deno test -A tests_live/"
   },
   "lint": {
     "rules": {

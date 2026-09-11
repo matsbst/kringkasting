@@ -13,7 +13,11 @@ const notFoundUntil = new Map<string, number>();
 const inFlight = new Map<string, Promise<Series | null>>();
 
 async function initialFetch(options: { id: string }): Promise<Series | null> {
-  const series = await nrkRadio.getSeries(options.id);
+  const series = await nrkRadio.getSeries(
+    options.id,
+    undefined,
+    (episodeId) => storage.recordEpisodeFailure(options.id, episodeId),
+  );
   if (!series) {
     return null;
   }
@@ -28,9 +32,17 @@ async function initialFetch(options: { id: string }): Promise<Series | null> {
 }
 
 async function updateFetch(existingSeries: Series): Promise<Series> {
-  const knownEpisodeIds = new Set(existingSeries.episodes.map((episode) => episode.id));
-  // incremental: only NEW episodes get playback-manifest lookups
-  const update = await nrkRadio.getSeries(existingSeries.id, knownEpisodeIds);
+  // incremental: only NEW episodes get playback-manifest lookups, and
+  // episodes under failure backoff are not re-checked every refresh
+  const skipEpisodeIds = new Set(existingSeries.episodes.map((episode) => episode.id));
+  for (const blocked of storage.readBlockedEpisodeIds(existingSeries.id)) {
+    skipEpisodeIds.add(blocked);
+  }
+  const update = await nrkRadio.getSeries(
+    existingSeries.id,
+    skipEpisodeIds,
+    (episodeId) => storage.recordEpisodeFailure(existingSeries.id, episodeId),
+  );
   if (!update) {
     // NRK outage or rate limiting: serve the stale copy rather than
     // pretending the series disappeared
@@ -99,7 +111,25 @@ function pruneExpired(map: Map<string, number>) {
   }
 }
 
+/** stale series are garbage-collected once a day */
+const GC_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+const GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+let lastGcAt = 0;
+
+function maybeCollectGarbage() {
+  if (Date.now() - lastGcAt < GC_INTERVAL_MS) {
+    return;
+  }
+  lastGcAt = Date.now();
+  const deleted = storage.deleteStaleSeries(GC_MAX_AGE_MS);
+  if (deleted > 0) {
+    console.log(`Garbage collected ${deleted} series not requested in 90 days`);
+  }
+}
+
 async function getSeries(options: { id: string }): Promise<Series | null> {
+  maybeCollectGarbage();
+
   const missUntil = notFoundUntil.get(options.id);
   if (missUntil !== undefined) {
     if (missUntil > Date.now()) {
