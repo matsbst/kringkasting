@@ -182,8 +182,8 @@ export default function InstantSearch(props: Props) {
 function HowItWorks(props: { onSuggestion: (query: string) => void }) {
   const steps: [string, string][] = [
     ["Søk", "Finn NRK-podkasten du vil høre på."],
-    ["Kopier", "Kopier RSS-lenken til podkasten."],
-    ["Lim inn", "Legg til lenken i podkast-appen din – ferdig!"],
+    ["Abonner", "Trykk «Abonner i app» og velg podkast-appen din."],
+    ["Hør", "Podkasten dukker opp i appen din, med hele arkivet."],
   ];
 
   return (
@@ -215,12 +215,12 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
           ))}
         </ol>
         <p class="mt-10 text-sm text-ink-2 dark:text-ink-2-dark">
-          Usikker på hvordan du legger til en RSS-lenke?{" "}
+          Er ikke appen din på lista? Kopier RSS-lenken og lim den inn manuelt –{" "}
           <a
             href="https://help.omnystudio.com/en/articles/5222518-podcast-apps-that-support-add-rss-feed"
             class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
           >
-            Se guide for populære apper
+            se guide for populære apper
           </a>
         </p>
       </section>
