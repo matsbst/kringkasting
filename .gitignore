@@ -16,3 +16,6 @@ vendor/
 
 # OS noise
 .DS_Store
+
+# local agent skills (not app code)
+.agents/
