@@ -133,11 +133,11 @@ export default function InstantSearch(props: Props) {
             value={query}
             onInput={(event) => onInput(event.currentTarget.value)}
             autocomplete="off"
-            class="w-full h-12 rounded-lg border border-line-strong dark:border-line-strong-dark bg-canvas dark:bg-canvas-dark pl-11 pr-20 text-base placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark"
+            class="w-full h-14 rounded-xl border-2 border-line dark:border-line-dark bg-canvas dark:bg-canvas-dark pl-11 pr-24 text-lg placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark transition-colors"
           />
           <button
             type="submit"
-            class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:bg-ink/80 dark:hover:bg-ink-dark/85 text-sm font-medium px-4 py-2 transition-colors cursor-pointer"
+            class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:bg-ink/80 dark:hover:bg-ink-dark/85 text-sm font-semibold px-5 py-2.5 transition-colors cursor-pointer"
           >
             Søk
           </button>
@@ -201,13 +201,15 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
         ))}
       </section>
 
-      <section class="mt-24">
-        <h2 class="text-xl font-medium mb-8">Slik funker det</h2>
-        <ol class="grid sm:grid-cols-3 gap-x-8 gap-y-6">
+      <section class="mt-28">
+        <h2 class="text-xl font-semibold mb-10">Slik funker det</h2>
+        <ol class="grid sm:grid-cols-3 gap-x-8 gap-y-10">
           {steps.map(([title, description], index) => (
             <li key={title}>
-              <p class="text-sm text-ink-3 dark:text-ink-3-dark tabular-nums">{index + 1}</p>
-              <h3 class="mt-1 font-medium">{title}</h3>
+              <p class="text-6xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">
+                0{index + 1}
+              </p>
+              <h3 class="mt-4 font-semibold">{title}</h3>
               <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">{description}</p>
             </li>
           ))}
