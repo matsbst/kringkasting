@@ -1,5 +1,5 @@
 import { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { IconCheck, IconChevronDown, IconCopy, IconPodcast } from "../components/icons.tsx";
 import {
   AntennaPodIcon,
@@ -76,10 +76,12 @@ const APPS: PodcastApp[] = [
  */
 export default function SubscribeButton(props: { feedUrl: string }) {
   const [chosenId, setChosenId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   // incremented per tap; keyed span re-runs the pulse-ring animation
   const [pulse, setPulse] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const controlRef = useRef<HTMLSpanElement>(null);
+  const headingId = useId();
 
   useEffect(() => {
     setChosenId(localStorage.getItem(STORAGE_KEY));
@@ -92,7 +94,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
   const chosen = APPS.find((app) => app.id === chosenId) ?? null;
 
   const open = () => {
-    setCopied(false);
+    setCopyState("idle");
     dialogRef.current?.showModal();
   };
 
@@ -102,16 +104,26 @@ export default function SubscribeButton(props: { feedUrl: string }) {
     localStorage.setItem(STORAGE_KEY, app.id);
     dispatchEvent(new Event(CHANGE_EVENT));
     close();
+    // the opener button is replaced by the split control, so the native
+    // focus restoration has nowhere to go; place focus deliberately
+    setTimeout(() => controlRef.current?.querySelector<HTMLElement>("a, button")?.focus(), 0);
     // the row is an anchor; navigation to the deep link continues natively
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(props.feedUrl);
-    setCopied(true);
-    setTimeout(() => {
-      close();
-      setCopied(false);
-    }, 900);
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(props.feedUrl);
+      setCopyState("copied");
+      // leave the confirmation visible before closing
+      setTimeout(() => {
+        close();
+        setCopyState("idle");
+      }, 1_600);
+    } catch {
+      // clipboard can be unavailable (permissions, non-secure context):
+      // keep the dialog open and offer the URL for manual copying
+      setCopyState("failed");
+    }
   };
 
   const primaryButton =
@@ -124,7 +136,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
     <>
       {chosen
         ? (
-          <span class="inline-flex">
+          <span class="inline-flex" ref={controlRef}>
             <a
               href={chosen.href(props.feedUrl)}
               onClick={() => setPulse((count) => count + 1)}
@@ -144,21 +156,24 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           </span>
         )
         : (
-          <button
-            type="button"
-            onClick={() => {
-              setPulse((count) => count + 1);
-              open();
-            }}
-            class={`${primaryButton} px-3 py-2`}
-          >
-            <IconPodcast size={15} /> Abonner i app
-            {pulseRing}
-          </button>
+          <span class="inline-flex" ref={controlRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setPulse((count) => count + 1);
+                open();
+              }}
+              class={`${primaryButton} px-3 py-2`}
+            >
+              <IconPodcast size={15} /> Abonner i app
+              {pulseRing}
+            </button>
+          </span>
         )}
 
       <dialog
         ref={dialogRef}
+        aria-labelledby={headingId}
         class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark"
         onClick={(event) => {
           // a click on the backdrop targets the dialog element itself
@@ -168,7 +183,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
         }}
       >
         <div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <h2 class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">
+          <h2 id={headingId} class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">
             Velg podkast-app
           </h2>
           <ul>
@@ -198,9 +213,27 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 onClick={copyLink}
                 class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer"
               >
-                {copied ? <IconCheck size={20} /> : <IconCopy size={20} />}
-                {copied ? "Kopiert!" : "Kopier RSS-lenke"}
+                {copyState === "copied" ? <IconCheck size={20} /> : <IconCopy size={20} />}
+                {copyState === "copied" ? "Kopiert!" : "Kopier RSS-lenke"}
               </button>
+              {/* announce the outcome to screen readers */}
+              <p role="status" class="sr-only">
+                {copyState === "copied" ? "RSS-lenken er kopiert" : copyState === "failed" ? "Kopiering feilet" : ""}
+              </p>
+              {copyState === "failed" && (
+                <div class="px-3 pb-2">
+                  <p class="text-sm text-ink-2 dark:text-ink-2-dark mb-1.5">
+                    Kunne ikke kopiere automatisk – marker lenken og kopier selv:
+                  </p>
+                  <input
+                    readonly
+                    value={props.feedUrl}
+                    aria-label="RSS-lenke"
+                    onFocus={(event) => event.currentTarget.select()}
+                    class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"
+                  />
+                </div>
+              )}
             </li>
           </ul>
           <button

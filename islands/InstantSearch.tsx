@@ -31,7 +31,6 @@ export default function InstantSearch(props: Props) {
   );
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [placeholder, setPlaceholder] = useState("Søk etter en NRK-podkast");
 
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -41,19 +40,6 @@ export default function InstantSearch(props: Props) {
       clearTimeout(timerRef.current);
       abortRef.current?.abort();
     };
-  }, []);
-
-  // idle delight: the placeholder strolls through real show names
-  useEffect(() => {
-    if (props.suggestions.length === 0) {
-      return;
-    }
-    let index = 0;
-    const id = setInterval(() => {
-      setPlaceholder(`Søk etter «${props.suggestions[index % props.suggestions.length]}»`);
-      index++;
-    }, 3_000);
-    return () => clearInterval(id);
   }, []);
 
   const syncUrl = (trimmed: string) => {
@@ -115,8 +101,18 @@ export default function InstantSearch(props: Props) {
 
   const showResults = query.trim().length >= MIN_QUERY_LENGTH && hits !== null;
 
+  const status = failed
+    ? "Søket feilet. Prøv igjen."
+    : loading
+    ? "Søker …"
+    : showResults && hits !== null
+    ? (hits.items.length === 0 ? `Ingen treff for ${hits.query}` : `${hits.items.length} treff for ${hits.query}`)
+    : "";
+
   return (
     <div>
+      {/* announces search progress and outcomes without moving focus */}
+      <p role="status" class="sr-only">{status}</p>
       <form
         action="/"
         method="get"
@@ -129,17 +125,19 @@ export default function InstantSearch(props: Props) {
         <label class="sr-only" htmlFor="query">Søk etter NRK-podkast</label>
         <div class="relative">
           <span class="absolute left-4 top-1/2 -translate-y-1/2 text-ink-3 dark:text-ink-3-dark pointer-events-none">
-            {loading ? <IconLoader size={18} class="animate-spin" /> : <IconSearch size={18} />}
+            {loading
+              ? <IconLoader size={18} class="animate-spin motion-reduce:animate-none" />
+              : <IconSearch size={18} />}
           </span>
           <input
             type="search"
             id="query"
             name="query"
-            placeholder={placeholder}
+            placeholder="Søk etter en NRK-podkast"
             value={query}
             onInput={(event) => onInput(event.currentTarget.value)}
             autocomplete="off"
-            class="w-full h-14 rounded-xl border-2 border-line dark:border-line-dark bg-canvas dark:bg-canvas-dark pl-11 pr-24 text-lg placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark transition-colors"
+            class="w-full h-14 rounded-xl border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark pl-11 pr-24 text-lg placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark transition-colors"
           />
           <button
             type="submit"
@@ -168,7 +166,7 @@ export default function InstantSearch(props: Props) {
             </section>
           )
           : (
-            <section class="mt-10" aria-live="polite">
+            <section class="mt-10">
               <h2 class="sr-only">Søkeresultat</h2>
               <p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">
                 {hits.items.length} treff for «{hits.query}»

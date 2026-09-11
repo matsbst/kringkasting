@@ -19,9 +19,14 @@ export default function ShareButton(props: Props) {
       }
       return;
     }
-    navigator.clipboard.writeText(props.url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1_500);
+    try {
+      await navigator.clipboard.writeText(props.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1_500);
+    } catch {
+      // clipboard unavailable: fall back to the native prompt-free path
+      console.error("clipboard unavailable");
+    }
   };
 
   return (
