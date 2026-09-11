@@ -45,3 +45,22 @@
   background-color: rgb(0 0 0 / 88%);
   color: #fff;
 }
+
+/* subscribe chooser: bottom sheet on mobile, centered panel on larger screens */
+dialog.sheet[open] {
+  animation: sheet-in 200ms ease-out;
+}
+dialog.sheet::backdrop {
+  background: rgb(0 0 0 / 44%);
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open] {
+    animation: none;
+  }
+}
