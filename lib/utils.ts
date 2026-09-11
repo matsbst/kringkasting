@@ -18,6 +18,17 @@ export function getOrigin(request: Request): string {
   return new URL(request.url).origin;
 }
 
+/**
+ * NRK series/episode ids are short slugs. Rejecting anything else keeps
+ * user-controlled route params from steering requests to other paths on
+ * NRK's API (or growing the KV keyspace with garbage).
+ */
+const RESOURCE_ID_PATTERN = /^[a-zA-Z0-9_-]{1,100}$/;
+
+export function isValidResourceId(id: string): boolean {
+  return RESOURCE_ID_PATTERN.test(id);
+}
+
 export function responseJSON(body: unknown | null, status: Status) {
   const stringifiedBody = JSON.stringify(body);
   return response(stringifiedBody, status, "json");

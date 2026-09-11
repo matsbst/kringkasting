@@ -72,8 +72,10 @@ function assembleEpisode(episode: Episode, seriesId: Series["id"], origin: strin
     ]),
     tag("enclosure", "", [
       ["url", episode.url],
-      ["length", episode.durationInSeconds.toString()],
-      ["type", "audio/mpeg3"],
+      // RSS defines length as the file size in bytes; NRK's API does not
+      // expose it, and "0" is the conventional value for "unknown"
+      ["length", "0"],
+      ["type", "audio/mpeg"],
     ]),
   ]);
 }

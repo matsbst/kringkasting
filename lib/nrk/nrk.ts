@@ -27,6 +27,29 @@ export type SeriesData =
     | Podcast["series"]
   );
 
+const nrkAPI = `https://psapi.nrk.no`;
+
+/**
+ * Upper bound on concurrent requests against NRK's API when resolving
+ * playback manifests, so a large series doesn't fire hundreds of
+ * requests at once.
+ */
+const NRK_FETCH_CONCURRENCY = 6;
+
+/** map over items with at most `limit` promises in flight */
+async function mapConcurrent<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workers = new Array(Math.min(limit, items.length)).fill(null).map(async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 function parseSeries(nrkSeriesData: SeriesData): Series {
   const imageUrl = nrkSeriesData.squareImage?.at(-1)?.url ?? "";
   return {
@@ -50,60 +73,64 @@ function parseSeries(nrkSeriesData: SeriesData): Series {
   };
 }
 
-const nrkAPI = `https://psapi.nrk.no`;
-
 async function search(query: string): Promise<NrkSearchResultList | null> {
-  if (query === "") {
+  const trimmedQuery = query.trim();
+  if (trimmedQuery === "") {
     console.error("Empty search query.");
     return null;
   }
   const { status, body } = await get<
     searchComponents["schemas"]["searchresult"]
-  >(`${nrkAPI}/radio/search/search?q=${query}`);
+  >(`${nrkAPI}/radio/search/search?q=${encodeURIComponent(trimmedQuery)}`);
   if (status === STATUS_CODE.OK && body) {
-    return body.results.series?.results;
+    return body.results.series?.results ?? null;
   }
 
-  console.error(`Something went wrong with ${query} - got status ${status}`);
+  console.error(`Something went wrong with ${trimmedQuery} - got status ${status}`);
   return null;
 }
 
+/**
+ * Resolve download links for the series' episodes.
+ *
+ * Episodes whose id is in `knownEpisodeIds` are skipped, so refreshing an
+ * already-cached series only costs manifest lookups for NEW episodes.
+ * Episodes that turn out to be non-playable (geo-blocked, expired rights,
+ * removed) are dropped instead of failing the whole series.
+ */
 async function extractEpisodes(
   serieResponse: RadioSeries,
   episodeResponse?: PodcastEpisodes,
+  knownEpisodeIds?: Set<string>,
 ): Promise<NrkOriginalEpisode[]> {
+  let candidates: PodcastEpisodesSingle[];
+
   if (serieResponse.seriesType === "umbrella") {
-    const seasons = await Promise.all(
-      serieResponse._links.seasons.map(async (season) => {
-        const response = await get<SeasonEpisodes>(
-          `https://psapi.nrk.no${season.href}`,
-        );
+    const seasons = await mapConcurrent(
+      serieResponse._links.seasons,
+      NRK_FETCH_CONCURRENCY,
+      async (season) => {
+        const response = await get<SeasonEpisodes>(`${nrkAPI}${season.href}`);
         return response.body;
-      }),
+      },
     );
-
-    const episodes = await Promise.all(
-      seasons.flatMap((season) => {
-        return (
-          season?._embedded.episodes?._embedded.episodes?.flatMap((episode) =>
-            getEpisodeWithDownloadLink(episode, serieResponse.type)
-          ) ?? []
-        );
-      }),
-    );
-
-    return episodes;
+    candidates = seasons.flatMap((season) => season?._embedded.episodes?._embedded.episodes ?? []);
   } else {
-    const episodes = await Promise.all(
-      episodeResponse?._embedded.episodes?.map((episode) => getEpisodeWithDownloadLink(episode, serieResponse.type)) ??
-        [],
-    );
-
-    return episodes;
+    candidates = episodeResponse?._embedded.episodes ?? [];
   }
+
+  const newCandidates = knownEpisodeIds ? candidates.filter((episode) => !knownEpisodeIds.has(episode.id)) : candidates;
+
+  const episodes = await mapConcurrent(
+    newCandidates,
+    NRK_FETCH_CONCURRENCY,
+    (episode) => getEpisodeWithDownloadLink(episode, serieResponse.type),
+  );
+
+  return episodes.filter((episode): episode is NrkOriginalEpisode => episode !== null);
 }
 
-async function getSeriesData(seriesId: string): Promise<SeriesData | null> {
+async function getSeriesData(seriesId: string, knownEpisodeIds?: Set<string>): Promise<SeriesData | null> {
   let [
     { status: episodeStatus, body: episodeResponse },
     { status: seriesStatus, body: serieResponse },
@@ -120,9 +147,9 @@ async function getSeriesData(seriesId: string): Promise<SeriesData | null> {
       { status: seriesStatus, body: serieResponse },
     ] = await Promise.all([
       get<RadioSeriesEpisode>(
-        `https://psapi.nrk.no/radio/catalog/series/${seriesId}/episodes`,
+        `${nrkAPI}/radio/catalog/series/${seriesId}/episodes`,
       ),
-      get<RadioSeries>(`https://psapi.nrk.no/radio/catalog/series/${seriesId}`),
+      get<RadioSeries>(`${nrkAPI}/radio/catalog/series/${seriesId}`),
     ]);
   }
 
@@ -132,7 +159,7 @@ async function getSeriesData(seriesId: string): Promise<SeriesData | null> {
     serieResponse?.series &&
     episodeResponse?._embedded.episodes?.length
   ) {
-    const episodes = await extractEpisodes(serieResponse, episodeResponse);
+    const episodes = await extractEpisodes(serieResponse, episodeResponse, knownEpisodeIds);
     const seriesData = {
       ...serieResponse.series,
       episodes,
@@ -145,8 +172,15 @@ async function getSeriesData(seriesId: string): Promise<SeriesData | null> {
   return null;
 }
 
-async function getSeries(seriesId: string): Promise<Series | null> {
-  const seriesData = await getSeriesData(seriesId);
+/**
+ * Fetch a series with episode download links.
+ *
+ * When `knownEpisodeIds` is given, the returned series only contains
+ * episodes NOT in that set (an incremental update); the caller is
+ * expected to merge with its existing episodes.
+ */
+async function getSeries(seriesId: string, knownEpisodeIds?: Set<string>): Promise<Series | null> {
+  const seriesData = await getSeriesData(seriesId, knownEpisodeIds);
   if (!seriesData) {
     return null;
   }
@@ -158,14 +192,15 @@ async function getEpisode(
   seriesId: string,
   episodeId: string,
 ): Promise<NrkPodcastEpisode | null> {
-  const url = `${nrkAPI}/radio/catalog/podcast/${seriesId}/episodes/${episodeId}`;
-  const { status, body: episode } = await get<NrkPodcastEpisode>(url);
-  if (status === STATUS_CODE.OK && episode) {
-    return episode;
+  // a series can be catalogued as a podcast or a radio series; try both
+  for (const catalog of ["podcast", "series"] as const) {
+    const url = `${nrkAPI}/radio/catalog/${catalog}/${seriesId}/episodes/${episodeId}`;
+    const { status, body: episode } = await get<NrkPodcastEpisode>(url);
+    if (status === STATUS_CODE.OK && episode) {
+      return episode;
+    }
   }
-  console.error(
-    `Error getting episode ${episodeId}. Status: ${status}. Series: ${seriesId}`,
-  );
+  console.error(`Error getting episode ${episodeId} for series ${seriesId}`);
   return null;
 }
 
@@ -174,26 +209,23 @@ type Manifest = playbackComponents["schemas/playback-channel.json"]["components"
 async function getEpisodeWithDownloadLink(
   episode: PodcastEpisodesSingle,
   type: catalogComponents["schemas"]["Type"],
-): Promise<NrkOriginalEpisode> {
-  // getting stream link
-  let { status: playbackStatus, body: playbackResponse } = await get<Manifest>(
-    `${nrkAPI}/playback/manifest/podcast/${episode.episodeId}`,
+): Promise<NrkOriginalEpisode | null> {
+  const endpoint = type === "series" ? "program" : "podcast";
+  const { status, body } = await get<Manifest>(
+    `${nrkAPI}/playback/manifest/${endpoint}/${episode.episodeId}`,
   );
 
-  if (type === "series") {
-    const { status, body } = await get<Manifest>(
-      `${nrkAPI}/playback/manifest/program/${episode.episodeId}`,
+  // non-OK statuses and playable=null (non-playable manifests) both mean
+  // the episode has no usable download link right now; skip it
+  const url = body?.playable?.assets?.at(0)?.url;
+  if (status !== STATUS_CODE.OK || !url) {
+    console.error(
+      `No playable manifest for episode ${episode.episodeId} (status ${status}), skipping`,
     );
-    playbackStatus = status;
-    playbackResponse = body;
+    return null;
   }
 
-  if (playbackStatus !== STATUS_CODE.OK || !playbackResponse) {
-    throw new Error(
-      `Error getting downloadLink for ${episode.episodeId}, serie: ${episode.originalTitle}. Status: ${playbackStatus}`,
-    );
-  }
-  return { ...episode, url: playbackResponse.playable.assets[0].url };
+  return { ...episode, url };
 }
 
 export const nrkRadio = {
@@ -205,4 +237,5 @@ export const nrkRadio = {
 
 export const forTestingOnly = {
   getSeriesData,
+  mapConcurrent,
 };

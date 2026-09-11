@@ -2,7 +2,7 @@ import { STATUS_CODE } from "@std/http/status";
 import { parse, toSeconds } from "iso8601-duration";
 import { define } from "../../../../../utils.ts";
 import { NrkPodcastEpisode, nrkRadio } from "../../../../../lib/nrk/nrk.ts";
-import { responseJSON } from "../../../../../lib/utils.ts";
+import { isValidResourceId, responseJSON } from "../../../../../lib/utils.ts";
 
 type Chapter = {
   title: string | undefined;
@@ -23,6 +23,9 @@ export const handler = define.handlers({
   async GET(ctx) {
     const seriesId = ctx.params.seriesId;
     const episodeId = ctx.params.episodeId;
+    if (!isValidResourceId(seriesId) || !isValidResourceId(episodeId)) {
+      return responseJSON({ message: "Invalid id" }, STATUS_CODE.BadRequest);
+    }
 
     const episode = await nrkRadio.getEpisode(seriesId, episodeId);
 

@@ -15,7 +15,7 @@ echo "==> Starting NRSS"
 exec /usr/local/bin/gosu cloudron:cloudron /usr/local/bin/deno serve \
   --allow-net \
   --allow-env \
-  --allow-read \
+  --allow-read=/app/code,/app/data,/run/deno-cache \
   --allow-write=/app/data,/run/deno-cache \
   --unstable-kv \
   --host 0.0.0.0 \

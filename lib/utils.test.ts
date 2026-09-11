@@ -1,5 +1,5 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
-import { responseJSON, responseXML, withExpiry } from "./utils.ts";
+import { isValidResourceId, responseJSON, responseXML, withExpiry } from "./utils.ts";
 
 Deno.test("JSON response is stringified", async () => {
   const body = { message: "Hello, World!" };
@@ -52,3 +52,15 @@ Deno.test(
     );
   },
 );
+
+Deno.test("valid NRK-style resource ids are accepted", () => {
+  for (const id of ["oppdatert", "hele_historien", "abels-taarn", "l_0bc5e55a-46b5-48a5-85e5-5a46b5d8a562", "X1"]) {
+    assertEquals(isValidResourceId(id), true, id);
+  }
+});
+
+Deno.test("path-traversal and garbage resource ids are rejected", () => {
+  for (const id of ["", "..", "../series", "a/b", "a?x=1", "a#b", "a b", "a%2Fb", "x".repeat(101)]) {
+    assertEquals(isValidResourceId(id), false, id);
+  }
+});

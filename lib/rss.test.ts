@@ -39,3 +39,12 @@ Deno.test("special characters are escaped", () => {
   const feed = rss.assembleFeed(series, ORIGIN);
   assertEquals(feed.includes("Ost &amp; kjeks &lt;3"), true);
 });
+
+Deno.test("enclosures use the registered audio/mpeg MIME type and unknown length", () => {
+  const series = testUtils.generateSeries();
+  series.episodes = [testUtils.generateEpisode()];
+  const feed = rss.assembleFeed(series, ORIGIN);
+  assertEquals(feed.includes(`type="audio/mpeg"`), true);
+  assertEquals(feed.includes(`type="audio/mpeg3"`), false);
+  assertEquals(feed.includes(`length="0"`), true);
+});

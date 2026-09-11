@@ -123,3 +123,27 @@ Deno.test("Seriesnakk, an umbrella series yields all seasons", async () => {
     `Titles include "${natoTitle}"`,
   );
 });
+
+Deno.test("mapConcurrent preserves order and respects the concurrency limit", async () => {
+  const limit = 3;
+  let inFlight = 0;
+  let maxInFlight = 0;
+  const items = Array.from({ length: 20 }, (_, i) => i);
+
+  const results = await forTestingOnly.mapConcurrent(items, limit, async (item) => {
+    inFlight++;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    inFlight--;
+    return item * 2;
+  });
+
+  assertEquals(results, items.map((item) => item * 2));
+  assertEquals(maxInFlight <= limit, true, `max in flight was ${maxInFlight}`);
+});
+
+Deno.test("search queries with special characters are encoded", async () => {
+  const result = await nrkRadio.search("berrum & beyer");
+  assertExists(result);
+  assertGreaterOrEqual(result.length, 1);
+});
