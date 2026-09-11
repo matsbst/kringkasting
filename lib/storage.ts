@@ -52,6 +52,21 @@ CREATE TABLE IF NOT EXISTS episodes (
 CREATE INDEX IF NOT EXISTS episodes_series_date ON episodes(series_id, date DESC);
 `;
 
+/**
+ * In-memory per-series data version, bumped on every content write.
+ * Lets the feed cache know when its rendered XML is out of date without
+ * touching the database. Resets on restart (so does the feed cache).
+ */
+const dataVersions = new Map<string, number>();
+
+function bumpDataVersion(seriesId: string) {
+  dataVersions.set(seriesId, (dataVersions.get(seriesId) ?? 0) + 1);
+}
+
+function getDataVersion(seriesId: string): number {
+  return dataVersions.get(seriesId) ?? 0;
+}
+
 let db: DatabaseSync | null = null;
 
 /**
@@ -159,6 +174,7 @@ function writeSeries(series: Series): boolean {
     );
     insertEpisodes(database, series.id, series.episodes);
     database.exec("COMMIT");
+    bumpDataVersion(series.id);
     return true;
   } catch (error) {
     database.exec("ROLLBACK");
@@ -174,6 +190,7 @@ function addEpisodes(seriesId: string, episodes: Episode[]): boolean {
   try {
     insertEpisodes(database, seriesId, episodes);
     database.exec("COMMIT");
+    bumpDataVersion(seriesId);
     return true;
   } catch (error) {
     database.exec("ROLLBACK");
@@ -229,4 +246,5 @@ export const storage = {
   addEpisodes,
   readEpisodeIds,
   setBacklogState,
+  getDataVersion,
 };

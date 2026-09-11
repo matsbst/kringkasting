@@ -58,12 +58,36 @@ export function responseXML(body: string, status: Status) {
   return response(body, status, "xml");
 }
 
-export const withExpiry = (response: Response, ttlInSeconds: number) => {
-  const clonedResponse = response.clone();
-  clonedResponse.headers.set("Cache-Control", `max-age=${ttlInSeconds}`);
-  clonedResponse.headers.set("Expires", new Date(Date.now() + ttlInSeconds * 1000).toUTCString());
-  return clonedResponse;
-};
+/**
+ * Shared-cache friendly caching headers: `public` + `s-maxage` is what
+ * authorizes CDNs (Cloudflare) to cache the response at the edge.
+ * Mutates the given response (ours are always freshly constructed).
+ */
+export function withCacheHeaders(
+  response: Response,
+  options: { maxAge: number; sMaxAge?: number },
+): Response {
+  const directives = ["public", `max-age=${options.maxAge}`];
+  if (options.sMaxAge !== undefined) {
+    directives.push(`s-maxage=${options.sMaxAge}`);
+  }
+  response.headers.set("Cache-Control", directives.join(", "));
+  response.headers.set("Expires", new Date(Date.now() + options.maxAge * 1000).toUTCString());
+  return response;
+}
+
+/** does an If-Modified-Since header say the client copy is still fresh? */
+export function isNotModifiedSince(ifModifiedSince: string | null, lastModified: Date): boolean {
+  if (!ifModifiedSince) {
+    return false;
+  }
+  const since = Date.parse(ifModifiedSince);
+  if (Number.isNaN(since)) {
+    return false;
+  }
+  // HTTP dates have second precision; truncate before comparing
+  return Math.floor(lastModified.getTime() / 1000) * 1000 <= since;
+}
 
 function response(body: string, status: number, type: "json" | "xml") {
   return new Response(body, {

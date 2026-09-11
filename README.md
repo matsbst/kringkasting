@@ -39,11 +39,13 @@ cloudron login my.example.com
 cloudron install --image ghcr.io/matsbst/nrss:latest --location nrss
 ```
 
-To update a running instance to the latest image:
+To update a running instance, use the commit-SHA tag (Cloudron does **not** re-pull `:latest` when the tag string is unchanged):
 
 ```sh
-cloudron update --app nrss --image ghcr.io/matsbst/nrss:latest
+cloudron update --app nrss --image ghcr.io/matsbst/nrss:$(git rev-parse HEAD)
 ```
+
+If the instance sits behind Cloudflare, see [docs/cloudflare.md](./docs/cloudflare.md) for the recommended edge-caching setup.
 
 Configuration (set automatically by `start.sh` / Cloudron):
 
