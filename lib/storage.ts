@@ -71,14 +71,14 @@ let db: DatabaseSync | null = null;
 
 /**
  * Lazily opened so importing this module (e.g. during the vite build)
- * doesn't create database files. NRSS_DB_PATH configures the location
- * (/app/data/nrss.sqlite3 on Cloudron); ":memory:" works for tests.
+ * doesn't create database files. KRINGKASTING_DB_PATH configures the location
+ * (/app/data/kringkasting.sqlite3 on Cloudron); ":memory:" works for tests.
  */
 function getDb(): DatabaseSync {
   if (db) {
     return db;
   }
-  const path = Deno.env.get("NRSS_DB_PATH") ?? "nrss.sqlite3";
+  const path = Deno.env.get("KRINGKASTING_DB_PATH") ?? "kringkasting.sqlite3";
   db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 5000;");

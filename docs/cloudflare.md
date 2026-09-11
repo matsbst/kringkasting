@@ -1,4 +1,4 @@
-# Cloudflare configuration for NRSS
+# Cloudflare configuration for Kringkasting
 
 The app sends CDN-friendly headers (`Cache-Control: public, max-age=1800, s-maxage=3600`, `ETag`, `Last-Modified`), but Cloudflare needs a little configuration to make use of them. With the steps below, nearly all feed polls are served from Cloudflare's edge and your origin only sees roughly one revalidation per feed per hour.
 
@@ -8,9 +8,9 @@ By default Cloudflare only caches responses by file extension, so `/api/feeds/..
 
 **Dashboard → your zone → Caching → Cache Rules → Create rule:**
 
-- **Rule name:** `NRSS feeds`
+- **Rule name:** `Kringkasting feeds`
 - **When incoming requests match:** Custom filter expression
-  - Field `Hostname` equals `nrss.i1.no`
+  - Field `Hostname` equals `kringkast.ing`
   - AND field `URI Path` starts with `/api/feeds/`
 - **Then:**
   - **Cache eligibility:** Eligible for cache

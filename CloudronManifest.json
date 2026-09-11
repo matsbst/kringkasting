@@ -1,15 +1,15 @@
 {
-  "id": "io.github.matsbst.nrss",
-  "title": "NRSS",
+  "id": "ing.kringkast.app",
+  "title": "Kringkasting",
   "author": "matsbst (fork of NRSS by Olav Sundfør)",
-  "description": "RSS feeds for NRK's podcasts. Search for a podcast and get an open RSS feed you can subscribe to in any podcast app.",
+  "description": "RSS feeds for NRK's podcasts. Search for a podcast and get an open RSS feed with the full episode archive, ready to use in any podcast app.",
   "tagline": "NRK-podkaster som åpne RSS-strømmer",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "healthCheckPath": "/",
   "httpPort": 8000,
   "manifestVersion": 2,
-  "website": "https://github.com/matsbst/nrss",
-  "documentationUrl": "https://github.com/matsbst/nrss",
+  "website": "https://github.com/matsbst/kringkasting",
+  "documentationUrl": "https://github.com/matsbst/kringkasting",
   "addons": {
     "localstorage": {}
   },

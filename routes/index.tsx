@@ -23,7 +23,7 @@ export default define.page<typeof handler>(function Home({ data }) {
     <>
       {data.query && (
         <Head>
-          <title>Søk: {data.query} – NRSS</title>
+          <title>Søk: {data.query} – Kringkasting</title>
         </Head>
       )}
 
@@ -32,7 +32,7 @@ export default define.page<typeof handler>(function Home({ data }) {
           NRK-podkaster, i appen du velger
         </h1>
         <p class="mt-4 text-lg text-ink-2 dark:text-ink-2-dark max-w-prose">
-          NRK låser podkastene sine inne i sin egen app. NRSS åpner dem opp igjen som helt vanlige RSS-strømmer.
+          NRK låser podkastene sine inne i sin egen app. Kringkasting åpner dem opp igjen som helt vanlige RSS-strømmer.
         </p>
       </section>
 
