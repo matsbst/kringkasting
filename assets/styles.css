@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+}
+
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+
+  /* warm paper / ink palette */
+  --color-paper: #faf6ef;
+  --color-paper-raised: #ffffff;
+  --color-ink: #2d221b;
+  --color-ink-soft: #6b5a4e;
+  --color-line: #e8ddd0;
+
+  --color-paper-dark: #1c1613;
+  --color-paper-raised-dark: #2a211c;
+  --color-ink-dark: #f3ece2;
+  --color-ink-soft-dark: #b3a293;
+  --color-line-dark: #3d322b;
+
+  --color-accent: #d9530b;
+  --color-accent-strong: #b84406;
+  --color-accent-dark: #ff8b4d;
+}
+
+::selection {
+  background-color: var(--color-accent);
+  color: #fff;
+}

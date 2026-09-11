@@ -1,0 +1,9 @@
+.git
+.github
+.vscode
+node_modules
+_fresh
+*.sqlite3
+*.sqlite3-*
+.env
+README.md
