@@ -6,18 +6,10 @@ import { IconLoader, IconSearch } from "../components/icons.tsx";
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
-const SUGGESTIONS = [
-  "Oppdatert",
-  "Hele historien",
-  "Radioresepsjonen",
-  "Abels tårn",
-  "Trygdekontoret",
-  "Berrum & Beyer",
-];
-
 type Props = {
   initialQuery: string | null;
   initialResults: SeriesSummary[] | null;
+  suggestions: string[];
   origin: string;
 };
 
@@ -174,12 +166,12 @@ export default function InstantSearch(props: Props) {
           )
       )}
 
-      {!showResults && !failed && <HowItWorks onSuggestion={searchNow} />}
+      {!showResults && !failed && <HowItWorks suggestions={props.suggestions} onSuggestion={searchNow} />}
     </div>
   );
 }
 
-function HowItWorks(props: { onSuggestion: (query: string) => void }) {
+function HowItWorks(props: { suggestions: string[]; onSuggestion: (query: string) => void }) {
   const steps: [string, string][] = [
     ["Søk", "Finn NRK-podkasten du vil høre på."],
     ["Abonner", "Trykk «Abonner i app» og velg podkast-appen din."],
@@ -189,7 +181,7 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
   return (
     <>
       <section class="mt-5 flex flex-wrap gap-2">
-        {SUGGESTIONS.map((suggestion) => (
+        {props.suggestions.map((suggestion) => (
           <button
             type="button"
             key={suggestion}

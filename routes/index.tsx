@@ -4,8 +4,19 @@ import { define } from "../utils.ts";
 import InstantSearch from "../islands/InstantSearch.tsx";
 
 import { nrkRadio } from "../lib/nrk/nrk.ts";
+import { getRandomShowTitles } from "../lib/catalog.ts";
 import { SeriesSummary, toSeriesSummary } from "../lib/series-summary.ts";
 import { getOrigin } from "../lib/utils.ts";
+
+/** shown until the live catalog has loaded */
+const FALLBACK_SUGGESTIONS = [
+  "Oppdatert",
+  "Hele historien",
+  "Radioresepsjonen",
+  "Abels tårn",
+  "Trygdekontoret",
+  "Berrum & Beyer",
+];
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -15,7 +26,8 @@ export const handler = define.handlers({
       const searchResult = await nrkRadio.search(query);
       results = (searchResult ?? []).map(toSeriesSummary);
     }
-    return page({ query, results, origin: getOrigin(ctx.req) });
+    const suggestions = getRandomShowTitles(6) ?? FALLBACK_SUGGESTIONS;
+    return page({ query, results, suggestions, origin: getOrigin(ctx.req) });
   },
 });
 
@@ -61,7 +73,12 @@ export default define.page<typeof handler>(function Home({ data }) {
         </p>
       </section>
 
-      <InstantSearch initialQuery={data.query} initialResults={data.results} origin={data.origin} />
+      <InstantSearch
+        initialQuery={data.query}
+        initialResults={data.results}
+        suggestions={data.suggestions}
+        origin={data.origin}
+      />
     </>
   );
 });
