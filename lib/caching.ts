@@ -134,7 +134,7 @@ async function fetchSeries(options: { id: string }): Promise<Series | null> {
   if (seriesFromStorage === null) {
     // first time we see this feed
     series = await initialFetch(options);
-  } else if (isSeriesFromStorageNew(seriesFromStorage)) {
+  } else if (isSeriesFromStorageNew(seriesFromStorage, refreshIntervalWithJitter(seriesFromStorage))) {
     // cached and fresh
     series = seriesFromStorage;
   } else {
