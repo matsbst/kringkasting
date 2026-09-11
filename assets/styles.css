@@ -1,35 +1,46 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: "Bricolage Grotesque";
+  font-family: "Inter";
   font-style: normal;
-  font-weight: 200 800;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+  src: url("/fonts/inter-variable-latin.woff2") format("woff2");
 }
 
+/*
+ * Scandinavian neutral system: white canvas, alpha-black ink ladder.
+ * Dark canvas inverts with adjusted alphas (same alpha buys more
+ * contrast on dark, so the quiet rungs drop).
+ */
 @theme {
-  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* warm paper / ink palette */
-  --color-paper: #faf6ef;
-  --color-paper-raised: #ffffff;
-  --color-ink: #2d221b;
-  --color-ink-soft: #6b5a4e;
-  --color-line: #e8ddd0;
+  /* light */
+  --color-canvas: #ffffff;
+  --color-ink: #000000;
+  --color-ink-2: rgb(0 0 0 / 64%);
+  --color-ink-3: rgb(0 0 0 / 44%);
+  --color-line: rgb(0 0 0 / 10%);
+  --color-line-strong: rgb(0 0 0 / 18%);
+  --color-hover: rgb(0 0 0 / 5%);
+  --color-pressed: rgb(0 0 0 / 9%);
 
-  --color-paper-dark: #1c1613;
-  --color-paper-raised-dark: #2a211c;
-  --color-ink-dark: #f3ece2;
-  --color-ink-soft-dark: #b3a293;
-  --color-line-dark: #3d322b;
+  /* dark */
+  --color-canvas-dark: #0a0a0a;
+  --color-ink-dark: #ffffff;
+  --color-ink-2-dark: rgb(255 255 255 / 56%);
+  --color-ink-3-dark: rgb(255 255 255 / 36%);
+  --color-line-dark: rgb(255 255 255 / 11%);
+  --color-line-strong-dark: rgb(255 255 255 / 20%);
+  --color-hover-dark: rgb(255 255 255 / 9%);
+  --color-pressed-dark: rgb(255 255 255 / 14%);
 
-  --color-accent: #d9530b;
-  --color-accent-strong: #b84406;
-  --color-accent-dark: #ff8b4d;
+  /* brand mark only — never interface chrome */
+  --color-brand: #d9530b;
 }
 
 ::selection {
-  background-color: var(--color-accent);
+  background-color: rgb(0 0 0 / 88%);
   color: #fff;
 }

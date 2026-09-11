@@ -21,14 +21,9 @@ export default function CopyButton(props: Props) {
       type="button"
       onClick={copy}
       disabled={!IS_BROWSER}
-      class={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors cursor-pointer
-        ${
-        copied
-          ? "bg-green-700 text-white"
-          : "bg-accent hover:bg-accent-strong text-white dark:bg-accent-dark dark:text-paper-dark dark:hover:bg-accent"
-      }`}
+      class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer"
     >
-      {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+      {copied ? <IconCheck size={15} /> : <IconCopy size={15} />}
       {copied ? "Kopiert!" : props.label}
     </button>
   );

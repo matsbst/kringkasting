@@ -1,6 +1,6 @@
 import CopyButton from "../islands/CopyButton.tsx";
 import type { SeriesSummary } from "../lib/series-summary.ts";
-import { IconExternalLink, IconPodcast } from "./icons.tsx";
+import { IconPodcast } from "./icons.tsx";
 
 /** one-tap subscribe deep links for popular podcast apps */
 function subscribeLinks(feedUrl: string) {
@@ -20,38 +20,38 @@ export default function SeriesCard(props: { serie: SeriesSummary; origin: string
   const nrkUrl = `https://radio.nrk.no/podkast/${props.serie.seriesId}`;
 
   return (
-    <article class="flex gap-4 sm:gap-5 p-4 sm:p-5 rounded-3xl bg-paper-raised dark:bg-paper-raised-dark border border-line dark:border-line-dark shadow-sm">
+    <article class="flex gap-5">
       {props.serie.imageUrl && (
         <img
           src={props.serie.imageUrl}
           alt=""
-          width={144}
-          height={144}
+          width={112}
+          height={112}
           loading="lazy"
-          class="size-24 sm:size-36 shrink-0 rounded-2xl object-cover shadow-md"
+          class="size-20 sm:size-28 shrink-0 rounded-lg object-cover"
         />
       )}
-      <div class="min-w-0 flex flex-col gap-2">
-        <h3 class="font-display text-xl font-bold leading-snug">
+      <div class="min-w-0 flex flex-col">
+        <h3 class="text-lg font-medium leading-snug">
           {props.serie.title}
         </h3>
         {props.serie.description && (
-          <p class="text-sm text-ink-soft dark:text-ink-soft-dark line-clamp-2 sm:line-clamp-3">
+          <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark line-clamp-2">
             {props.serie.description}
           </p>
         )}
-        <div class="mt-auto pt-2 flex flex-wrap items-center gap-2">
+        <div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2">
           <CopyButton copyText={feedUrl} label="Kopier RSS-lenke" />
           <details class="relative">
-            <summary class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border border-line dark:border-line-dark hover:border-accent hover:text-accent dark:hover:border-accent-dark dark:hover:text-accent-dark transition-colors cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-              <IconPodcast size={16} /> Abonner i app
+            <summary class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium border border-line-strong dark:border-line-strong-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+              <IconPodcast size={15} /> Abonner i app
             </summary>
-            <ul class="absolute z-10 mt-2 min-w-44 rounded-2xl bg-paper-raised dark:bg-paper-raised-dark border border-line dark:border-line-dark shadow-lg overflow-hidden">
+            <ul class="absolute z-10 mt-1.5 min-w-44 rounded-lg bg-canvas dark:bg-canvas-dark border border-line-strong dark:border-line-strong-dark shadow-[0_2px_8px_rgb(0_0_0_/_6%)] overflow-hidden">
               {subscribeLinks(feedUrl).map((app) => (
                 <li key={app.name}>
                   <a
                     href={app.href}
-                    class="block px-4 py-2.5 text-sm hover:bg-accent/10 hover:text-accent dark:hover:bg-accent-dark/15 dark:hover:text-accent-dark transition-colors"
+                    class="block px-3.5 py-2 text-sm hover:bg-hover dark:hover:bg-hover-dark transition-colors"
                   >
                     {app.name}
                   </a>
@@ -61,9 +61,9 @@ export default function SeriesCard(props: { serie: SeriesSummary; origin: string
           </details>
           <a
             href={nrkUrl}
-            class="inline-flex items-center gap-1 px-2 py-2 text-sm text-ink-soft dark:text-ink-soft-dark hover:text-accent dark:hover:text-accent-dark transition-colors"
+            class="px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark transition-colors"
           >
-            <IconExternalLink size={15} /> NRK
+            Hos NRK
           </a>
         </div>
       </div>

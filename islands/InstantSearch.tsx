@@ -122,22 +122,22 @@ export default function InstantSearch(props: Props) {
       >
         <label class="sr-only" htmlFor="query">Søk etter NRK-podkast</label>
         <div class="relative">
-          <span class="absolute left-5 top-1/2 -translate-y-1/2 text-ink-soft dark:text-ink-soft-dark pointer-events-none">
-            {loading ? <IconLoader size={22} class="animate-spin" /> : <IconSearch size={22} />}
+          <span class="absolute left-4 top-1/2 -translate-y-1/2 text-ink-3 dark:text-ink-3-dark pointer-events-none">
+            {loading ? <IconLoader size={18} class="animate-spin" /> : <IconSearch size={18} />}
           </span>
           <input
             type="search"
             id="query"
             name="query"
-            placeholder="Søk etter en NRK-podkast …"
+            placeholder="Søk etter en NRK-podkast"
             value={query}
             onInput={(event) => onInput(event.currentTarget.value)}
             autocomplete="off"
-            class="w-full rounded-full border-2 border-line dark:border-line-dark bg-paper-raised dark:bg-paper-raised-dark pl-14 pr-28 py-4 text-lg placeholder:text-ink-soft/70 dark:placeholder:text-ink-soft-dark/70 focus:outline-none focus:border-accent dark:focus:border-accent-dark shadow-sm"
+            class="w-full h-12 rounded-lg border border-line-strong dark:border-line-strong-dark bg-canvas dark:bg-canvas-dark pl-11 pr-20 text-base placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark"
           />
           <button
             type="submit"
-            class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-accent hover:bg-accent-strong dark:bg-accent-dark dark:hover:bg-accent text-white dark:text-paper-dark font-semibold px-6 py-2.5 transition-colors cursor-pointer"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:bg-ink/80 dark:hover:bg-ink-dark/85 text-sm font-medium px-4 py-2 transition-colors cursor-pointer"
           >
             Søk
           </button>
@@ -145,18 +145,18 @@ export default function InstantSearch(props: Props) {
       </form>
 
       {failed && (
-        <section class="mt-12 text-center space-y-2">
-          <h2 class="font-display text-2xl font-bold">Søket feilet</h2>
-          <p class="text-ink-soft dark:text-ink-soft-dark">Prøv igjen om et lite øyeblikk.</p>
+        <section class="mt-14 space-y-1">
+          <h2 class="text-xl font-medium">Søket feilet</h2>
+          <p class="text-ink-2 dark:text-ink-2-dark">Prøv igjen om et lite øyeblikk.</p>
         </section>
       )}
 
       {showResults && hits !== null && !failed && (
         hits.items.length === 0
           ? (
-            <section class="mt-12 text-center space-y-2">
-              <h2 class="font-display text-2xl font-bold">Ingen treff for «{hits.query}»</h2>
-              <p class="text-ink-soft dark:text-ink-soft-dark">
+            <section class="mt-14 space-y-1">
+              <h2 class="text-xl font-medium">Ingen treff for «{hits.query}»</h2>
+              <p class="text-ink-2 dark:text-ink-2-dark">
                 Prøv et annet søkeord, eller sjekk skrivemåten.
               </p>
             </section>
@@ -164,10 +164,10 @@ export default function InstantSearch(props: Props) {
           : (
             <section class="mt-10" aria-live="polite">
               <h2 class="sr-only">Søkeresultat</h2>
-              <p class="text-sm text-ink-soft dark:text-ink-soft-dark mb-4">
+              <p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">
                 {hits.items.length} treff for «{hits.query}»
               </p>
-              <div class="space-y-4">
+              <div class="space-y-10">
                 {hits.items.map((serie) => <SeriesCard key={serie.seriesId} serie={serie} origin={props.origin} />)}
               </div>
             </section>
@@ -188,40 +188,35 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
 
   return (
     <>
-      <section class="mt-8 flex flex-wrap justify-center gap-2">
+      <section class="mt-5 flex flex-wrap gap-2">
         {SUGGESTIONS.map((suggestion) => (
           <button
             type="button"
             key={suggestion}
             onClick={() => props.onSuggestion(suggestion)}
-            class="rounded-full border border-line dark:border-line-dark bg-paper-raised dark:bg-paper-raised-dark px-4 py-1.5 text-sm hover:border-accent hover:text-accent dark:hover:border-accent-dark dark:hover:text-accent-dark transition-colors cursor-pointer"
+            class="rounded-full border border-line dark:border-line-dark px-3.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark hover:text-ink dark:hover:text-ink-dark transition-colors cursor-pointer"
           >
             {suggestion}
           </button>
         ))}
       </section>
 
-      <section class="mt-14">
-        <h2 class="font-display text-2xl font-bold text-center mb-8">Slik funker det</h2>
-        <ol class="grid sm:grid-cols-3 gap-4">
+      <section class="mt-24">
+        <h2 class="text-xl font-medium mb-8">Slik funker det</h2>
+        <ol class="grid sm:grid-cols-3 gap-x-8 gap-y-6">
           {steps.map(([title, description], index) => (
-            <li
-              key={title}
-              class="rounded-3xl bg-paper-raised dark:bg-paper-raised-dark border border-line dark:border-line-dark p-5"
-            >
-              <span class="grid place-items-center size-8 rounded-full bg-accent/10 text-accent dark:bg-accent-dark/15 dark:text-accent-dark font-display font-bold mb-3">
-                {index + 1}
-              </span>
-              <h3 class="font-display font-bold">{title}</h3>
-              <p class="mt-1 text-sm text-ink-soft dark:text-ink-soft-dark">{description}</p>
+            <li key={title}>
+              <p class="text-sm text-ink-3 dark:text-ink-3-dark tabular-nums">{index + 1}</p>
+              <h3 class="mt-1 font-medium">{title}</h3>
+              <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">{description}</p>
             </li>
           ))}
         </ol>
-        <p class="mt-6 text-sm text-center text-ink-soft dark:text-ink-soft-dark">
+        <p class="mt-10 text-sm text-ink-2 dark:text-ink-2-dark">
           Usikker på hvordan du legger til en RSS-lenke?{" "}
           <a
             href="https://help.omnystudio.com/en/articles/5222518-podcast-apps-that-support-add-rss-feed"
-            class="underline underline-offset-4 decoration-line dark:decoration-line-dark hover:text-accent dark:hover:text-accent-dark"
+            class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
           >
             Se guide for populære apper
           </a>
