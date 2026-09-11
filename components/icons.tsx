@@ -33,6 +33,14 @@ export function IconSearch(props: IconProps) {
   );
 }
 
+export function IconLoader(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3a9 9 0 1 0 9 9" />
+    </svg>
+  );
+}
+
 export function IconCopy(props: IconProps) {
   return (
     <svg {...base(props)}>

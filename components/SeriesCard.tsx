@@ -1,16 +1,6 @@
 import CopyButton from "../islands/CopyButton.tsx";
-import { SearchResult } from "../lib/nrk/nrk.ts";
+import type { SeriesSummary } from "../lib/series-summary.ts";
 import { IconExternalLink, IconPodcast } from "./icons.tsx";
-
-/** pick the image variant closest to the wanted rendered size */
-function pickImage(images: SearchResult["images"], wantedWidth = 400) {
-  if (!images || images.length === 0) {
-    return null;
-  }
-  return images.reduce((best, candidate) =>
-    Math.abs((candidate.width ?? 0) - wantedWidth) < Math.abs((best.width ?? 0) - wantedWidth) ? candidate : best
-  );
-}
 
 /** one-tap subscribe deep links for popular podcast apps */
 function subscribeLinks(feedUrl: string) {
@@ -25,17 +15,15 @@ function subscribeLinks(feedUrl: string) {
   ];
 }
 
-export default function SeriesCard(props: { serie: SearchResult; origin: string }) {
+export default function SeriesCard(props: { serie: SeriesSummary; origin: string }) {
   const feedUrl = new URL(`/api/feeds/${props.serie.seriesId}`, props.origin).toString();
-  // prefer square (1:1) artwork over the default 16:9 images
-  const image = pickImage(props.serie.images_1_1 ?? props.serie.images);
   const nrkUrl = `https://radio.nrk.no/podkast/${props.serie.seriesId}`;
 
   return (
     <article class="flex gap-4 sm:gap-5 p-4 sm:p-5 rounded-3xl bg-paper-raised dark:bg-paper-raised-dark border border-line dark:border-line-dark shadow-sm">
-      {image && (
+      {props.serie.imageUrl && (
         <img
-          src={image.uri}
+          src={props.serie.imageUrl}
           alt=""
           width={144}
           height={144}
