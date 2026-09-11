@@ -7,11 +7,11 @@ export DENO_DIR=/run/deno-cache
 mkdir -p "${DENO_DIR}"
 
 # the SQLite database (podcast metadata + full episode archive)
-export NRSS_DB_PATH=/app/data/nrss.sqlite3
+export KRINGKASTING_DB_PATH=/app/data/kringkasting.sqlite3
 
 chown -R cloudron:cloudron /app/data "${DENO_DIR}"
 
-echo "==> Starting NRSS"
+echo "==> Starting Kringkasting"
 exec /usr/local/bin/gosu cloudron:cloudron /usr/local/bin/deno serve \
   --allow-net \
   --allow-env \

@@ -2,7 +2,7 @@ import { assertEquals, assertExists } from "@std/assert";
 import { testUtils } from "./test-utils.ts";
 import { forTestingOnly, rss } from "./rss.ts";
 
-const ORIGIN = "https://nrss.example.com";
+const ORIGIN = "https://kringkast.ing";
 
 // NOTE: Could probably be expanded upon.
 Deno.test("generate tag for episode", () => {
