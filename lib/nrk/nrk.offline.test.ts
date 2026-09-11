@@ -116,7 +116,7 @@ Deno.test("getSeries parses episodes with byte sizes and drops unavailable ones"
   const stub = stubNrk();
   try {
     const failures: string[] = [];
-    const series = await nrkRadio.getSeries("testserie", undefined, (id) => failures.push(id));
+    const series = await nrkRadio.getSeries("testserie", { onEpisodeFailure: (id) => failures.push(id) });
     assertExists(series);
     assertEquals(series.title, "Testserie");
     assertEquals(series.episodes.map((episode) => episode.id).sort(), ["ep1", "ep2"]);
@@ -131,7 +131,7 @@ Deno.test("getSeries parses episodes with byte sizes and drops unavailable ones"
 Deno.test("getSeries skips episodes in the skip set", async () => {
   const stub = stubNrk();
   try {
-    const series = await nrkRadio.getSeries("testserie", new Set(["ep1", "gone", "flaky"]));
+    const series = await nrkRadio.getSeries("testserie", { skipEpisodeIds: new Set(["ep1", "gone", "flaky"]) });
     assertExists(series);
     assertEquals(series.episodes.map((episode) => episode.id), ["ep2"]);
     const manifestCalls = stub.requests.filter((line) => line.includes("/playback/manifest/"));
@@ -185,9 +185,12 @@ Deno.test("caching stores fetched series and blocks failed episodes from refetch
     const blocked = storage.readBlockedEpisodeIds("testserie");
     assertEquals(blocked.has("gone"), true);
 
-    // age the series past the freshness window, then refresh
+    // catalog kind was learned during the initial fetch
+    assertEquals(storage.readSeries({ id: "testserie" })?.catalogKind, "podcast");
+
+    // age the series past even the dormant-show refresh window (24h+jitter)
     const stored = storage.readSeries({ id: "testserie" })!;
-    stored.lastFetchedAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    stored.lastFetchedAt = new Date(Date.now() - 48 * 60 * 60 * 1000);
     storage.writeSeries(stored);
 
     stub.requests.length = 0;
@@ -197,6 +200,12 @@ Deno.test("caching stores fetched series and blocks failed episodes from refetch
     // blocked episode's manifest is not re-requested during refresh
     const goneRefetches = stub.requests.filter((line) => line.includes("/playback/manifest/podcast/gone"));
     assertEquals(goneRefetches.length, 0);
+    // cheap refresh: episode listing only — no metadata request, no
+    // wrong-catalog fallback
+    const metadataFetches = stub.requests.filter((line) => line.endsWith("/radio/catalog/podcast/testserie"));
+    assertEquals(metadataFetches.length, 0);
+    const fallbackFetches = stub.requests.filter((line) => line.includes("/radio/catalog/series/"));
+    assertEquals(fallbackFetches.length, 0);
     // freshness renewed
     assertEquals(refreshed.lastFetchedAt.getTime() > Date.now() - 60_000, true);
   } finally {

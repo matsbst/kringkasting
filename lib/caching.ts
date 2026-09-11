@@ -5,6 +5,9 @@ import * as datetime from "@std/datetime";
 
 const SYNC_INTERVAL_HOURS = 1;
 
+/** how often title/artwork is re-fetched from NRK */
+const METADATA_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** remember ids NRK doesn't know for a while, so garbage requests are cheap */
 const NOT_FOUND_TTL_MS = 10 * 60 * 1000;
 const notFoundUntil = new Map<string, number>();
@@ -13,11 +16,9 @@ const notFoundUntil = new Map<string, number>();
 const inFlight = new Map<string, Promise<Series | null>>();
 
 async function initialFetch(options: { id: string }): Promise<Series | null> {
-  const series = await nrkRadio.getSeries(
-    options.id,
-    undefined,
-    (episodeId) => storage.recordEpisodeFailure(options.id, episodeId),
-  );
+  const series = await nrkRadio.getSeries(options.id, {
+    onEpisodeFailure: (episodeId) => storage.recordEpisodeFailure(options.id, episodeId),
+  });
   if (!series) {
     return null;
   }
@@ -38,11 +39,37 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
   for (const blocked of storage.readBlockedEpisodeIds(existingSeries.id)) {
     skipEpisodeIds.add(blocked);
   }
-  const update = await nrkRadio.getSeries(
-    existingSeries.id,
+  const onEpisodeFailure = (episodeId: string) => storage.recordEpisodeFailure(existingSeries.id, episodeId);
+
+  // metadata (title/artwork) changes rarely: most refreshes only need the
+  // episode listing (one NRK request instead of two). Umbrella shows and
+  // series with unknown catalog kind take the full path.
+  const metadataAge = Date.now() - (existingSeries.metadataRefreshedAt?.getTime() ?? 0);
+  const cheapRefresh = !existingSeries.isUmbrella &&
+    existingSeries.catalogKind &&
+    metadataAge < METADATA_TTL_MS;
+
+  if (cheapRefresh) {
+    const newEpisodes = await nrkRadio.getNewEpisodes(existingSeries.id, existingSeries.catalogKind!, {
+      skipEpisodeIds,
+      onEpisodeFailure,
+    });
+    if (newEpisodes === null) {
+      console.error(`Failed to refresh series ${existingSeries.id}, serving stale data`);
+      return existingSeries;
+    }
+    if (newEpisodes.length > 0) {
+      storage.addEpisodes(existingSeries.id, newEpisodes.map(nrkRadio.parseEpisode));
+    }
+    storage.touchLastFetched(existingSeries.id);
+    return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
+  }
+
+  const update = await nrkRadio.getSeries(existingSeries.id, {
     skipEpisodeIds,
-    (episodeId) => storage.recordEpisodeFailure(existingSeries.id, episodeId),
-  );
+    onEpisodeFailure,
+    catalogKind: existingSeries.catalogKind,
+  });
   if (!update) {
     // NRK outage or rate limiting: serve the stale copy rather than
     // pretending the series disappeared
@@ -58,6 +85,30 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
   }
 
   return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
+}
+
+/**
+ * Refresh cadence adapts to how actively a show publishes: hourly while
+ * it's putting out episodes, daily once it's dormant. A small random
+ * jitter keeps refreshes from clustering at the top of the hour.
+ */
+function refreshIntervalHours(series: Series): number {
+  const newest = series.episodes.at(0)?.date;
+  if (!newest) {
+    return SYNC_INTERVAL_HOURS;
+  }
+  const ageDays = (Date.now() - newest.getTime()) / (24 * 60 * 60 * 1000);
+  if (ageDays < 2) {
+    return 1;
+  }
+  if (ageDays < 30) {
+    return 6;
+  }
+  return 24;
+}
+
+function refreshIntervalWithJitter(series: Series): number {
+  return refreshIntervalHours(series) * (0.85 + Math.random() * 0.3);
 }
 
 function getTimeSinceLastFetch(inputDate: Date, againstDate = new Date()): number | null {
