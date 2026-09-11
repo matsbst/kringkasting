@@ -27,11 +27,11 @@ export default define.page<typeof handler>(function Home({ data }) {
         </Head>
       )}
 
-      <section class="pt-10 pb-8 text-center">
-        <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight text-balance">
-          NRK-podkaster, i appen <span class="text-accent dark:text-accent-dark">du</span> velger
+      <section class="pt-16 pb-10">
+        <h1 class="text-4xl sm:text-[2.75rem] font-semibold tracking-tight leading-[1.1] text-balance">
+          NRK-podkaster, i appen du velger
         </h1>
-        <p class="mt-4 text-lg text-ink-soft dark:text-ink-soft-dark max-w-xl mx-auto text-pretty">
+        <p class="mt-4 text-lg text-ink-2 dark:text-ink-2-dark max-w-prose">
           NRK låser podkastene sine inne i sin egen app. NRSS åpner dem opp igjen som helt vanlige RSS-strømmer.
         </p>
       </section>

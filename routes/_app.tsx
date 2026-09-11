@@ -17,36 +17,37 @@ export default define.page(function App({ Component }) {
         />
         <title>NRSS – NRK-podkaster som RSS</title>
       </head>
-      <body class="min-h-screen flex flex-col bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark antialiased">
-        <header class="px-6 pt-8 pb-2">
-          <a href="/" class="flex items-center justify-center gap-3 group">
-            <span class="grid place-items-center size-11 rounded-2xl bg-accent text-white shadow-md shadow-accent/30 group-hover:rotate-6 transition-transform">
-              <IconRss size={24} />
+      <body class="min-h-screen flex flex-col bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
+        <header class="w-full max-w-2xl mx-auto px-6 pt-10">
+          <a href="/" class="inline-flex items-center gap-2.5">
+            {/* the brand mark keeps its color; everything else stays neutral */}
+            <span class="grid place-items-center size-7 rounded-md bg-brand text-white">
+              <IconRss size={17} />
             </span>
-            <span class="font-display text-3xl font-bold tracking-tight">NRSS</span>
+            <span class="text-lg font-semibold tracking-tight">NRSS</span>
           </a>
         </header>
 
-        <main class="flex-1 w-full max-w-3xl mx-auto px-6">
+        <main class="flex-1 w-full max-w-2xl mx-auto px-6">
           <Component />
         </main>
 
-        <footer class="mt-16 border-t border-line dark:border-line-dark">
-          <div class="max-w-3xl mx-auto px-6 py-8 text-sm text-ink-soft dark:text-ink-soft-dark space-y-2">
+        <footer class="w-full max-w-2xl mx-auto px-6 mt-24 mb-10">
+          <div class="border-t border-line dark:border-line-dark pt-6 text-sm text-ink-2 dark:text-ink-2-dark space-y-1.5">
             <p>
               NRSS er ikke tilknyttet NRK. Alt innhold i strømmene tilhører NRK og hentes fra deres åpne API.
             </p>
             <p>
               <a
                 href="https://github.com/matsbst/nrss"
-                class="underline decoration-line dark:decoration-line-dark underline-offset-4 hover:text-accent dark:hover:text-accent-dark"
+                class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
               >
                 Kildekode
               </a>{" "}
               · basert på{" "}
               <a
                 href="https://github.com/olaven/nrss"
-                class="underline decoration-line dark:decoration-line-dark underline-offset-4 hover:text-accent dark:hover:text-accent-dark"
+                class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
               >
                 NRSS av Olav Sundfør
               </a>
