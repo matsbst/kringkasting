@@ -131,18 +131,24 @@ async function search(query: string): Promise<NrkSearchResultList | null> {
   return null;
 }
 
+/** notified when an episode is definitively unavailable (for retry backoff) */
+export type OnEpisodeFailure = (episodeId: string) => void;
+
 /**
  * Resolve download links for the series' episodes.
  *
- * Episodes whose id is in `knownEpisodeIds` are skipped, so refreshing an
- * already-cached series only costs manifest lookups for NEW episodes.
+ * Episodes whose id is in `skipEpisodeIds` are skipped, so refreshing an
+ * already-cached series only costs manifest lookups for NEW episodes
+ * (and episodes under failure backoff are not re-checked).
  * Episodes that turn out to be non-playable (geo-blocked, expired rights,
- * removed) are dropped instead of failing the whole series.
+ * removed) are dropped instead of failing the whole series, and reported
+ * via `onEpisodeFailure`.
  */
 async function extractEpisodes(
   serieResponse: RadioSeries,
   episodeResponse?: PodcastEpisodes,
-  knownEpisodeIds?: Set<string>,
+  skipEpisodeIds?: Set<string>,
+  onEpisodeFailure?: OnEpisodeFailure,
 ): Promise<NrkOriginalEpisode[]> {
   let candidates: PodcastEpisodesSingle[];
 
@@ -160,18 +166,39 @@ async function extractEpisodes(
     candidates = episodeResponse?._embedded.episodes ?? [];
   }
 
-  const newCandidates = knownEpisodeIds ? candidates.filter((episode) => !knownEpisodeIds.has(episode.id)) : candidates;
+  const newCandidates = skipEpisodeIds ? candidates.filter((episode) => !skipEpisodeIds.has(episode.id)) : candidates;
 
-  const episodes = await mapConcurrent(
+  const results = await mapConcurrent(
     newCandidates,
     NRK_FETCH_CONCURRENCY,
     (episode) => getEpisodeWithDownloadLink(episode, serieResponse.type),
   );
 
-  return episodes.filter((episode): episode is NrkOriginalEpisode => episode !== null);
+  return collectEpisodes(newCandidates, results, onEpisodeFailure);
 }
 
-async function getSeriesData(seriesId: string, knownEpisodeIds?: Set<string>): Promise<SeriesData | null> {
+/** separate playable episodes from definitive failures, reporting the latter */
+function collectEpisodes(
+  candidates: PodcastEpisodesSingle[],
+  results: (NrkOriginalEpisode | "gone" | null)[],
+  onEpisodeFailure?: OnEpisodeFailure,
+): NrkOriginalEpisode[] {
+  const episodes: NrkOriginalEpisode[] = [];
+  results.forEach((result, index) => {
+    if (result === "gone") {
+      onEpisodeFailure?.(candidates[index].id);
+    } else if (result !== null) {
+      episodes.push(result);
+    }
+  });
+  return episodes;
+}
+
+async function getSeriesData(
+  seriesId: string,
+  skipEpisodeIds?: Set<string>,
+  onEpisodeFailure?: OnEpisodeFailure,
+): Promise<SeriesData | null> {
   let [
     { status: episodeStatus, body: episodeResponse },
     { status: seriesStatus, body: serieResponse },
@@ -200,7 +227,7 @@ async function getSeriesData(seriesId: string, knownEpisodeIds?: Set<string>): P
     serieResponse?.series &&
     episodeResponse?._embedded.episodes?.length
   ) {
-    const episodes = await extractEpisodes(serieResponse, episodeResponse, knownEpisodeIds);
+    const episodes = await extractEpisodes(serieResponse, episodeResponse, skipEpisodeIds, onEpisodeFailure);
     const seriesData = {
       ...serieResponse.series,
       episodes,
@@ -216,12 +243,16 @@ async function getSeriesData(seriesId: string, knownEpisodeIds?: Set<string>): P
 /**
  * Fetch a series with episode download links.
  *
- * When `knownEpisodeIds` is given, the returned series only contains
+ * When `skipEpisodeIds` is given, the returned series only contains
  * episodes NOT in that set (an incremental update); the caller is
  * expected to merge with its existing episodes.
  */
-async function getSeries(seriesId: string, knownEpisodeIds?: Set<string>): Promise<Series | null> {
-  const seriesData = await getSeriesData(seriesId, knownEpisodeIds);
+async function getSeries(
+  seriesId: string,
+  skipEpisodeIds?: Set<string>,
+  onEpisodeFailure?: OnEpisodeFailure,
+): Promise<Series | null> {
+  const seriesData = await getSeriesData(seriesId, skipEpisodeIds, onEpisodeFailure);
   if (!seriesData) {
     return null;
   }
@@ -247,29 +278,33 @@ async function getEpisode(
 
 type Manifest = playbackComponents["schemas/playback-channel.json"]["components"]["schemas"]["PlayableManifest"];
 
+/**
+ * Returns the episode with its download link, "gone" when NRK
+ * definitively has no playable manifest (404, or 200 with playable=null:
+ * geo-blocked/expired/removed — worth backing off from), or null on
+ * transient errors (timeouts, 5xx — retry next refresh).
+ */
 async function getEpisodeWithDownloadLink(
   episode: PodcastEpisodesSingle,
   type: catalogComponents["schemas"]["Type"],
-): Promise<NrkOriginalEpisode | null> {
+): Promise<NrkOriginalEpisode | "gone" | null> {
   const endpoint = type === "series" ? "program" : "podcast";
   const { status, body } = await get<Manifest>(
     `${nrkAPI}/playback/manifest/${endpoint}/${episode.episodeId}`,
   );
 
-  // non-OK statuses and playable=null (non-playable manifests) both mean
-  // the episode has no usable download link right now; skip it
   const url = body?.playable?.assets?.at(0)?.url;
-  if (status !== STATUS_CODE.OK || !url) {
-    console.error(
-      `No playable manifest for episode ${episode.episodeId} (status ${status}), skipping`,
-    );
-    return null;
+  if (status === STATUS_CODE.OK && url) {
+    // RSS enclosures want the file size in bytes
+    const { contentLength } = await head(url);
+    return { ...episode, url, bytes: contentLength };
   }
 
-  // RSS enclosures want the file size in bytes
-  const { contentLength } = await head(url);
-
-  return { ...episode, url, bytes: contentLength };
+  console.error(`No playable manifest for episode ${episode.episodeId} (status ${status})`);
+  if (status === STATUS_CODE.NotFound || status === STATUS_CODE.OK) {
+    return "gone";
+  }
+  return null;
 }
 
 export type EpisodePage = {
@@ -290,7 +325,8 @@ export type EpisodePage = {
 async function getEpisodePage(
   seriesId: string,
   cursorHref: string | null,
-  knownEpisodeIds: Set<string>,
+  skipEpisodeIds: Set<string>,
+  onEpisodeFailure?: OnEpisodeFailure,
 ): Promise<EpisodePage | null> {
   let href = cursorHref;
   let body: PodcastEpisodes | null = null;
@@ -315,16 +351,16 @@ async function getEpisodePage(
   const type = href.includes("/catalog/series/") ? "series" : "podcast";
 
   const candidates = body._embedded.episodes ?? [];
-  const newCandidates = candidates.filter((episode) => !knownEpisodeIds.has(episode.id));
+  const newCandidates = candidates.filter((episode) => !skipEpisodeIds.has(episode.id));
 
-  const episodes = await mapConcurrent(
+  const results = await mapConcurrent(
     newCandidates,
     BACKLOG_FETCH_CONCURRENCY,
     (episode) => getEpisodeWithDownloadLink(episode, type),
   );
 
   return {
-    episodes: episodes.filter((episode): episode is NrkOriginalEpisode => episode !== null),
+    episodes: collectEpisodes(newCandidates, results, onEpisodeFailure),
     nextHref: body._links.next?.href ?? null,
   };
 }

@@ -59,8 +59,16 @@ async function crawlSeries(seriesId: string) {
   let cursor = series.backlogCursor ?? null;
 
   for (let pageCount = 0; pageCount < MAX_PAGES_PER_RUN; pageCount++) {
-    const knownEpisodeIds = storage.readEpisodeIds(seriesId);
-    const page = await nrkRadio.getEpisodePage(seriesId, cursor, knownEpisodeIds);
+    const skipEpisodeIds = storage.readEpisodeIds(seriesId);
+    for (const blocked of storage.readBlockedEpisodeIds(seriesId)) {
+      skipEpisodeIds.add(blocked);
+    }
+    const page = await nrkRadio.getEpisodePage(
+      seriesId,
+      cursor,
+      skipEpisodeIds,
+      (episodeId) => storage.recordEpisodeFailure(seriesId, episodeId),
+    );
     if (!page) {
       // NRK hiccup: keep the cursor so a later run resumes from here
       console.error(`Backlog crawl for ${seriesId} paused at cursor ${cursor}`);

@@ -50,6 +50,13 @@ CREATE TABLE IF NOT EXISTS episodes (
   PRIMARY KEY (series_id, id)
 );
 CREATE INDEX IF NOT EXISTS episodes_series_date ON episodes(series_id, date DESC);
+CREATE TABLE IF NOT EXISTS failed_episodes (
+  series_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  attempts INTEGER NOT NULL,
+  next_retry_at INTEGER NOT NULL,
+  PRIMARY KEY (series_id, id)
+);
 `;
 
 /**
@@ -240,6 +247,73 @@ function setBacklogState(seriesId: string, cursor: string | null, complete: bool
     .run(cursor, complete ? 1 : 0, seriesId);
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_RETRY_BACKOFF_DAYS = 30;
+
+/**
+ * Episodes whose playback manifest failed (geo-blocked, expired,
+ * removed) are retried with exponential backoff — 1 day, 2, 4, …,
+ * capped at 30 — instead of on every refresh forever.
+ */
+function recordEpisodeFailure(seriesId: string, episodeId: string): void {
+  const database = getDb();
+  const row = database
+    .prepare("SELECT attempts FROM failed_episodes WHERE series_id = ? AND id = ?")
+    .get(seriesId, episodeId) as { attempts: number } | undefined;
+  const attempts = (row?.attempts ?? 0) + 1;
+  const delayDays = Math.min(MAX_RETRY_BACKOFF_DAYS, 2 ** (attempts - 1));
+  database
+    .prepare(`
+      INSERT INTO failed_episodes (series_id, id, attempts, next_retry_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(series_id, id) DO UPDATE SET attempts = excluded.attempts, next_retry_at = excluded.next_retry_at
+    `)
+    .run(seriesId, episodeId, attempts, Date.now() + delayDays * DAY_MS);
+}
+
+/** failed episodes whose retry window has not yet passed */
+function readBlockedEpisodeIds(seriesId: string): Set<string> {
+  const rows = getDb()
+    .prepare("SELECT id FROM failed_episodes WHERE series_id = ? AND next_retry_at > ?")
+    .all(seriesId, Date.now()) as { id: string }[];
+  return new Set(rows.map((row) => row.id));
+}
+
+/**
+ * Delete series nobody has requested for `maxAgeMs`. last_fetched_at
+ * renews on any request once the hourly freshness window has passed, so
+ * it tracks "last requested" closely enough for garbage collection.
+ */
+function deleteStaleSeries(maxAgeMs: number): number {
+  const database = getDb();
+  const cutoff = Date.now() - maxAgeMs;
+  const stale = database
+    .prepare("SELECT id FROM series WHERE last_fetched_at < ?")
+    .all(cutoff) as { id: string }[];
+
+  if (stale.length === 0) {
+    return 0;
+  }
+
+  database.exec("BEGIN");
+  try {
+    const deleteEpisodes = database.prepare("DELETE FROM episodes WHERE series_id = ?");
+    const deleteFailed = database.prepare("DELETE FROM failed_episodes WHERE series_id = ?");
+    const deleteSeries = database.prepare("DELETE FROM series WHERE id = ?");
+    for (const { id } of stale) {
+      deleteEpisodes.run(id);
+      deleteFailed.run(id);
+      deleteSeries.run(id);
+      bumpDataVersion(id);
+    }
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    console.error(`Garbage collection failed: ${error}`);
+    return 0;
+  }
+  return stale.length;
+}
+
 export const storage = {
   readSeries,
   writeSeries,
@@ -247,4 +321,7 @@ export const storage = {
   readEpisodeIds,
   setBacklogState,
   getDataVersion,
+  recordEpisodeFailure,
+  readBlockedEpisodeIds,
+  deleteStaleSeries,
 };

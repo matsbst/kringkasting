@@ -116,3 +116,25 @@ Deno.test("data version bumps on content writes only", () => {
   storage.setBacklogState(series.id, null, true);
   assertEquals(storage.getDataVersion(series.id), afterAdd);
 });
+
+Deno.test("failed episodes are blocked until their retry window passes", () => {
+  const seriesId = "backoff-test-" + crypto.randomUUID();
+  storage.recordEpisodeFailure(seriesId, "ep-x");
+  assertEquals(storage.readBlockedEpisodeIds(seriesId).has("ep-x"), true);
+  assertEquals(storage.readBlockedEpisodeIds(seriesId).has("ep-y"), false);
+});
+
+Deno.test("garbage collection removes stale series and keeps fresh ones", () => {
+  const stale = testUtils.generateSeries({ lastFetchedAt: new Date(Date.now() - 100 * 24 * 60 * 60 * 1000) });
+  const fresh = testUtils.generateSeries({ lastFetchedAt: new Date() });
+  storage.writeSeries(stale);
+  storage.writeSeries(fresh);
+  storage.recordEpisodeFailure(stale.id, "dead-ep");
+
+  const deleted = storage.deleteStaleSeries(90 * 24 * 60 * 60 * 1000);
+  assertEquals(deleted >= 1, true);
+  assertEquals(storage.readSeries({ id: stale.id }), null);
+  assertEquals(storage.readEpisodeIds(stale.id).size, 0);
+  assertEquals(storage.readBlockedEpisodeIds(stale.id).size, 0);
+  assertEquals(storage.readSeries({ id: fresh.id })?.id, fresh.id);
+});
