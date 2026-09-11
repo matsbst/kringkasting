@@ -22,6 +22,7 @@ export default define.page(function App(ctx) {
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
         <meta property="og:site_name" content="Kringkasting" />
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Kringkasting – NRK-podkaster som RSS" />

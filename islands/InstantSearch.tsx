@@ -31,6 +31,7 @@ export default function InstantSearch(props: Props) {
   );
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [placeholder, setPlaceholder] = useState("Søk etter en NRK-podkast");
 
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -40,6 +41,19 @@ export default function InstantSearch(props: Props) {
       clearTimeout(timerRef.current);
       abortRef.current?.abort();
     };
+  }, []);
+
+  // idle delight: the placeholder strolls through real show names
+  useEffect(() => {
+    if (props.suggestions.length === 0) {
+      return;
+    }
+    let index = 0;
+    const id = setInterval(() => {
+      setPlaceholder(`Søk etter «${props.suggestions[index % props.suggestions.length]}»`);
+      index++;
+    }, 3_000);
+    return () => clearInterval(id);
   }, []);
 
   const syncUrl = (trimmed: string) => {
@@ -121,7 +135,7 @@ export default function InstantSearch(props: Props) {
             type="search"
             id="query"
             name="query"
-            placeholder="Søk etter en NRK-podkast"
+            placeholder={placeholder}
             value={query}
             onInput={(event) => onInput(event.currentTarget.value)}
             autocomplete="off"
@@ -166,7 +180,24 @@ export default function InstantSearch(props: Props) {
           )
       )}
 
-      {!showResults && !failed && <HowItWorks suggestions={props.suggestions} onSuggestion={searchNow} />}
+      {loading && hits === null && !failed && (
+        <section class="mt-10 space-y-10 animate-pulse motion-reduce:animate-none" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
+            <div key={index} class="flex gap-5">
+              <div class="size-24 sm:size-32 shrink-0 rounded-xl bg-ink/5 dark:bg-ink-dark/8" />
+              <div class="flex-1 pt-1">
+                <div class="h-5 w-1/2 rounded bg-ink/5 dark:bg-ink-dark/8" />
+                <div class="mt-3 h-4 w-5/6 rounded bg-ink/5 dark:bg-ink-dark/8" />
+                <div class="mt-5 h-9 w-40 rounded-lg bg-ink/5 dark:bg-ink-dark/8" />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {!showResults && !failed && !(loading && hits === null) && (
+        <HowItWorks suggestions={props.suggestions} onSuggestion={searchNow} />
+      )}
     </div>
   );
 }
