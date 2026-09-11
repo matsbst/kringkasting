@@ -5,8 +5,10 @@ import {
   AntennaPodIcon,
   ApplePodcastsIcon,
   CastroIcon,
+  DowncastIcon,
   OvercastIcon,
   PocketCastsIcon,
+  PodcastAddictIcon,
   SpotifyIcon,
   YouTubeMusicIcon,
 } from "../components/app-icons.tsx";
@@ -45,6 +47,13 @@ const APPS: PodcastApp[] = [
     href: (url) => `pktc://subscribe/${withoutScheme(url)}`,
   },
   { id: "castro", name: "Castro", icon: CastroIcon, href: (url) => `castro://subscribe/${withoutScheme(url)}` },
+  { id: "downcast", name: "Downcast", icon: DowncastIcon, href: (url) => `downcast://${withoutScheme(url)}` },
+  {
+    id: "podcastaddict",
+    name: "Podcast Addict",
+    icon: PodcastAddictIcon,
+    href: (url) => `podcastaddict://${withoutScheme(url)}`,
+  },
   {
     id: "antennapod",
     name: "AntennaPod",
