@@ -78,6 +78,14 @@ export function IconPodcast(props: IconProps) {
   );
 }
 
+export function IconChevronDown(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 9l6 6l6 -6" />
+    </svg>
+  );
+}
+
 export function IconExternalLink(props: IconProps) {
   return (
     <svg {...base(props)}>
