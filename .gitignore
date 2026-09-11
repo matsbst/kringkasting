@@ -19,3 +19,5 @@ vendor/
 
 # local agent skills (not app code)
 .agents/
+.claude/
+skills-lock.json
