@@ -116,8 +116,10 @@ Deno.test("getSeries parses episodes with byte sizes and drops unavailable ones"
   const stub = stubNrk();
   try {
     const failures: string[] = [];
-    const series = await nrkRadio.getSeries("testserie", { onEpisodeFailure: (id) => failures.push(id) });
-    assertExists(series);
+    const result = await nrkRadio.getSeries("testserie", { onEpisodeFailure: (id) => failures.push(id) });
+    assertExists(result);
+    if (result === "error") throw new Error("unexpected upstream error");
+    const series = result;
     assertEquals(series.title, "Testserie");
     assertEquals(series.episodes.map((episode) => episode.id).sort(), ["ep1", "ep2"]);
     assertEquals(series.episodes[0].bytes, 12345);
@@ -131,8 +133,10 @@ Deno.test("getSeries parses episodes with byte sizes and drops unavailable ones"
 Deno.test("getSeries skips episodes in the skip set", async () => {
   const stub = stubNrk();
   try {
-    const series = await nrkRadio.getSeries("testserie", { skipEpisodeIds: new Set(["ep1", "gone", "flaky"]) });
-    assertExists(series);
+    const result = await nrkRadio.getSeries("testserie", { skipEpisodeIds: new Set(["ep1", "gone", "flaky"]) });
+    assertExists(result);
+    if (result === "error") throw new Error("unexpected upstream error");
+    const series = result;
     assertEquals(series.episodes.map((episode) => episode.id), ["ep2"]);
     const manifestCalls = stub.requests.filter((line) => line.includes("/playback/manifest/"));
     assertEquals(manifestCalls.length, 1);
@@ -229,4 +233,54 @@ Deno.test("mapConcurrent preserves order and respects the concurrency limit", as
 
   assertEquals(results, items.map((item) => item * 2));
   assertEquals(maxInFlight <= limit, true, `max in flight was ${maxInFlight}`);
+});
+
+Deno.test("unknown series is not-found; upstream outage is a distinct error", async () => {
+  const stub = stubNrk();
+  try {
+    assertEquals(await nrkRadio.getSeries("finnes-ikke"), null);
+  } finally {
+    stub.restore();
+  }
+
+  // an all-503 upstream must surface as "error", never as not-found
+  const original = globalThis.fetch;
+  globalThis.fetch = (() => Promise.resolve(new Response("down", { status: 503 }))) as typeof fetch;
+  try {
+    assertEquals(await nrkRadio.getSeries("testserie"), "error");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+Deno.test("transient manifest failures are counted so the crawler can retry the page", async () => {
+  const stub = stubNrk();
+  try {
+    const page = await nrkRadio.getEpisodePage("testserie", null, new Set(["ep1", "ep2", "gone"]));
+    assertExists(page);
+    // "flaky" (503) is the only unresolved candidate on the page
+    assertEquals(page.transientFailures, 1);
+  } finally {
+    stub.restore();
+  }
+});
+
+Deno.test("search returns [] for no matches and null for outages", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify({ results: {} }), { status: 200, headers: { "content-type": "application/json" } }),
+    )) as typeof fetch;
+  try {
+    assertEquals(await nrkRadio.search("ingen treff her"), []);
+  } finally {
+    globalThis.fetch = original;
+  }
+
+  globalThis.fetch = (() => Promise.resolve(new Response("down", { status: 503 }))) as typeof fetch;
+  try {
+    assertEquals(await nrkRadio.search("nede nå"), null);
+  } finally {
+    globalThis.fetch = original;
+  }
 });

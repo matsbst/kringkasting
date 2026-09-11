@@ -19,6 +19,11 @@ async function initialFetch(options: { id: string }): Promise<Series | null> {
   const series = await nrkRadio.getSeries(options.id, {
     onEpisodeFailure: (episodeId) => storage.recordEpisodeFailure(options.id, episodeId),
   });
+  if (series === "error") {
+    // upstream outage: surface it (route answers 502) instead of letting
+    // the negative cache turn a hiccup into ten minutes of 404s
+    throw new Error(`NRK unavailable while fetching ${options.id}`);
+  }
   if (!series) {
     return null;
   }
@@ -70,7 +75,7 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
     onEpisodeFailure,
     catalogKind: existingSeries.catalogKind,
   });
-  if (!update) {
+  if (!update || update === "error") {
     // NRK outage or rate limiting: serve the stale copy rather than
     // pretending the series disappeared
     console.error(`Failed to refresh series ${existingSeries.id}, serving stale data`);

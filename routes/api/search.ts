@@ -18,10 +18,15 @@ export const handler = define.handlers({
     }
 
     const result = await nrkRadio.search(query);
-    const results = (result ?? []).map(toSeriesSummary);
+    if (result === null || result === undefined) {
+      // upstream failure: never cache it as an empty result
+      const response = responseJSON({ message: "Search unavailable" }, STATUS_CODE.ServiceUnavailable);
+      response.headers.set("Cache-Control", "no-store");
+      return response;
+    }
 
     return withCacheHeaders(
-      responseJSON({ results }, STATUS_CODE.OK),
+      responseJSON({ results: result.map(toSeriesSummary) }, STATUS_CODE.OK),
       { maxAge: SEARCH_TTL_SECONDS, sMaxAge: SEARCH_TTL_SECONDS },
     );
   },

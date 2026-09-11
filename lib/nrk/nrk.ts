@@ -1,5 +1,5 @@
 import { STATUS_CODE } from "@std/http/status";
-import { get, head } from "../http.ts";
+import { get, GetResult, head } from "../http.ts";
 import { CatalogKind, Episode, Series } from "../storage.ts";
 import { components as catalogComponents } from "./nrk-catalog.ts";
 import { external as playbackComponents } from "./nrk-playback.ts";
@@ -120,7 +120,8 @@ async function search(query: string): Promise<NrkSearchResultList | null> {
     searchComponents["schemas"]["searchresult"]
   >(`${nrkAPI}/radio/search/search?q=${encodeURIComponent(trimmedQuery)}`);
   if (status === STATUS_CODE.OK && body) {
-    const result = body.results.series?.results ?? null;
+    // empty array = confirmed no matches; null is reserved for failures
+    const result = body.results.series?.results ?? [];
     if (result) {
       if (searchCache.size >= SEARCH_CACHE_MAX_ENTRIES) {
         const now = Date.now();
@@ -189,27 +190,34 @@ async function extractEpisodes(
     (episode) => getEpisodeWithDownloadLink(episode, serieResponse.type),
   );
 
-  return collectEpisodes(newCandidates, results, onEpisodeFailure);
+  return collectEpisodes(newCandidates, results, onEpisodeFailure).episodes;
 }
 
-/** separate playable episodes from definitive failures, reporting the latter */
+/**
+ * Separate playable episodes from failures: definitive ones are reported
+ * for backoff, transient ones counted so callers can retry the batch.
+ */
 function collectEpisodes(
   candidates: PodcastEpisodesSingle[],
   results: (NrkOriginalEpisode | "gone" | null)[],
   onEpisodeFailure?: OnEpisodeFailure,
-): NrkOriginalEpisode[] {
+): { episodes: NrkOriginalEpisode[]; transientFailures: number } {
   const episodes: NrkOriginalEpisode[] = [];
+  let transientFailures = 0;
   results.forEach((result, index) => {
     if (result === "gone") {
       onEpisodeFailure?.(candidates[index].id);
-    } else if (result !== null) {
+    } else if (result === null) {
+      transientFailures++;
+    } else {
       episodes.push(result);
     }
   });
-  return episodes;
+  return { episodes, transientFailures };
 }
 
-async function getSeriesData(seriesId: string, options: FetchOptions = {}): Promise<SeriesData | null> {
+/** null = definitively not found; "error" = upstream failure, retry later */
+async function getSeriesData(seriesId: string, options: FetchOptions = {}): Promise<SeriesData | null | "error"> {
   let episodeStatus = 0;
   let seriesStatus = 0;
   let episodeResponse: PodcastEpisodes | null = null;
@@ -254,7 +262,9 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
   console.error(
     `Error getting episodes for ${seriesId}: EpisodeStatus: ${episodeStatus}. SerieStatus: ${seriesStatus}`,
   );
-  return null;
+  // 5xx/timeouts are outages, not proof the series doesn't exist
+  const transient = [episodeStatus, seriesStatus].some((status) => status === 0 || status >= 500);
+  return transient ? "error" : null;
 }
 
 /**
@@ -264,10 +274,10 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
  * contains episodes NOT in that set (an incremental update); the caller
  * is expected to merge with its existing episodes.
  */
-async function getSeries(seriesId: string, options: FetchOptions = {}): Promise<Series | null> {
+async function getSeries(seriesId: string, options: FetchOptions = {}): Promise<Series | null | "error"> {
   const seriesData = await getSeriesData(seriesId, options);
-  if (!seriesData) {
-    return null;
+  if (seriesData === null || seriesData === "error") {
+    return seriesData;
   }
   return parseSeries(seriesData);
 }
@@ -282,24 +292,35 @@ async function getNewEpisodes(
   catalogKind: CatalogKind,
   options: FetchOptions = {},
 ): Promise<NrkOriginalEpisode[] | null> {
-  const { status, body } = await get<PodcastEpisodes>(
-    `${nrkAPI}/radio/catalog/${catalogKind}/${seriesId}/episodes`,
-  );
-  if (status !== STATUS_CODE.OK || !body) {
-    return null;
+  const episodes: NrkOriginalEpisode[] = [];
+  let href: string | null = `/radio/catalog/${catalogKind}/${seriesId}/episodes?page=1&pageSize=50`;
+
+  // follow pagination until a page contains an already-known episode, so
+  // a burst of more-than-a-page new episodes isn't silently truncated
+  for (let page = 0; page < 10 && href; page++) {
+    const response: GetResult<PodcastEpisodes> = await get<PodcastEpisodes>(`${nrkAPI}${href}`);
+    const status = response.status;
+    const body = response.body;
+    if (status !== STATUS_CODE.OK || !body) {
+      return page === 0 ? null : episodes;
+    }
+
+    const candidates: PodcastEpisodesSingle[] = body._embedded.episodes ?? [];
+    const newCandidates = options.skipEpisodeIds
+      ? candidates.filter((episode) => !options.skipEpisodeIds!.has(episode.id))
+      : candidates;
+
+    const results = await mapConcurrent(
+      newCandidates,
+      NRK_FETCH_CONCURRENCY,
+      (episode) => getEpisodeWithDownloadLink(episode, catalogKind),
+    );
+    episodes.push(...collectEpisodes(newCandidates, results, options.onEpisodeFailure).episodes);
+
+    const sawKnownEpisode = newCandidates.length < candidates.length;
+    href = sawKnownEpisode ? null : body._links.next?.href ?? null;
   }
-
-  const candidates = body._embedded.episodes ?? [];
-  const newCandidates = options.skipEpisodeIds
-    ? candidates.filter((episode) => !options.skipEpisodeIds!.has(episode.id))
-    : candidates;
-
-  const results = await mapConcurrent(
-    newCandidates,
-    NRK_FETCH_CONCURRENCY,
-    (episode) => getEpisodeWithDownloadLink(episode, catalogKind),
-  );
-  return collectEpisodes(newCandidates, results, options.onEpisodeFailure);
+  return episodes;
 }
 
 async function getEpisode(
@@ -353,6 +374,8 @@ export type EpisodePage = {
   episodes: NrkOriginalEpisode[];
   /** NRK API href of the next page, or null when this was the last page */
   nextHref: string | null;
+  /** manifests that failed transiently — the page should be retried before advancing */
+  transientFailures: number;
 };
 
 /**
@@ -402,9 +425,11 @@ async function getEpisodePage(
     (episode) => getEpisodeWithDownloadLink(episode, type),
   );
 
+  const collected = collectEpisodes(newCandidates, results, onEpisodeFailure);
   return {
-    episodes: collectEpisodes(newCandidates, results, onEpisodeFailure),
+    episodes: collected.episodes,
     nextHref: body._links.next?.href ?? null,
+    transientFailures: collected.transientFailures,
   };
 }
 

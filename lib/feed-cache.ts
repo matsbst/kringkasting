@@ -30,8 +30,10 @@ export async function renderFeed(series: Series, origin: string): Promise<Render
 
   const xml = rss.assembleFeed(series, origin);
   const etag = await etagFor(xml);
-  // episodes are sorted newest first; fall back to the fetch time
-  const lastModified = series.episodes.at(0)?.date ?? series.lastFetchedAt;
+  // Last-Modified must move whenever the XML changes (archive backfills
+  // add OLD episodes, so the newest episode's date would stand still and
+  // If-Modified-Since clients would never fetch the update)
+  const lastModified = cached && cached.xml === xml ? cached.lastModified : new Date();
 
   if (cache.size >= MAX_ENTRIES) {
     // drop the oldest entry (Map preserves insertion order)
