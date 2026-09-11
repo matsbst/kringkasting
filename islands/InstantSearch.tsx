@@ -214,15 +214,6 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
             </li>
           ))}
         </ol>
-        <p class="mt-10 text-sm text-ink-2 dark:text-ink-2-dark">
-          Er ikke appen din på lista? Kopier RSS-lenken og lim den inn manuelt –{" "}
-          <a
-            href="https://help.omnystudio.com/en/articles/5222518-podcast-apps-that-support-add-rss-feed"
-            class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
-          >
-            se guide for populære apper
-          </a>
-        </p>
       </section>
     </>
   );
