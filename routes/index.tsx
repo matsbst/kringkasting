@@ -22,11 +22,33 @@ export const handler = define.handlers({
 export default define.page<typeof handler>(function Home({ data }) {
   return (
     <>
-      {data.query && (
-        <Head>
-          <title>Søk: {data.query} – Kringkasting</title>
-        </Head>
-      )}
+      <Head>
+        {data.query && <title>Søk: {data.query} – Kringkasting</title>}
+        {/* search-result URLs are duplicates of the front page for crawlers */}
+        {data.query && <meta name="robots" content="noindex,follow" />}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Kringkasting",
+              url: data.origin,
+              description:
+                "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i den podkast-appen du selv vil.",
+              inLanguage: "nb",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: `${data.origin}/?query={search_term_string}`,
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
+      </Head>
 
       <section class="relative pt-20 pb-12">
         <h1 class="relative text-5xl sm:text-6xl font-bold tracking-tight leading-[1.02] text-balance">

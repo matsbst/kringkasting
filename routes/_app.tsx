@@ -1,22 +1,40 @@
 import { define } from "../utils.ts";
+import { getOrigin } from "../lib/utils.ts";
 import { IconRss } from "../components/icons.tsx";
 import BroadcastArcs from "../components/BroadcastArcs.tsx";
 
-export default define.page(function App({ Component }) {
+const DESCRIPTION =
+  "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i akkurat den podkast-appen du selv vil.";
+
+export default define.page(function App(ctx) {
+  const { Component } = ctx;
+  const origin = getOrigin(ctx.req);
+  const canonical = `${origin}${ctx.url.pathname}`;
   return (
     <html lang="no">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta
-          name="description"
-          content="Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i akkurat den podkast-appen du selv vil."
-        />
-        <link
-          rel="icon"
-          href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📻</text></svg>"
-        />
+        <meta name="description" content={DESCRIPTION} />
         <title>Kringkasting – NRK-podkaster som RSS</title>
+        <link rel="canonical" href={canonical} />
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta property="og:site_name" content="Kringkasting" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="Kringkasting – NRK-podkaster som RSS" />
+        <meta property="og:description" content={DESCRIPTION} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:image" content={`${origin}/og.png`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:locale" content="nb_NO" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Kringkasting – NRK-podkaster som RSS" />
+        <meta name="twitter:description" content={DESCRIPTION} />
+        <meta name="twitter:image" content={`${origin}/og.png`} />
       </head>
       <body class="relative min-h-screen flex flex-col overflow-x-clip bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
         {/* broadcast arcs radiating from the page's own corner */}

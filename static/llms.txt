@@ -1,0 +1,12 @@
+# Kringkasting
+
+> Kringkasting (https://kringkast.ing) generates open, public RSS feeds for the podcasts of NRK, Norway's public broadcaster, so listeners can subscribe in any podcast app instead of being locked into NRK's own app. Feeds include the complete episode archive of each show. The service is free, open source (AGPL-3.0), and not affiliated with NRK; all content in the feeds belongs to NRK and is fetched from NRK's open API.
+
+## How it works
+
+- Search for an NRK podcast on https://kringkast.ing and tap "Abonner i app" to subscribe in Apple Podcasts, Overcast, Pocket Casts, Castro, AntennaPod or YouTube Music. Spotify does not support open RSS feeds.
+- A feed for any NRK podcast is available at https://kringkast.ing/api/feeds/{seriesId}, where seriesId is NRK's series slug (for example https://kringkast.ing/api/feeds/oppdatert).
+
+## Source
+
+- Source code: https://github.com/matsbst/kringkasting (fork of https://github.com/olaven/nrss by Olav Sundfør)
