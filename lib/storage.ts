@@ -12,6 +12,9 @@ export type Episode = {
   bytes?: number | null;
 };
 
+/** which NRK catalog a series lives in — decides the endpoints used */
+export type CatalogKind = "podcast" | "series";
+
 export type Series = {
   id: string;
   title: string;
@@ -23,6 +26,11 @@ export type Series = {
   backlogComplete?: boolean;
   /** NRK API href of the next backlog page to crawl, null = start over/done */
   backlogCursor?: string | null;
+  catalogKind?: CatalogKind | null;
+  /** umbrella shows list episodes per season and always need full refreshes */
+  isUmbrella?: boolean;
+  /** when title/artwork was last fetched from NRK (refreshed weekly) */
+  metadataRefreshedAt?: Date | null;
   episodes: Episode[];
 };
 
@@ -35,7 +43,10 @@ CREATE TABLE IF NOT EXISTS series (
   image_url TEXT NOT NULL,
   last_fetched_at INTEGER NOT NULL,
   backlog_complete INTEGER NOT NULL DEFAULT 0,
-  backlog_cursor TEXT
+  backlog_cursor TEXT,
+  catalog_kind TEXT,
+  is_umbrella INTEGER NOT NULL DEFAULT 0,
+  metadata_refreshed_at INTEGER
 );
 CREATE TABLE IF NOT EXISTS episodes (
   series_id TEXT NOT NULL,
@@ -90,6 +101,19 @@ function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;");
   db.exec("PRAGMA busy_timeout = 5000;");
   db.exec(SCHEMA);
+  // additive migrations for databases created before these columns existed
+  const migrations = [
+    "ALTER TABLE series ADD COLUMN catalog_kind TEXT",
+    "ALTER TABLE series ADD COLUMN is_umbrella INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE series ADD COLUMN metadata_refreshed_at INTEGER",
+  ];
+  for (const migration of migrations) {
+    try {
+      db.exec(migration);
+    } catch {
+      // column already exists
+    }
+  }
   return db;
 }
 
@@ -102,6 +126,9 @@ type SeriesRow = {
   last_fetched_at: number;
   backlog_complete: number;
   backlog_cursor: string | null;
+  catalog_kind: string | null;
+  is_umbrella: number;
+  metadata_refreshed_at: number | null;
 };
 
 type EpisodeRow = {
@@ -137,6 +164,9 @@ function readSeries(options: { id: string }): Series | null {
     lastFetchedAt: new Date(row.last_fetched_at),
     backlogComplete: row.backlog_complete === 1,
     backlogCursor: row.backlog_cursor,
+    catalogKind: row.catalog_kind as CatalogKind | null,
+    isUmbrella: row.is_umbrella === 1,
+    metadataRefreshedAt: row.metadata_refreshed_at === null ? null : new Date(row.metadata_refreshed_at),
     episodes: episodeRows.map((episode) => ({
       id: episode.id,
       title: episode.title,
@@ -159,14 +189,17 @@ function readSeries(options: { id: string }): Series | null {
 function writeSeries(series: Series): boolean {
   const database = getDb();
   const upsertSeries = database.prepare(`
-    INSERT INTO series (id, title, subtitle, link, image_url, last_fetched_at)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO series (id, title, subtitle, link, image_url, last_fetched_at, catalog_kind, is_umbrella, metadata_refreshed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       subtitle = excluded.subtitle,
       link = excluded.link,
       image_url = excluded.image_url,
-      last_fetched_at = excluded.last_fetched_at
+      last_fetched_at = excluded.last_fetched_at,
+      catalog_kind = COALESCE(excluded.catalog_kind, series.catalog_kind),
+      is_umbrella = excluded.is_umbrella,
+      metadata_refreshed_at = excluded.metadata_refreshed_at
   `);
 
   database.exec("BEGIN");
@@ -178,6 +211,10 @@ function writeSeries(series: Series): boolean {
       series.link,
       series.imageUrl,
       series.lastFetchedAt.getTime(),
+      series.catalogKind ?? null,
+      series.isUmbrella ? 1 : 0,
+      // writeSeries is the full-metadata path; stamp the metadata as fresh
+      Date.now(),
     );
     insertEpisodes(database, series.id, series.episodes);
     database.exec("COMMIT");
@@ -239,6 +276,13 @@ function readEpisodeIds(seriesId: string): Set<string> {
     .prepare("SELECT id FROM episodes WHERE series_id = ?")
     .all(seriesId) as { id: string }[];
   return new Set(rows.map((row) => row.id));
+}
+
+/** renew the freshness timestamp without touching metadata (episodes-only refresh) */
+function touchLastFetched(seriesId: string): void {
+  getDb()
+    .prepare("UPDATE series SET last_fetched_at = ? WHERE id = ?")
+    .run(Date.now(), seriesId);
 }
 
 function setBacklogState(seriesId: string, cursor: string | null, complete: boolean): void {
@@ -319,6 +363,7 @@ export const storage = {
   writeSeries,
   addEpisodes,
   readEpisodeIds,
+  touchLastFetched,
   setBacklogState,
   getDataVersion,
   recordEpisodeFailure,

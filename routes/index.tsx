@@ -69,9 +69,8 @@ export default define.page<typeof handler>(function Home({ data }) {
           NRK-podkaster, i appen <span class="text-brand">du</span> velger
         </h1>
         <p class="relative mt-5 text-lg text-ink-2 dark:text-ink-2-dark max-w-lg text-pretty">
-          NRK låser podkastene sine inne i sin egen app. Det bør ikke en skattefinansiert rikskringkaster gjøre.
-          Kringkasting åpner podkastene opp igjen som helt vanlige RSS-strømmer slik at du kan bruke den i appen du
-          velger.
+          NRK låser podkastene sine inne i sin egen app. Er det dette skattepenga våre går til? Kringkasting åpner
+          podkastene opp igjen som helt vanlige RSS-strømmer slik at du kan bruke den i appen du selv velger.
         </p>
       </section>
 

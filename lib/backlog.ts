@@ -68,6 +68,7 @@ async function crawlSeries(seriesId: string) {
       cursor,
       skipEpisodeIds,
       (episodeId) => storage.recordEpisodeFailure(seriesId, episodeId),
+      series.catalogKind,
     );
     if (!page) {
       // NRK hiccup: keep the cursor so a later run resumes from here
