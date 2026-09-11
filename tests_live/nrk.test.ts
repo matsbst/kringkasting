@@ -20,12 +20,14 @@ Deno.test("Verify empty search query yields `null`", async () => {
 Deno.test("Verify getting series data for 'trygdekontoret' works", async () => {
   const result = await forTestingOnly.getSeriesData("trygdekontoret");
   assertExists(result);
+  if (result === "error") throw new Error("upstream error");
   assertGreaterOrEqual(result.episodes.length, 1);
 });
 
 Deno.test("Verify getting series data for 'trygdekontoret' works", async () => {
   const seriesData = await forTestingOnly.getSeriesData("trygdekontoret");
   assertExists(seriesData);
+  if (seriesData === "error") throw new Error("upstream error");
   const result = nrkRadio.parseSeries(seriesData);
   assertExists(result);
   assertGreaterOrEqual(result.episodes.length, 1);
@@ -35,6 +37,7 @@ Deno.test("Verify getting series data for 'trygdekontoret' works", async () => {
 Deno.test("Verify getting series for 'trygdekontoret' works", async () => {
   const result = await nrkRadio.getSeries("trygdekontoret");
   assertExists(result);
+  if (result === "error") throw new Error("upstream error");
   assertGreaterOrEqual(result.episodes.length, 1);
 });
 
@@ -71,6 +74,7 @@ Deno.test("Can get episodes for seriesnakk", async () => {
 Deno.test("Seriesnakk, an umbrella series yields all seasons", async () => {
   const seriesData = await forTestingOnly.getSeriesData("seriesnakk");
   assertExists(seriesData);
+  if (seriesData === "error") throw new Error("upstream error");
   assertGreaterOrEqual(seriesData.episodes.length, 1);
   const titles = seriesData.episodes.map((e) => e.titles.title);
 

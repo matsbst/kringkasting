@@ -77,7 +77,20 @@ async function crawlSeries(seriesId: string) {
     }
 
     if (page.episodes.length > 0) {
-      storage.addEpisodes(seriesId, page.episodes.map(nrkRadio.parseEpisode));
+      if (!storage.addEpisodes(seriesId, page.episodes.map(nrkRadio.parseEpisode))) {
+        // failed write: don't advance past episodes we didn't persist
+        console.error(`Backlog crawl for ${seriesId} paused: episode write failed`);
+        return;
+      }
+    }
+
+    if (page.transientFailures > 0) {
+      // NRK hiccups on some manifests: retry this page later instead of
+      // advancing past (and losing) those episodes forever
+      console.error(
+        `Backlog crawl for ${seriesId} paused: ${page.transientFailures} transient manifest failures`,
+      );
+      return;
     }
 
     cursor = page.nextHref;
