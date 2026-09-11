@@ -7,6 +7,8 @@ import {
   CastroIcon,
   OvercastIcon,
   PocketCastsIcon,
+  SpotifyIcon,
+  YouTubeMusicIcon,
 } from "../components/app-icons.tsx";
 
 const STORAGE_KEY = "kringkasting:podcast-app";
@@ -21,6 +23,11 @@ type PodcastApp = {
 
 function withoutScheme(feedUrl: string) {
   return feedUrl.replace(/^https?:\/\//, "");
+}
+
+/** RFC 4648 §5 base64url, the encoding YouTube Music expects */
+function base64Url(value: string) {
+  return btoa(value).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 const APPS: PodcastApp[] = [
@@ -43,6 +50,12 @@ const APPS: PodcastApp[] = [
     name: "AntennaPod",
     icon: AntennaPodIcon,
     href: (url) => `https://antennapod.org/deeplink/subscribe?url=${encodeURIComponent(url)}`,
+  },
+  {
+    id: "youtubemusic",
+    name: "YouTube Music",
+    icon: YouTubeMusicIcon,
+    href: (url) => `https://music.youtube.com/library/podcasts?addrssfeed=${base64Url(url)}`,
   },
 ];
 
@@ -147,6 +160,14 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 </a>
               </li>
             ))}
+            {/* Spotify doesn't let listeners add RSS feeds; say so where people will look for it */}
+            <li aria-disabled="true" class="flex items-center gap-3 min-h-12 px-3 select-none">
+              <span class="opacity-45">
+                <SpotifyIcon size={20} />
+              </span>
+              <span class="text-base text-ink-3 dark:text-ink-3-dark">Spotify</span>
+              <span class="ml-auto text-sm text-ink-2 dark:text-ink-2-dark">støtter ikke RSS</span>
+            </li>
             <li class="mt-1 border-t border-line dark:border-line-dark pt-1">
               <button
                 type="button"
