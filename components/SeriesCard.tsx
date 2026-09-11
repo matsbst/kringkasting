@@ -25,14 +25,14 @@ export default function SeriesCard(props: { serie: SeriesSummary; origin: string
         <img
           src={props.serie.imageUrl}
           alt=""
-          width={112}
-          height={112}
+          width={128}
+          height={128}
           loading="lazy"
-          class="size-20 sm:size-28 shrink-0 rounded-lg object-cover"
+          class="size-24 sm:size-32 shrink-0 rounded-xl object-cover"
         />
       )}
       <div class="min-w-0 flex flex-col">
-        <h3 class="text-lg font-medium leading-snug">
+        <h3 class="text-xl font-semibold leading-snug tracking-tight">
           {props.serie.title}
         </h3>
         {props.serie.description && (

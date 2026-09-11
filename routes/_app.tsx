@@ -1,5 +1,6 @@
 import { define } from "../utils.ts";
 import { IconRss } from "../components/icons.tsx";
+import BroadcastArcs from "../components/BroadcastArcs.tsx";
 
 export default define.page(function App({ Component }) {
   return (
@@ -17,14 +18,14 @@ export default define.page(function App({ Component }) {
         />
         <title>Kringkasting – NRK-podkaster som RSS</title>
       </head>
-      <body class="min-h-screen flex flex-col bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
+      <body class="relative min-h-screen flex flex-col overflow-x-clip bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
+        {/* broadcast arcs radiating from the page's own corner */}
+        <BroadcastArcs class="pointer-events-none absolute top-0 right-0 w-72 sm:w-[27rem] text-ink/10 dark:text-ink-dark/15" />
         <header class="w-full max-w-2xl mx-auto px-6 pt-10">
-          <a href="/" class="inline-flex items-center gap-2.5">
-            {/* the brand mark keeps its color; everything else stays neutral */}
-            <span class="grid place-items-center size-7 rounded-md bg-brand text-white">
-              <IconRss size={17} />
-            </span>
-            <span class="text-lg font-semibold tracking-tight">Kringkasting</span>
+          <a href="/" class="inline-flex items-center gap-2">
+            {/* the bare broadcast glyph is the page's color signature */}
+            <IconRss size={24} class="text-brand" stroke-width="2.5" />
+            <span class="text-xl font-bold tracking-tight">kringkasting</span>
           </a>
         </header>
 

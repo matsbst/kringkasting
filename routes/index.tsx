@@ -2,6 +2,7 @@ import { page } from "fresh";
 import { Head } from "fresh/runtime";
 import { define } from "../utils.ts";
 import InstantSearch from "../islands/InstantSearch.tsx";
+
 import { nrkRadio } from "../lib/nrk/nrk.ts";
 import { SeriesSummary, toSeriesSummary } from "../lib/series-summary.ts";
 import { getOrigin } from "../lib/utils.ts";
@@ -27,11 +28,11 @@ export default define.page<typeof handler>(function Home({ data }) {
         </Head>
       )}
 
-      <section class="pt-16 pb-10">
-        <h1 class="text-4xl sm:text-[2.75rem] font-semibold tracking-tight leading-[1.1] text-balance">
-          NRK-podkaster, i appen du velger
+      <section class="relative pt-20 pb-12">
+        <h1 class="relative text-5xl sm:text-6xl font-bold tracking-tight leading-[1.02] text-balance">
+          NRK-podkaster, i appen <span class="text-brand">du</span> velger
         </h1>
-        <p class="mt-4 text-lg text-ink-2 dark:text-ink-2-dark max-w-prose">
+        <p class="relative mt-5 text-lg text-ink-2 dark:text-ink-2-dark max-w-lg text-pretty">
           NRK låser podkastene sine inne i sin egen app. Kringkasting åpner dem opp igjen som helt vanlige RSS-strømmer.
         </p>
       </section>
