@@ -1,18 +1,21 @@
 import { STATUS_CODE } from "@std/http/status";
 import { define } from "../../../utils.ts";
 import { caching } from "../../../lib/caching.ts";
-import { rss } from "../../../lib/rss.ts";
+import { renderFeed } from "../../../lib/feed-cache.ts";
 import {
-  etagFor,
   etagMatches,
   getOrigin,
+  isNotModifiedSince,
   isValidResourceId,
   responseJSON,
   responseXML,
-  withExpiry,
+  withCacheHeaders,
 } from "../../../lib/utils.ts";
 
-const FEED_TTL_SECONDS = 2 * 60 * 60;
+/** what podcast clients may cache */
+const FEED_MAX_AGE_SECONDS = 30 * 60;
+/** what shared caches (Cloudflare) may cache; ~matches the hourly NRK sync */
+const FEED_S_MAXAGE_SECONDS = 60 * 60;
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -33,19 +36,24 @@ export const handler = define.handlers({
       return responseJSON({ message: "Series not found" }, STATUS_CODE.NotFound);
     }
 
-    const feed = rss.assembleFeed(series, getOrigin(ctx.req));
-    const etag = await etagFor(feed);
+    const feed = await renderFeed(series, getOrigin(ctx.req));
 
-    // podcast clients poll constantly; answer unchanged feeds with 304
-    if (etagMatches(ctx.req.headers.get("if-none-match"), etag)) {
-      return withExpiry(
-        new Response(null, { status: STATUS_CODE.NotModified, headers: { ETag: etag } }),
-        FEED_TTL_SECONDS,
-      );
-    }
+    // podcast clients poll constantly; answer unchanged feeds with 304.
+    // If-None-Match takes precedence over If-Modified-Since (RFC 9110).
+    const ifNoneMatch = ctx.req.headers.get("if-none-match");
+    const notModified = ifNoneMatch
+      ? etagMatches(ifNoneMatch, feed.etag)
+      : isNotModifiedSince(ctx.req.headers.get("if-modified-since"), feed.lastModified);
 
-    const response = responseXML(feed, STATUS_CODE.OK);
-    response.headers.set("ETag", etag);
-    return withExpiry(response, FEED_TTL_SECONDS);
+    const response = notModified
+      ? new Response(null, { status: STATUS_CODE.NotModified })
+      : responseXML(feed.xml, STATUS_CODE.OK);
+
+    response.headers.set("ETag", feed.etag);
+    response.headers.set("Last-Modified", feed.lastModified.toUTCString());
+    return withCacheHeaders(response, {
+      maxAge: FEED_MAX_AGE_SECONDS,
+      sMaxAge: FEED_S_MAXAGE_SECONDS,
+    });
   },
 });

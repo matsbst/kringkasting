@@ -79,17 +79,52 @@ function parseSeries(nrkSeriesData: SeriesData): Series {
   };
 }
 
+/**
+ * Micro-cache for search results: the homepage suggestion chips make
+ * many visitors run identical searches, and repeated queries are common.
+ * Only successful results are cached; errors always retry.
+ */
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 200;
+const searchCache = new Map<string, { expires: number; result: NrkSearchResultList }>();
+
 async function search(query: string): Promise<NrkSearchResultList | null> {
   const trimmedQuery = query.trim();
   if (trimmedQuery === "") {
     console.error("Empty search query.");
     return null;
   }
+
+  const cacheKey = trimmedQuery.toLowerCase();
+  const cached = searchCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) {
+    return cached.result;
+  }
+
   const { status, body } = await get<
     searchComponents["schemas"]["searchresult"]
   >(`${nrkAPI}/radio/search/search?q=${encodeURIComponent(trimmedQuery)}`);
   if (status === STATUS_CODE.OK && body) {
-    return body.results.series?.results ?? null;
+    const result = body.results.series?.results ?? null;
+    if (result) {
+      if (searchCache.size >= SEARCH_CACHE_MAX_ENTRIES) {
+        const now = Date.now();
+        for (const [key, entry] of searchCache) {
+          if (entry.expires <= now) {
+            searchCache.delete(key);
+          }
+        }
+        // still full of fresh entries: drop the oldest
+        if (searchCache.size >= SEARCH_CACHE_MAX_ENTRIES) {
+          const oldest = searchCache.keys().next().value;
+          if (oldest !== undefined) {
+            searchCache.delete(oldest);
+          }
+        }
+      }
+      searchCache.set(cacheKey, { expires: Date.now() + SEARCH_CACHE_TTL_MS, result });
+    }
+    return result;
   }
 
   console.error(`Something went wrong with ${trimmedQuery} - got status ${status}`);

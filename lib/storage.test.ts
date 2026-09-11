@@ -100,3 +100,19 @@ Deno.test("addEpisodes and readEpisodeIds work", () => {
 Deno.test("unknown series reads as null", () => {
   assertEquals(storage.readSeries({ id: "does-not-exist" }), null);
 });
+
+Deno.test("data version bumps on content writes only", () => {
+  const series = testUtils.generateSeries();
+  const before = storage.getDataVersion(series.id);
+
+  storage.writeSeries(series);
+  const afterWrite = storage.getDataVersion(series.id);
+  assertEquals(afterWrite > before, true);
+
+  storage.addEpisodes(series.id, [testUtils.generateEpisode()]);
+  const afterAdd = storage.getDataVersion(series.id);
+  assertEquals(afterAdd > afterWrite, true);
+
+  storage.setBacklogState(series.id, null, true);
+  assertEquals(storage.getDataVersion(series.id), afterAdd);
+});

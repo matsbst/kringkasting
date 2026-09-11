@@ -16,6 +16,10 @@ app.use(async (ctx) => {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(name, value);
   }
+  // fonts are content-stable; let browsers and the CDN keep them forever
+  if (new URL(ctx.req.url).pathname.startsWith("/fonts/")) {
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
