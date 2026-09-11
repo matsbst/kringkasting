@@ -1,5 +1,13 @@
+import { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { IconCheck, IconChevronDown, IconCopy, IconPodcast } from "../components/icons.tsx";
+import {
+  AntennaPodIcon,
+  ApplePodcastsIcon,
+  CastroIcon,
+  OvercastIcon,
+  PocketCastsIcon,
+} from "../components/app-icons.tsx";
 
 const STORAGE_KEY = "kringkasting:podcast-app";
 const CHANGE_EVENT = "kringkasting:podcast-app-changed";
@@ -7,6 +15,7 @@ const CHANGE_EVENT = "kringkasting:podcast-app-changed";
 type PodcastApp = {
   id: string;
   name: string;
+  icon: (props: { size?: number }) => ComponentChildren;
   href: (feedUrl: string) => string;
 };
 
@@ -15,13 +24,24 @@ function withoutScheme(feedUrl: string) {
 }
 
 const APPS: PodcastApp[] = [
-  { id: "apple", name: "Apple Podcasts", href: (url) => `podcast://${withoutScheme(url)}` },
-  { id: "overcast", name: "Overcast", href: (url) => `overcast://x-callback-url/add?url=${encodeURIComponent(url)}` },
-  { id: "pocketcasts", name: "Pocket Casts", href: (url) => `pktc://subscribe/${withoutScheme(url)}` },
-  { id: "castro", name: "Castro", href: (url) => `castro://subscribe/${withoutScheme(url)}` },
+  { id: "apple", name: "Apple Podcasts", icon: ApplePodcastsIcon, href: (url) => `podcast://${withoutScheme(url)}` },
+  {
+    id: "overcast",
+    name: "Overcast",
+    icon: OvercastIcon,
+    href: (url) => `overcast://x-callback-url/add?url=${encodeURIComponent(url)}`,
+  },
+  {
+    id: "pocketcasts",
+    name: "Pocket Casts",
+    icon: PocketCastsIcon,
+    href: (url) => `pktc://subscribe/${withoutScheme(url)}`,
+  },
+  { id: "castro", name: "Castro", icon: CastroIcon, href: (url) => `castro://subscribe/${withoutScheme(url)}` },
   {
     id: "antennapod",
     name: "AntennaPod",
+    icon: AntennaPodIcon,
     href: (url) => `https://antennapod.org/deeplink/subscribe?url=${encodeURIComponent(url)}`,
   },
 ];
@@ -82,7 +102,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
               href={chosen.href(props.feedUrl)}
               class={`${primaryButton} rounded-r-none px-3 py-2`}
             >
-              <IconPodcast size={15} /> Åpne i {chosen.name}
+              <chosen.icon size={15} /> Åpne i {chosen.name}
             </a>
             <button
               type="button"
@@ -120,8 +140,9 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 <a
                   href={app.href(props.feedUrl)}
                   onClick={() => remember(app)}
-                  class="flex items-center min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors"
+                  class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors"
                 >
+                  <app.icon size={20} />
                   {app.name}
                 </a>
               </li>
@@ -130,9 +151,9 @@ export default function SubscribeButton(props: { feedUrl: string }) {
               <button
                 type="button"
                 onClick={copyLink}
-                class="flex w-full items-center gap-2 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer"
+                class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer"
               >
-                {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
+                {copied ? <IconCheck size={20} /> : <IconCopy size={20} />}
                 {copied ? "Kopiert!" : "Kopier RSS-lenke"}
               </button>
             </li>

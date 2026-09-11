@@ -1,4 +1,3 @@
-import CopyButton from "../islands/CopyButton.tsx";
 import SubscribeButton from "../islands/SubscribeButton.tsx";
 import type { SeriesSummary } from "../lib/series-summary.ts";
 
@@ -29,7 +28,6 @@ export default function SeriesCard(props: { serie: SeriesSummary; origin: string
         )}
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <SubscribeButton feedUrl={feedUrl} />
-          <CopyButton copyText={feedUrl} label="Kopier RSS-lenke" />
           <a
             href={nrkUrl}
             class="px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark transition-colors"
