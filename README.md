@@ -18,6 +18,10 @@ Kringkasting started as a fork of [olaven/nrss](https://github.com/olaven/nrss).
 
 NRK, Norway's government-funded public broadcaster, locks its podcasts into its own app instead of building on open standards like RSS. Kringkasting opens them back up.
 
+## NRK API usage
+
+The service is built to be a considerate consumer of NRK's open API: subscriber traffic never reaches NRK, refresh cadence adapts to how actively a show publishes, and audio/artwork is always served directly from NRK's own CDNs. [docs/nrk-api-usage.md](./docs/nrk-api-usage.md) (in Norwegian, addressed to NRK) documents every endpoint used, the exact request cadence, and all load-limiting measures.
+
 ## Local development
 
 1. [Install Deno](https://docs.deno.com/runtime/getting_started/installation/) (2.x)
