@@ -68,6 +68,8 @@ const APPS: PodcastApp[] = [
 export default function SubscribeButton(props: { feedUrl: string }) {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // incremented per tap; keyed span re-runs the pulse-ring animation
+  const [pulse, setPulse] = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -104,7 +106,10 @@ export default function SubscribeButton(props: { feedUrl: string }) {
   };
 
   const primaryButton =
-    "inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer";
+    "relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer";
+  const pulseRing = pulse > 0 && (
+    <span key={pulse} class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" />
+  );
 
   return (
     <>
@@ -113,9 +118,11 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           <span class="inline-flex">
             <a
               href={chosen.href(props.feedUrl)}
+              onClick={() => setPulse((count) => count + 1)}
               class={`${primaryButton} rounded-r-none px-3 py-2`}
             >
               <chosen.icon size={15} /> Åpne i {chosen.name}
+              {pulseRing}
             </a>
             <button
               type="button"
@@ -128,8 +135,16 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           </span>
         )
         : (
-          <button type="button" onClick={open} class={`${primaryButton} px-3 py-2`}>
+          <button
+            type="button"
+            onClick={() => {
+              setPulse((count) => count + 1);
+              open();
+            }}
+            class={`${primaryButton} px-3 py-2`}
+          >
             <IconPodcast size={15} /> Abonner i app
+            {pulseRing}
           </button>
         )}
 

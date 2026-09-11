@@ -1,0 +1,14 @@
+{
+  "name": "Kringkasting",
+  "short_name": "Kringkasting",
+  "description": "NRK-podkaster som åpne RSS-strømmer",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "no",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
