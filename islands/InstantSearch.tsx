@@ -202,14 +202,14 @@ function HowItWorks(props: { onSuggestion: (query: string) => void }) {
       </section>
 
       <section class="mt-28">
-        <h2 class="text-xl font-semibold mb-10">Slik funker det</h2>
-        <ol class="grid sm:grid-cols-3 gap-x-8 gap-y-10">
+        <h2 class="text-xl font-semibold mb-6">Slik funker det</h2>
+        <ol class="grid sm:grid-cols-3 gap-3">
           {steps.map(([title, description], index) => (
-            <li key={title}>
-              <p class="text-6xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">
+            <li key={title} class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6">
+              <p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">
                 0{index + 1}
               </p>
-              <h3 class="mt-4 font-semibold">{title}</h3>
+              <h3 class="mt-5 font-semibold">{title}</h3>
               <p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">{description}</p>
             </li>
           ))}
