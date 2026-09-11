@@ -103,8 +103,11 @@ const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 200;
 const searchCache = new Map<string, { expires: number; result: NrkSearchResultList }>();
 
+/** queries are clamped here so no entry point can forget the limit */
+const MAX_SEARCH_QUERY_LENGTH = 100;
+
 async function search(query: string): Promise<NrkSearchResultList | null> {
-  const trimmedQuery = query.trim();
+  const trimmedQuery = query.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
   if (trimmedQuery === "") {
     console.error("Empty search query.");
     return null;

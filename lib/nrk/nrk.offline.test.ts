@@ -284,3 +284,16 @@ Deno.test("search returns [] for no matches and null for outages", async () => {
     globalThis.fetch = original;
   }
 });
+
+Deno.test("search queries are clamped to 100 characters at the choke point", async () => {
+  const stub = stubNrk();
+  try {
+    await nrkRadio.search("a".repeat(300));
+    const searchCall = stub.requests.find((line) => line.includes("/radio/search/search"));
+    assertExists(searchCall);
+    const sent = new URL(searchCall!.split(" ")[1]).searchParams.get("q")!;
+    assertEquals(sent.length, 100);
+  } finally {
+    stub.restore();
+  }
+});
