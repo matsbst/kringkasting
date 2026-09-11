@@ -2,7 +2,17 @@ import { STATUS_CODE } from "@std/http/status";
 import { define } from "../../../utils.ts";
 import { caching } from "../../../lib/caching.ts";
 import { rss } from "../../../lib/rss.ts";
-import { getOrigin, isValidResourceId, responseJSON, responseXML, withExpiry } from "../../../lib/utils.ts";
+import {
+  etagFor,
+  etagMatches,
+  getOrigin,
+  isValidResourceId,
+  responseJSON,
+  responseXML,
+  withExpiry,
+} from "../../../lib/utils.ts";
+
+const FEED_TTL_SECONDS = 2 * 60 * 60;
 
 export const handler = define.handlers({
   async GET(ctx) {
@@ -24,11 +34,18 @@ export const handler = define.handlers({
     }
 
     const feed = rss.assembleFeed(series, getOrigin(ctx.req));
+    const etag = await etagFor(feed);
 
-    return withExpiry(
-      responseXML(feed, STATUS_CODE.OK),
-      // 2 hours
-      2 * 60 * 60,
-    );
+    // podcast clients poll constantly; answer unchanged feeds with 304
+    if (etagMatches(ctx.req.headers.get("if-none-match"), etag)) {
+      return withExpiry(
+        new Response(null, { status: STATUS_CODE.NotModified, headers: { ETag: etag } }),
+        FEED_TTL_SECONDS,
+      );
+    }
+
+    const response = responseXML(feed, STATUS_CODE.OK);
+    response.headers.set("ETag", etag);
+    return withExpiry(response, FEED_TTL_SECONDS);
   },
 });

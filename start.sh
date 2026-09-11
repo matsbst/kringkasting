@@ -6,8 +6,8 @@ set -eu
 export DENO_DIR=/run/deno-cache
 mkdir -p "${DENO_DIR}"
 
-# the Deno KV database (cache of podcast metadata) lives on the data volume
-export NRSS_KV_PATH=/app/data/cache.sqlite3
+# the SQLite database (podcast metadata + full episode archive)
+export NRSS_DB_PATH=/app/data/nrss.sqlite3
 
 chown -R cloudron:cloudron /app/data "${DENO_DIR}"
 
@@ -17,7 +17,6 @@ exec /usr/local/bin/gosu cloudron:cloudron /usr/local/bin/deno serve \
   --allow-env \
   --allow-read=/app/code,/app/data,/run/deno-cache \
   --allow-write=/app/data,/run/deno-cache \
-  --unstable-kv \
   --host 0.0.0.0 \
   --port 8000 \
   /app/code/_fresh/server.js

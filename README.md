@@ -4,8 +4,12 @@ A self-hostable web app that generates open, public RSS feeds for NRK's podcasts
 
 This is a fork of [olaven/nrss](https://github.com/olaven/nrss), rebuilt to run on a [Cloudron](https://www.cloudron.io/) server (or anywhere Docker runs). Notable differences from upstream:
 
+- **Full episode archives**: a background crawler pages through each series' complete backlog, so feeds aren't limited to the latest ~20 episodes (fixes upstream [issue #8](https://github.com/olaven/NRSS/issues/8))
+- Storage on plain **SQLite** (built-in `node:sqlite`) instead of Deno KV
+- **Conditional GETs**: feeds answer `304 Not Modified` to polling podcast clients
+- Feeds carry real enclosure byte sizes, `atom:link rel=self`, `language`, and use the registered `audio/mpeg` MIME type
 - Migrated from Fresh 1.x + twind to **Fresh 2 + Tailwind CSS 4** (vite-based build)
-- Redesigned UI
+- Redesigned UI with one-tap subscribe links (Apple Podcasts, Overcast, Pocket Casts, Castro, AntennaPod)
 - Removed the Vipps donation integration
 - All remote `https://` imports replaced with local code or `npm:`/`jsr:` packages
 - Docker + Cloudron packaging, image built by GitHub Actions and published to ghcr.io
@@ -43,10 +47,10 @@ cloudron update --app nrss --image ghcr.io/matsbst/nrss:latest
 
 Configuration (set automatically by `start.sh` / Cloudron):
 
-| Env var                              | Purpose                                                                                                                                                                  |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `NRSS_KV_PATH`                       | Path of the Deno KV database used as a metadata cache (`/app/data/cache.sqlite3` on Cloudron). The data is a disposable cache; losing it just means refetching from NRK. |
-| `APP_ORIGIN` / `CLOUDRON_APP_ORIGIN` | Public origin used for absolute URLs inside the RSS feeds. Falls back to the request origin.                                                                             |
+| Env var                              | Purpose                                                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NRSS_DB_PATH`                       | Path of the SQLite database holding podcast metadata and the crawled episode archives (`/app/data/nrss.sqlite3` on Cloudron). Losing it means archives get re-crawled from NRK. |
+| `APP_ORIGIN` / `CLOUDRON_APP_ORIGIN` | Public origin used for absolute URLs inside the RSS feeds. Falls back to the request origin.                                                                                    |
 
 ## Running with plain Docker
 
@@ -58,7 +62,7 @@ docker run -p 8000:8000 -v nrss-data:/app/data nrss
 ## Known problems
 
 - Some podcast clients don't accept feeds over HTTPS only. See [this upstream workaround](https://github.com/olaven/NRSS/issues/5#issuecomment-1488840679).
-- Feeds only include the latest episodes of a podcast, not the entire archive (upstream [issue #8](https://github.com/olaven/NRSS/issues/8)). A background backlog fetcher is a planned improvement of this fork.
+- The full archive of a series is crawled in the background after the first request, so a brand-new feed briefly shows only the latest ~50 episodes before growing to completion (usually within a few minutes).
 
 ## License
 

@@ -13,6 +13,26 @@ export type GetResult<T> = {
   body: T | null;
 };
 
+/** HEAD request returning the Content-Length, for enclosure byte sizes */
+export async function head(url: string): Promise<{ status: number; contentLength: number | null }> {
+  try {
+    const response = await fetch(url, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    await response.body?.cancel();
+    const raw = response.headers.get("content-length");
+    const contentLength = raw ? Number.parseInt(raw, 10) : null;
+    return {
+      status: response.status,
+      contentLength: Number.isFinite(contentLength as number) ? contentLength : null,
+    };
+  } catch (error) {
+    console.error(`HEAD ${url} failed: ${error}`);
+    return { status: 0, contentLength: null };
+  }
+}
+
 export async function get<T>(url: string): Promise<GetResult<T>> {
   try {
     const response = await fetch(url, {

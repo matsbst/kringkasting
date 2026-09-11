@@ -1,6 +1,6 @@
 import { STATUS_CODE } from "@std/http/status";
-import { get } from "../http.ts";
-import { Series } from "../storage.ts";
+import { get, head } from "../http.ts";
+import { Episode, Series } from "../storage.ts";
 import { components as catalogComponents } from "./nrk-catalog.ts";
 import { external as playbackComponents } from "./nrk-playback.ts";
 import { components as searchComponents } from "./nrk-search.ts";
@@ -14,7 +14,7 @@ type RadioSeries = catalogComponents["schemas"]["SeriesHalResource"];
 type SeasonEpisodes = catalogComponents["schemas"]["PodcastSeasonHalResource"];
 
 export type NrkSerie = catalogComponents["schemas"]["SeriesViewModel"];
-export type NrkOriginalEpisode = PodcastEpisodesSingle & { url: string };
+export type NrkOriginalEpisode = PodcastEpisodesSingle & { url: string; bytes?: number | null };
 export type NrkPodcastEpisode = catalogComponents["schemas"]["PodcastEpisodeHalResource"];
 export type NrkSearchResultList = searchComponents["schemas"]["seriesResult"]["results"];
 export type SearchResult = ArrayElement<NrkSearchResultList> & {
@@ -36,6 +36,9 @@ const nrkAPI = `https://psapi.nrk.no`;
  */
 const NRK_FETCH_CONCURRENCY = 6;
 
+/** the background backlog crawl is gentler than interactive requests */
+const BACKLOG_FETCH_CONCURRENCY = 3;
+
 /** map over items with at most `limit` promises in flight */
 async function mapConcurrent<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = new Array(items.length);
@@ -50,6 +53,19 @@ async function mapConcurrent<T, R>(items: T[], limit: number, fn: (item: T) => P
   return results;
 }
 
+function parseEpisode(episode: NrkOriginalEpisode): Episode {
+  return {
+    id: episode.id,
+    title: episode.titles.title,
+    subtitle: episode.titles.subtitle ?? null,
+    url: episode.url,
+    shareLink: episode._links.share?.href ?? "",
+    date: new Date(episode.date),
+    durationInSeconds: episode.durationInSeconds,
+    bytes: episode.bytes ?? null,
+  };
+}
+
 function parseSeries(nrkSeriesData: SeriesData): Series {
   const imageUrl = nrkSeriesData.squareImage?.at(-1)?.url ?? "";
   return {
@@ -59,17 +75,7 @@ function parseSeries(nrkSeriesData: SeriesData): Series {
     link: `https://radio.nrk.no/podkast/${nrkSeriesData.id}`,
     imageUrl: imageUrl,
     lastFetchedAt: new Date(),
-    episodes: nrkSeriesData.episodes.map((episode) => {
-      return {
-        id: episode.id,
-        title: episode.titles.title,
-        subtitle: episode.titles.subtitle ?? null,
-        url: episode.url,
-        shareLink: episode._links.share?.href ?? "",
-        date: new Date(episode.date),
-        durationInSeconds: episode.durationInSeconds,
-      };
-    }),
+    episodes: nrkSeriesData.episodes.map(parseEpisode),
   };
 }
 
@@ -225,14 +231,76 @@ async function getEpisodeWithDownloadLink(
     return null;
   }
 
-  return { ...episode, url };
+  // RSS enclosures want the file size in bytes
+  const { contentLength } = await head(url);
+
+  return { ...episode, url, bytes: contentLength };
+}
+
+export type EpisodePage = {
+  episodes: NrkOriginalEpisode[];
+  /** NRK API href of the next page, or null when this was the last page */
+  nextHref: string | null;
+};
+
+/**
+ * Fetch one page of a series' episode archive, resolving download links
+ * only for episodes not in `knownEpisodeIds`. Pass cursorHref=null to
+ * start from the first page (both podcast and radio-series catalogs are
+ * tried); afterwards pass the returned nextHref.
+ *
+ * Returns null when the page could not be fetched — the caller can retry
+ * later from the same cursor.
+ */
+async function getEpisodePage(
+  seriesId: string,
+  cursorHref: string | null,
+  knownEpisodeIds: Set<string>,
+): Promise<EpisodePage | null> {
+  let href = cursorHref;
+  let body: PodcastEpisodes | null = null;
+
+  if (href) {
+    ({ body } = await get<PodcastEpisodes>(`${nrkAPI}${href.startsWith("/") ? "" : "/"}${href}`));
+  } else {
+    for (const catalog of ["podcast", "series"] as const) {
+      href = `/radio/catalog/${catalog}/${seriesId}/episodes?page=1&pageSize=50`;
+      ({ body } = await get<PodcastEpisodes>(`${nrkAPI}${href}`));
+      if (body) {
+        break;
+      }
+    }
+  }
+
+  if (!body || !href) {
+    return null;
+  }
+
+  // the catalog kind in the href decides which playback endpoint to use
+  const type = href.includes("/catalog/series/") ? "series" : "podcast";
+
+  const candidates = body._embedded.episodes ?? [];
+  const newCandidates = candidates.filter((episode) => !knownEpisodeIds.has(episode.id));
+
+  const episodes = await mapConcurrent(
+    newCandidates,
+    BACKLOG_FETCH_CONCURRENCY,
+    (episode) => getEpisodeWithDownloadLink(episode, type),
+  );
+
+  return {
+    episodes: episodes.filter((episode): episode is NrkOriginalEpisode => episode !== null),
+    nextHref: body._links.next?.href ?? null,
+  };
 }
 
 export const nrkRadio = {
   search,
   getSeries,
   getEpisode,
+  getEpisodePage,
   parseSeries,
+  parseEpisode,
 };
 
 export const forTestingOnly = {

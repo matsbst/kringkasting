@@ -4,13 +4,10 @@
     "check": "deno fmt --check . && deno lint . && deno check",
     "dev": "vite",
     "build": "vite build",
-    "start": "deno serve -A --unstable-kv _fresh/server.js",
-    "test": "deno test -A --unstable-kv lib/",
+    "start": "deno serve -A _fresh/server.js",
+    "test": "NRSS_DB_PATH=:memory: deno test -A lib/",
     "types:nrk": "deno run -A generate-types.ts && deno fmt ./lib"
   },
-  "unstable": [
-    "kv"
-  ],
   "lint": {
     "rules": {
       "tags": [
@@ -45,8 +42,7 @@
       "dom",
       "dom.asynciterable",
       "dom.iterable",
-      "deno.ns",
-      "deno.unstable"
+      "deno.ns"
     ],
     "jsx": "precompile",
     "jsxImportSource": "preact",

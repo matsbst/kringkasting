@@ -29,6 +29,26 @@ export function isValidResourceId(id: string): boolean {
   return RESOURCE_ID_PATTERN.test(id);
 }
 
+/** strong ETag (quoted SHA-1 hex) for a response body */
+export async function etagFor(content: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(content));
+  const hex = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `"${hex}"`;
+}
+
+/** does an If-None-Match header value match the given ETag? */
+export function etagMatches(ifNoneMatch: string | null, etag: string): boolean {
+  if (!ifNoneMatch) {
+    return false;
+  }
+  return ifNoneMatch
+    .split(",")
+    .map((candidate) => candidate.trim().replace(/^W\//, ""))
+    .some((candidate) => candidate === etag || candidate === "*");
+}
+
 export function responseJSON(body: unknown | null, status: Status) {
   const stringifiedBody = JSON.stringify(body);
   return response(stringifiedBody, status, "json");

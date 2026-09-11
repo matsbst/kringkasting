@@ -9,17 +9,16 @@ function generateSeries(overrides: Partial<Series> = {}): Series {
     link: faker.internet.url(),
     imageUrl: faker.image.url(),
     lastFetchedAt: faker.date.recent(),
-    episodes: new Array(faker.number.int({ min: 0, max: 100 }))
-      .fill(null).map(() => (generateEpisode(overrides))),
+    episodes: new Array(faker.number.int({ min: 1, max: 100 }))
+      .fill(null).map(() => generateEpisode()),
     ...overrides,
   };
 }
 
-function generateEpisode(overrides: Partial<Series> = {}): Episode {
+function generateEpisode(overrides: Partial<Episode> = {}): Episode {
   return {
     title: faker.word.words(3),
     subtitle: faker.word.words(3),
-    link: faker.internet.url(),
     url: faker.internet.url(),
     shareLink: faker.internet.url(),
     id: faker.string.uuid(),
@@ -28,6 +27,7 @@ function generateEpisode(overrides: Partial<Series> = {}): Episode {
       min: 0,
       max: 3600,
     }),
+    bytes: null,
     ...overrides,
   };
 }

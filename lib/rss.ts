@@ -18,7 +18,14 @@ function assembleFeed(series: Series, origin: string): string {
         tag("channel", [
           tag("title", series.title),
           tag("link", series.link),
+          tag("language", "no"),
+          tag("atom:link", "", [
+            ["href", `${origin}/api/feeds/${series.id}`],
+            ["rel", "self"],
+            ["type", "application/rss+xml"],
+          ]),
           tag("itunes:author", "NRK"),
+          tag("itunes:explicit", "false"),
           /**
            * serie.category.id does not overlap with Apple's supported categories..
            * These podcast feeds are not going to be indexed in itunes anyways, so
@@ -50,6 +57,7 @@ function assembleFeed(series: Series, origin: string): string {
         ["xmlns:itunes", "http://www.itunes.com/dtds/podcast-1.0.dtd"],
         ["xmlns:content", "http://purl.org/rss/1.0/modules/content/"],
         ["xmlns:podcast", "https://podcastindex.org/namespace/1.0"],
+        ["xmlns:atom", "http://www.w3.org/2005/Atom"],
       ],
     ),
   );
@@ -72,9 +80,8 @@ function assembleEpisode(episode: Episode, seriesId: Series["id"], origin: strin
     ]),
     tag("enclosure", "", [
       ["url", episode.url],
-      // RSS defines length as the file size in bytes; NRK's API does not
-      // expose it, and "0" is the conventional value for "unknown"
-      ["length", "0"],
+      // RSS defines length as the file size in bytes ("0" = unknown)
+      ["length", (episode.bytes ?? 0).toString()],
       ["type", "audio/mpeg"],
     ]),
   ]);

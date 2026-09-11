@@ -1,10 +1,9 @@
 import { nrkRadio } from "./nrk/nrk.ts";
 import { Series, storage } from "./storage.ts";
+import { enqueueBacklogCrawl } from "./backlog.ts";
 import * as datetime from "@std/datetime";
-import { Buffer } from "node:buffer";
 
 const SYNC_INTERVAL_HOURS = 1;
-const DENO_KV_MAX_BYTES = 65_536;
 
 /** remember ids NRK doesn't know for a while, so garbage requests are cheap */
 const NOT_FOUND_TTL_MS = 10 * 60 * 1000;
@@ -19,18 +18,18 @@ async function initialFetch(options: { id: string }): Promise<Series | null> {
     return null;
   }
 
-  const trimmed = trimSeriesToSize(series, DENO_KV_MAX_BYTES);
-  const stored = await storage.writeSeries(trimmed);
-  if (!stored) {
+  if (!storage.writeSeries(series)) {
     // still serve the fetched data; only persisting failed
     console.error(`Failed to store series ${options.id}`);
+    return series;
   }
 
-  return trimmed;
+  return storage.readSeries(options) ?? series;
 }
 
 async function updateFetch(existingSeries: Series): Promise<Series> {
   const knownEpisodeIds = new Set(existingSeries.episodes.map((episode) => episode.id));
+  // incremental: only NEW episodes get playback-manifest lookups
   const update = await nrkRadio.getSeries(existingSeries.id, knownEpisodeIds);
   if (!update) {
     // NRK outage or rate limiting: serve the stale copy rather than
@@ -39,43 +38,14 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
     return existingSeries;
   }
 
-  /**
-   * `update.episodes` only contains episodes we did not already know
-   * about. Since we don't control the API, we should not make
-   * assumptions about the order, but rather sort to what we want.
-   */
-  const episodesSortedDescending = [...update.episodes, ...existingSeries.episodes]
-    .sort((a, b) => a.date.getTime() > b.date.getTime() ? -1 : 1);
-
-  const refreshed: Series = {
-    ...update,
-    lastFetchedAt: new Date(),
-    episodes: episodesSortedDescending,
-  };
-
-  /**
-   * The KV store has a limit of 64kb per value.
-   * A pragmatic (not perfect) solution is to trim the series
-   * down until we're within the limit.
-   */
-  const trimmed = trimSeriesToSize(refreshed, DENO_KV_MAX_BYTES);
-
-  const updateSuccessful = await storage.writeSeries(trimmed);
-  if (!updateSuccessful) {
+  // upserts metadata + new episodes and renews lastFetchedAt;
+  // existing episodes are kept, so the archive accumulates
+  if (!storage.writeSeries(update)) {
     console.error(`Failed to update series ${existingSeries.id}`);
+    return existingSeries;
   }
 
-  return trimmed;
-}
-
-function trimSeriesToSize(series: Series, bytes: number): Series {
-  let episodes = series.episodes;
-  let trimmed = series;
-  while (Buffer.byteLength(JSON.stringify(trimmed)) > bytes && episodes.length > 0) {
-    episodes = episodes.slice(0, -1);
-    trimmed = { ...series, episodes };
-  }
-  return trimmed;
+  return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
 }
 
 function getTimeSinceLastFetch(inputDate: Date, againstDate = new Date()): number | null {
@@ -95,26 +65,26 @@ function isSeriesFromStorageNew(
 }
 
 async function fetchSeries(options: { id: string }): Promise<Series | null> {
-  const seriesFromStorage = await storage.readSeries(options);
+  const seriesFromStorage = storage.readSeries(options);
 
-  /**
-   * We don't have the feed in storage,
-   * and we need to fetch it for the first time.
-   */
+  let series: Series | null;
   if (seriesFromStorage === null) {
-    return await initialFetch(options);
+    // first time we see this feed
+    series = await initialFetch(options);
+  } else if (isSeriesFromStorageNew(seriesFromStorage)) {
+    // cached and fresh
+    series = seriesFromStorage;
+  } else {
+    // cached but stale
+    series = await updateFetch(seriesFromStorage);
   }
 
-  // we have the feed in storage and it's not too old
-  if (isSeriesFromStorageNew(seriesFromStorage)) {
-    return seriesFromStorage;
+  // make sure the full archive gets (or resumes getting) crawled
+  if (series && !series.backlogComplete) {
+    enqueueBacklogCrawl(series.id);
   }
 
-  /**
-   * We have the feed in storage, but it's too old
-   * and needs to be refreshed.
-   */
-  return await updateFetch(seriesFromStorage);
+  return series;
 }
 
 function pruneExpired(map: Map<string, number>) {
@@ -159,5 +129,4 @@ export const caching = {
 export const forTestingOnly = {
   getTimeSinceLastFetch,
   isSeriesFromStorageNew,
-  trimSeriesToSize,
 };

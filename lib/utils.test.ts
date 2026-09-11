@@ -1,5 +1,5 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
-import { isValidResourceId, responseJSON, responseXML, withExpiry } from "./utils.ts";
+import { etagFor, etagMatches, isValidResourceId, responseJSON, responseXML, withExpiry } from "./utils.ts";
 
 Deno.test("JSON response is stringified", async () => {
   const body = { message: "Hello, World!" };
@@ -63,4 +63,23 @@ Deno.test("path-traversal and garbage resource ids are rejected", () => {
   for (const id of ["", "..", "../series", "a/b", "a?x=1", "a#b", "a b", "a%2Fb", "x".repeat(101)]) {
     assertEquals(isValidResourceId(id), false, id);
   }
+});
+
+Deno.test("etagFor is stable and quoted", async () => {
+  const first = await etagFor("<rss>abc</rss>");
+  const second = await etagFor("<rss>abc</rss>");
+  const other = await etagFor("<rss>def</rss>");
+  assertEquals(first, second);
+  assertNotEquals(first, other);
+  assertEquals(first.startsWith('"') && first.endsWith('"'), true);
+});
+
+Deno.test("etagMatches handles lists, weak validators and wildcard", async () => {
+  const etag = await etagFor("x");
+  assertEquals(etagMatches(etag, etag), true);
+  assertEquals(etagMatches(`"nope", ${etag}`, etag), true);
+  assertEquals(etagMatches(`W/${etag}`, etag), true);
+  assertEquals(etagMatches("*", etag), true);
+  assertEquals(etagMatches('"nope"', etag), false);
+  assertEquals(etagMatches(null, etag), false);
 });
