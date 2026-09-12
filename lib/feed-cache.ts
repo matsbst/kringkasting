@@ -1,4 +1,4 @@
-import { Series, storage } from "./storage.ts";
+import { Series } from "./storage.ts";
 import { rss } from "./rss.ts";
 import { etagFor } from "./utils.ts";
 
