@@ -1,52 +1,46 @@
-# Bruk av NRKs API (psapi.nrk.no)
+# Use of NRK's API (psapi.nrk.no)
 
-_Dette dokumentet er skrevet for NRK: en fullstendig og ærlig oversikt over hvilke forespørsler Kringkasting gjør mot NRKs åpne API, hvor ofte, og hvilke tiltak som er gjort for å belaste tjenestene minst mulig. Spørsmål eller ønsker om endring? [Opprett en sak her på GitHub](../../issues) — vi retter oss etter dem._
+## What the service does
 
-## Hva tjenesten gjør
+Kringkasting ([kringkast.ing](https://kringkast.ing)) generates open RSS feeds for NRK's podcasts, so listeners can subscribe in the podcast app of their choice. The service is non-commercial, open source (AGPL-3.0), and unaffiliated with NRK. **All audio and artwork is served directly from NRK's CDNs** (`podkast.nrk.no`, `gfx.nrk.no`) to the listener's client — we never proxy or cache media files.
 
-Kringkasting ([kringkast.ing](https://kringkast.ing)) genererer åpne RSS-strømmer for NRK sine podkaster, slik at lyttere kan abonnere i valgfri podkast-app. Tjenesten er ikke-kommersiell, åpen kildekode (AGPL-3.0) og uten tilknytning til NRK. **Alt lyd- og bildeinnhold leveres direkte fra NRK sine CDN-er** (`podkast.nrk.no`, `gfx.nrk.no`) til lytterens klient — vi proxyer eller mellomlagrer aldri mediefiler.
+The central design principle: **the number of listeners does not affect the load on NRK.** All subscriber polling is answered from our own database and CDN edge; NRK only sees the service's own scheduled refreshes.
 
-Det sentrale designprinsippet: **antall lyttere påvirker ikke belastningen på NRK.** Alle abonnent-oppslag besvares fra vår egen database og CDN-kant; NRK ser kun tjenestens egne, planlagte oppdateringer.
+## Endpoints used
 
-## Endepunkter som brukes
+| Endpoint                                                | When                               | Frequency                                                         |
+| ------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| `GET /radio/search/search?q=`                           | A user searches on the site        | Cached 5 min per query                                            |
+| `GET /radio/search/categories/podcast`                  | Catalog listing (suggestion chips) | ~7 paged requests per day, total                                  |
+| `GET /radio/catalog/{podcast\|series}/{id}`             | Series metadata (title/artwork)    | On first lookup, then at most weekly per series                   |
+| `GET /radio/catalog/{podcast\|series}/{id}/episodes`    | New episodes                       | Adaptive per series: see the table below                          |
+| `GET …/episodes?page=N&pageSize=50`                     | One-time archive crawl per series  | Sequential with a 1 s pause between pages; resumes if interrupted |
+| `GET /playback/manifest/{podcast\|program}/{episodeId}` | Episode download link              | Once per new episode                                              |
+| `HEAD` on the MP3 at `podkast.nrk.no`                   | File size for the RSS enclosure    | Once per new episode                                              |
+| `GET …/episodes/{episodeId}`                            | Chapter data                       | Only when a podcast app requests chapters                         |
 
-| Endepunkt                                               | Når                                | Frekvens                                                       |
-| ------------------------------------------------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `GET /radio/search/search?q=`                           | Bruker søker på nettsiden          | Mellomlagret 5 min per søkeord                                 |
-| `GET /radio/search/categories/podcast`                  | Katalogliste (forslags-chips)      | ~7 sideforespørsler per døgn, totalt                           |
-| `GET /radio/catalog/{podcast\|series}/{id}`             | Seriemetadata (tittel/omslag)      | Ved første oppslag, deretter maks ukentlig per serie           |
-| `GET /radio/catalog/{podcast\|series}/{id}/episodes`    | Nye episoder                       | Adaptivt per serie: se tabellen under                          |
-| `GET …/episodes?page=N&pageSize=50`                     | Engangs arkiv-innhenting per serie | Sekvensielt med 1 s pause mellom sider; gjenopptas ved avbrudd |
-| `GET /playback/manifest/{podcast\|program}/{episodeId}` | Nedlastingslenke for episode       | Én gang per ny episode                                         |
-| `HEAD` på MP3 hos `podkast.nrk.no`                      | Filstørrelse til RSS-enclosure     | Én gang per ny episode                                         |
-| `GET …/episodes/{episodeId}`                            | Kapittel-data                      | Kun når en podkast-app ber om kapitler                         |
+## Refresh frequency per series (adaptive)
 
-## Oppdateringsfrekvens per serie (adaptiv)
+How often a series is checked for new episodes depends on how active it is:
 
-Hvor ofte en serie sjekkes for nye episoder styres av hvor aktiv den er:
+| Newest episode                  | Checked       |
+| ------------------------------- | ------------- |
+| < 2 days old                    | hourly        |
+| < 30 days                       | every 6 hours |
+| older (dormant/finished series) | once per day  |
 
-| Nyeste episode                    | Sjekkes          |
-| --------------------------------- | ---------------- |
-| < 2 døgn gammel                   | hver time        |
-| < 30 døgn                         | hver 6. time     |
-| eldre (sovende/avsluttede serier) | én gang i døgnet |
+With random jitter, so refreshes don't cluster on the hour. A series is also only checked as long as someone actually subscribes to it: series without requests are garbage-collected after 90 days.
 
-Med tilfeldig jitter, slik at oppdateringer ikke klumper seg på hel time. En serie sjekkes dessuten bare så lenge noen faktisk abonnerer på den: serier uten forespørsler ryddes bort etter 90 dager.
+## Load-limiting measures
 
-## Belastningsbegrensende tiltak
+- **Subscriber polling never reaches NRK**: RSS feeds are cached in our own database and at the CDN edge (ETag/304 toward clients). A series costs NRK the same with 1 or 10,000 subscribers.
+- **Incremental refreshes**: a refresh fetches only the episode listing (1 request); manifest lookups are made only for episodes we don't already have.
+- **Backoff for unavailable episodes**: episodes without a playable manifest (geo-blocked/expired) are retried with exponential backoff (1 → 30 days), not on every refresh.
+- **Concurrency caps**: at most 6 concurrent requests for interactive lookups, at most 3 during archive crawling, and a global cap of 12 concurrent requests toward NRK across the whole service.
+- **Request coalescing**: concurrent requests for the same series trigger one NRK lookup, not several.
+- **Negative caching**: lookups of unknown series IDs are remembered for 10 min, so typos and scanning don't cause repeated traffic.
+- **Timeouts** of 15 s on all requests; failures are handled with deferral, not aggressive retries.
 
-- **Abonnent-oppslag når aldri NRK**: RSS-strømmene mellomlagres i egen database og på CDN-kant (ETag/304 mot klienter). Én serie koster NRK det samme med 1 eller 10 000 abonnenter.
-- **Inkrementelle oppdateringer**: ved oppdatering hentes kun episodelisten (1 forespørsel); manifest-oppslag gjøres bare for episoder vi ikke har fra før.
-- **Backoff for utilgjengelige episoder**: episoder uten spillbart manifest (geo-blokkert/utløpt) prøves på nytt med eksponentiell ventetid (1 → 30 døgn), ikke ved hver oppdatering.
-- **Samtidighetstak**: maks 6 samtidige forespørsler ved interaktive oppslag, maks 3 under arkiv-innhenting.
-- **Sammenslåing**: samtidige forespørsler om samme serie utløser ett NRK-oppslag, ikke flere.
-- **Negativ mellomlagring**: oppslag på ukjente serie-ID-er huskes i 10 min, slik at feilstavinger og skanning ikke gir gjentatt trafikk.
-- **Tidsavbrudd** på 15 s på alle forespørsler; feil håndteres med utsettelse, ikke aggressiv retry.
+## Typical footprint
 
-## Typisk fotavtrykk
-
-For en typisk selvdriftet instans med noen titalls fulgte serier: **i størrelsesorden 50–200 forespørsler per døgn totalt** mot `psapi.nrk.no`, hvorav de fleste er enkle episodeliste-oppslag. En sovende serie koster ~2 forespørsler per døgn; en aktiv dagligserie ~24–48.
-
-## Kontakt
-
-Dersom NRK ønsker endringer i hvordan tjenesten bruker API-et — annen frekvens, identifiserende User-Agent, eller noe annet — [opprett en sak](../../issues), så ordner vi det.
+For a typical self-hosted instance following a few dozen series: **on the order of 50–200 requests per day in total** against `psapi.nrk.no`, most of them simple episode-listing lookups. A dormant series costs ~2 requests per day; an active daily show ~24–48.

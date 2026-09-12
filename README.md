@@ -20,7 +20,7 @@ NRK, Norway's government-funded public broadcaster, locks its podcasts into its 
 
 ## NRK API usage
 
-The service is built to be a considerate consumer of NRK's open API: subscriber traffic never reaches NRK, refresh cadence adapts to how actively a show publishes, and audio/artwork is always served directly from NRK's own CDNs. [docs/nrk-api-usage.md](./docs/nrk-api-usage.md) (in Norwegian, addressed to NRK) documents every endpoint used, the exact request cadence, and all load-limiting measures.
+The service is built to be a considerate consumer of NRK's open API: subscriber traffic never reaches NRK, refresh cadence adapts to how actively a show publishes, and audio/artwork is always served directly from NRK's own CDNs. [docs/nrk-api-usage.md](./docs/nrk-api-usage.md) documents every endpoint used, the exact request cadence, and all load-limiting measures.
 
 ## Local development
 

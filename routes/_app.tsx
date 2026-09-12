@@ -61,18 +61,19 @@ export default define.page(function App(ctx) {
               Kringkasting er ikke tilknyttet NRK. Alt innhold i strømmene tilhører NRK og hentes fra deres åpne API.
             </p>
             <p>
+              Kringkasting er{" "}
               <a
                 href="https://github.com/matsbst/kringkasting"
                 class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
               >
-                Kildekode
+                åpen kildekode
               </a>{" "}
-              · basert på{" "}
+              – basert på{" "}
               <a
                 href="https://github.com/olaven/nrss"
                 class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
               >
-                NRSS av Olav Sundfør
+                NRSS
               </a>{" "}
               ·{" "}
               <a href="/personvern" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">
