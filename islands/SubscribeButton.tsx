@@ -140,6 +140,8 @@ export default function SubscribeButton(props: { feedUrl: string }) {
             <a
               href={chosen.href(props.feedUrl)}
               onClick={() => setPulse((count) => count + 1)}
+              data-umami-event="aapne-i-app"
+              data-umami-event-app={chosen.name}
               class={`${primaryButton} rounded-r-none px-3 py-2`}
             >
               <chosen.icon size={15} /> Åpne i {chosen.name}
@@ -192,6 +194,8 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 <a
                   href={app.href(props.feedUrl)}
                   onClick={() => remember(app)}
+                  data-umami-event="velg-app"
+                  data-umami-event-app={app.name}
                   class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors"
                 >
                   <app.icon size={20} />
@@ -211,6 +215,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
               <button
                 type="button"
                 onClick={copyLink}
+                data-umami-event="kopier-rss"
                 class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer"
               >
                 {copyState === "copied" ? <IconCheck size={20} /> : <IconCopy size={20} />}

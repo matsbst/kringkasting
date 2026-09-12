@@ -19,6 +19,23 @@ const queue: string[] = [];
 const queued = new Set<string>();
 let running = false;
 
+/** ring buffer of recent crawl events for the admin dashboard */
+const events: { at: Date; message: string }[] = [];
+function recordEvent(message: string) {
+  events.push({ at: new Date(), message });
+  if (events.length > 20) {
+    events.shift();
+  }
+}
+
+export function getBacklogStatus() {
+  return {
+    queueLength: queue.length,
+    running,
+    events: [...events].reverse(),
+  };
+}
+
 export function enqueueBacklogCrawl(seriesId: string) {
   if (queued.has(seriesId)) {
     return;
@@ -56,6 +73,7 @@ async function crawlSeries(seriesId: string) {
   }
 
   console.log(`Backlog crawl for ${seriesId} starting (cursor: ${series.backlogCursor ?? "start"})`);
+  recordEvent(`${seriesId}: crawl startet (${series.backlogCursor ? "gjenopptatt" : "fra start"})`);
   let cursor = series.backlogCursor ?? null;
 
   for (let pageCount = 0; pageCount < MAX_PAGES_PER_RUN; pageCount++) {
@@ -73,6 +91,7 @@ async function crawlSeries(seriesId: string) {
     if (!page) {
       // NRK hiccup: keep the cursor so a later run resumes from here
       console.error(`Backlog crawl for ${seriesId} paused at cursor ${cursor}`);
+      recordEvent(`${seriesId}: pauset – NRK utilgjengelig`);
       return;
     }
 
@@ -80,6 +99,7 @@ async function crawlSeries(seriesId: string) {
       if (!storage.addEpisodes(seriesId, page.episodes.map(nrkRadio.parseEpisode))) {
         // failed write: don't advance past episodes we didn't persist
         console.error(`Backlog crawl for ${seriesId} paused: episode write failed`);
+        recordEvent(`${seriesId}: pauset – databaselagring feilet`);
         return;
       }
     }
@@ -90,6 +110,7 @@ async function crawlSeries(seriesId: string) {
       console.error(
         `Backlog crawl for ${seriesId} paused: ${page.transientFailures} transient manifest failures`,
       );
+      recordEvent(`${seriesId}: pauset – ${page.transientFailures} forbigående manifest-feil`);
       return;
     }
 
@@ -98,6 +119,7 @@ async function crawlSeries(seriesId: string) {
 
     if (cursor === null) {
       console.log(`Backlog crawl for ${seriesId} complete`);
+      recordEvent(`${seriesId}: arkiv komplett`);
       return;
     }
 

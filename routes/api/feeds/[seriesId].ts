@@ -4,6 +4,7 @@ import { caching } from "../../../lib/caching.ts";
 import { storage } from "../../../lib/storage.ts";
 import { allowRequest, getClientKey } from "../../../lib/rate-limit.ts";
 import { renderFeed } from "../../../lib/feed-cache.ts";
+import { recordFeedServed } from "../../../lib/stats.ts";
 import {
   etagMatches,
   getOrigin,
@@ -57,6 +58,7 @@ export const handler = define.handlers({
       ? etagMatches(ifNoneMatch, feed.etag)
       : isNotModifiedSince(ctx.req.headers.get("if-modified-since"), feed.lastModified);
 
+    recordFeedServed(notModified);
     const response = notModified
       ? new Response(null, { status: STATUS_CODE.NotModified })
       : responseXML(feed.xml, STATUS_CODE.OK);

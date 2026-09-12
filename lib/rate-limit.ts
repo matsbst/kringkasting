@@ -1,3 +1,5 @@
+import { recordRateLimited } from "./stats.ts";
+
 /**
  * Small in-memory token buckets, keyed per client, for the two request
  * types that can trigger upstream work: searches and cold feed fetches.
@@ -46,6 +48,7 @@ export function allowRequest(
   bucket.updatedAt = now;
 
   if (bucket.tokens < 1) {
+    recordRateLimited();
     return false;
   }
   bucket.tokens -= 1;

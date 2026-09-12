@@ -6,6 +6,8 @@
  * with a null body, so callers can treat every failure uniformly.
  */
 
+import { recordUpstreamRequest } from "./stats.ts";
+
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /**
@@ -53,12 +55,14 @@ export async function head(url: string): Promise<{ status: number; contentLength
     await response.body?.cancel();
     const raw = response.headers.get("content-length");
     const contentLength = raw ? Number.parseInt(raw, 10) : null;
+    recordUpstreamRequest(url, "HEAD", response.status);
     return {
       status: response.status,
       contentLength: Number.isFinite(contentLength as number) ? contentLength : null,
     };
   } catch (error) {
     console.error(`HEAD ${url} failed: ${error}`);
+    recordUpstreamRequest(url, "HEAD", 0);
     return { status: 0, contentLength: null };
   } finally {
     releaseUpstreamSlot();
@@ -73,6 +77,7 @@ export async function get<T>(url: string): Promise<GetResult<T>> {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
+    recordUpstreamRequest(url, "GET", response.status);
     if (!response.ok) {
       // consume the body so the connection can be released
       await response.body?.cancel();
@@ -83,6 +88,7 @@ export async function get<T>(url: string): Promise<GetResult<T>> {
     return { status: response.status, body };
   } catch (error) {
     console.error(`GET ${url} failed: ${error}`);
+    recordUpstreamRequest(url, "GET", 0);
     return { status: 0, body: null };
   } finally {
     releaseUpstreamSlot();

@@ -3,7 +3,7 @@ import { define } from "../utils.ts";
 import { getOrigin, responseXML, withCacheHeaders } from "../lib/utils.ts";
 
 /** grows as more indexable pages arrive (podcast directory, series pages) */
-const PATHS = ["/"];
+const PATHS = ["/", "/personvern"];
 
 export const handler = define.handlers({
   GET(ctx) {
