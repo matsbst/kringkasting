@@ -58,6 +58,14 @@ function refreshInBackground() {
   }
 }
 
+/** number of shows in NRK's catalog, when loaded */
+export function getCatalogSize(): number | null {
+  if (!cache || cache.expires < Date.now()) {
+    refreshInBackground();
+  }
+  return cache?.entries.length ?? null;
+}
+
 /**
  * Random show titles for the suggestion chips. Returns null until the
  * catalog has loaded at least once (callers fall back to a static list);

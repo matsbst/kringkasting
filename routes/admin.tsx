@@ -7,6 +7,7 @@ import { caching } from "../lib/caching.ts";
 import { getBacklogStatus } from "../lib/backlog.ts";
 import { enqueueBacklogCrawl } from "../lib/backlog.ts";
 import { getStats, startedAt } from "../lib/stats.ts";
+import { getCatalogSize } from "../lib/catalog.ts";
 import { adminEnabled, isAuthenticated, tryLogin } from "../lib/admin-auth.ts";
 import { isValidResourceId } from "../lib/utils.ts";
 
@@ -26,6 +27,7 @@ type Data =
     episodeCount: number;
     dbBytes: number;
     backlog: ReturnType<typeof getBacklogStatus>;
+    catalogSize: number | null;
     version: string;
     notice: string | null;
   };
@@ -39,6 +41,7 @@ function dashboardData(notice: string | null): Data {
     episodeCount: storage.countEpisodes(),
     dbBytes: storage.databaseSizeBytes(),
     backlog: getBacklogStatus(),
+    catalogSize: getCatalogSize(),
     version: Deno.env.get("DENO_DEPLOYMENT_ID")?.slice(0, 10) ?? "dev",
     notice,
   };
@@ -168,7 +171,10 @@ function Dashboard({ data }: { data: Extract<Data, { view: "dashboard" }> }) {
 
       <section class="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          [String(data.series.length), "podkaster"],
+          [
+            String(data.series.length),
+            data.catalogSize ? `serier fulgt (av ${data.catalogSize} hos NRK)` : "serier fulgt",
+          ],
           [String(data.episodeCount), "episoder i arkiv"],
           [String(incomplete), "arkiv under innhenting"],
           [formatBytes(data.dbBytes), "database"],
