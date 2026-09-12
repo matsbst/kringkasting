@@ -4,6 +4,7 @@ import { nrkRadio } from "../../lib/nrk/nrk.ts";
 import { toSeriesSummary } from "../../lib/series-summary.ts";
 import { responseJSON, withCacheHeaders } from "../../lib/utils.ts";
 import { allowRequest, getClientKey } from "../../lib/rate-limit.ts";
+import { recordSearchServed } from "../../lib/stats.ts";
 
 const MIN_QUERY_LENGTH = 2;
 const MAX_QUERY_LENGTH = 100;
@@ -25,6 +26,7 @@ export const handler = define.handlers({
       return response;
     }
 
+    recordSearchServed();
     const result = await nrkRadio.search(query);
     if (result === null || result === undefined) {
       // upstream failure: never cache it as an empty result

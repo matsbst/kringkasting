@@ -363,9 +363,101 @@ function deleteStaleSeries(maxAgeMs: number): number {
   return stale.length;
 }
 
+export type SeriesOverview = {
+  id: string;
+  title: string;
+  episodeCount: number;
+  backlogComplete: boolean;
+  lastFetchedAt: Date;
+  catalogKind: string | null;
+};
+
+/** everything the admin dashboard's series table needs, one query */
+function listSeriesOverview(): SeriesOverview[] {
+  const rows = getDb().prepare(`
+    SELECT s.id, s.title, s.backlog_complete, s.last_fetched_at, s.catalog_kind,
+           (SELECT COUNT(*) FROM episodes e WHERE e.series_id = s.id) AS episode_count
+    FROM series s
+    ORDER BY s.last_fetched_at DESC
+  `).all() as {
+    id: string;
+    title: string;
+    backlog_complete: number;
+    last_fetched_at: number;
+    catalog_kind: string | null;
+    episode_count: number;
+  }[];
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    episodeCount: row.episode_count,
+    backlogComplete: row.backlog_complete === 1,
+    lastFetchedAt: new Date(row.last_fetched_at),
+    catalogKind: row.catalog_kind,
+  }));
+}
+
+export type FailedEpisodeRow = {
+  seriesId: string;
+  episodeId: string;
+  attempts: number;
+  nextRetryAt: Date;
+};
+
+function listFailedEpisodes(limit = 50): FailedEpisodeRow[] {
+  const rows = getDb()
+    .prepare("SELECT series_id, id, attempts, next_retry_at FROM failed_episodes ORDER BY next_retry_at LIMIT ?")
+    .all(limit) as { series_id: string; id: string; attempts: number; next_retry_at: number }[];
+  return rows.map((row) => ({
+    seriesId: row.series_id,
+    episodeId: row.id,
+    attempts: row.attempts,
+    nextRetryAt: new Date(row.next_retry_at),
+  }));
+}
+
+function countEpisodes(): number {
+  const row = getDb().prepare("SELECT COUNT(*) AS n FROM episodes").get() as { n: number };
+  return row.n;
+}
+
+function databaseSizeBytes(): number {
+  const database = getDb();
+  const pageCount = (database.prepare("PRAGMA page_count").get() as { page_count: number }).page_count;
+  const pageSize = (database.prepare("PRAGMA page_size").get() as { page_size: number }).page_size;
+  return pageCount * pageSize;
+}
+
+/** admin action: delete one series and everything belonging to it */
+function deleteSeriesById(seriesId: string): void {
+  const database = getDb();
+  database.exec("BEGIN");
+  try {
+    database.prepare("DELETE FROM episodes WHERE series_id = ?").run(seriesId);
+    database.prepare("DELETE FROM failed_episodes WHERE series_id = ?").run(seriesId);
+    database.prepare("DELETE FROM series WHERE id = ?").run(seriesId);
+    database.exec("COMMIT");
+    bumpDataVersion(seriesId);
+  } catch (error) {
+    database.exec("ROLLBACK");
+    console.error(`Failed to delete series ${seriesId}: ${error}`);
+  }
+}
+
+/** admin action: mark a series stale so the next request refreshes it */
+function expireSeries(seriesId: string): void {
+  getDb().prepare("UPDATE series SET last_fetched_at = 0 WHERE id = ?").run(seriesId);
+}
+
 export const storage = {
   hasSeries,
   readSeries,
+  listSeriesOverview,
+  listFailedEpisodes,
+  countEpisodes,
+  databaseSizeBytes,
+  deleteSeriesById,
+  expireSeries,
   writeSeries,
   addEpisodes,
   readEpisodeIds,

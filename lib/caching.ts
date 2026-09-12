@@ -1,6 +1,7 @@
 import { nrkRadio } from "./nrk/nrk.ts";
 import { Series, storage } from "./storage.ts";
 import { enqueueBacklogCrawl } from "./backlog.ts";
+import { recordGcRun } from "./stats.ts";
 import * as datetime from "@std/datetime";
 
 const SYNC_INTERVAL_HOURS = 1;
@@ -178,6 +179,7 @@ function maybeCollectGarbage() {
   }
   lastGcAt = Date.now();
   const deleted = storage.deleteStaleSeries(GC_MAX_AGE_MS);
+  recordGcRun(deleted);
   if (deleted > 0) {
     console.log(`Garbage collected ${deleted} series not requested in 90 days`);
   }

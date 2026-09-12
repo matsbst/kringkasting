@@ -36,6 +36,8 @@ export default define.page(function App(ctx) {
         <meta name="twitter:title" content="Kringkasting – NRK-podkaster som RSS" />
         <meta name="twitter:description" content={DESCRIPTION} />
         <meta name="twitter:image" content={`${origin}/og.png`} />
+        {/* self-hosted, cookieless Umami analytics */}
+        <script defer src="https://data.i1.no/script.js" data-website-id="e70aeb45-6ad7-4d32-bc32-2bbeeff91ed0" />
       </head>
       <body class="relative min-h-screen flex flex-col overflow-x-clip bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
         <a href="#innhold" class="skip-link">Hopp til innhold</a>
@@ -71,6 +73,10 @@ export default define.page(function App(ctx) {
                 class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
               >
                 NRSS av Olav Sundfør
+              </a>{" "}
+              ·{" "}
+              <a href="/personvern" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">
+                Personvern
               </a>
             </p>
           </div>
