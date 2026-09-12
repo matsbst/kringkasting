@@ -50,6 +50,7 @@ Deno.test("stale render cached under a pre-write version self-heals", async () =
 Deno.test("fresh memoized feeds are served without full episode reads", async () => {
   const series = testUtils.generateSeries({ lastFetchedAt: new Date() });
   storage.writeSeries(series);
+  storage.setBacklogState(series.id, null, true);
 
   const version = storage.getDataVersion(series.id);
   const full = storage.readSeries({ id: series.id })!;

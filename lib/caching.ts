@@ -1,10 +1,10 @@
 import { nrkRadio } from "./nrk/nrk.ts";
 import { Series, storage } from "./storage.ts";
 import { enqueueBacklogCrawl } from "./backlog.ts";
-import { recordGcRun } from "./stats.ts";
+import { canRetry, clearRetry, deferRetry } from "./retry.ts";
 import * as datetime from "@std/datetime";
 
-const SYNC_INTERVAL_HOURS = 1;
+const SYNC_INTERVAL_HOURS = 3;
 
 /** how often title/artwork is re-fetched from NRK */
 const METADATA_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -23,9 +23,11 @@ async function initialFetch(options: { id: string }): Promise<Series | null> {
   if (series === "error") {
     // upstream outage: surface it (route answers 502) instead of letting
     // the negative cache turn a hiccup into ten minutes of 404s
+    deferRetry(`refresh:${options.id}`);
     throw new Error(`NRK unavailable while fetching ${options.id}`);
   }
   if (!series) {
+    clearRetry(`refresh:${options.id}`);
     return null;
   }
 
@@ -35,6 +37,7 @@ async function initialFetch(options: { id: string }): Promise<Series | null> {
     return series;
   }
 
+  clearRetry(`refresh:${options.id}`);
   return storage.readSeries(options) ?? series;
 }
 
@@ -51,31 +54,61 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
   // episode listing (one NRK request instead of two). Umbrella shows and
   // series with unknown catalog kind take the full path.
   const metadataAge = Date.now() - (existingSeries.metadataRefreshedAt?.getTime() ?? 0);
-  const cheapRefresh = !existingSeries.isUmbrella &&
-    existingSeries.catalogKind &&
-    metadataAge < METADATA_TTL_MS;
+  const cheapRefresh = !existingSeries.isUmbrella && existingSeries.catalogKind;
 
   if (cheapRefresh) {
+    const progressKey = `refresh-progress:${existingSeries.id}`;
+    const progress = storage.readState<{ cursor: string; stopEpisodeIds: string[] }>(progressKey);
+    if (!progress && metadataAge >= METADATA_TTL_MS) {
+      const metadata = await nrkRadio.getSeries(existingSeries.id, {
+        catalogKind: existingSeries.catalogKind,
+        metadataOnly: true,
+      });
+      if (!metadata || metadata === "error") {
+        deferRetry(`refresh:${existingSeries.id}`);
+        return existingSeries;
+      }
+      metadata.lastFetchedAt = existingSeries.lastFetchedAt;
+      if (!storage.writeSeries(metadata)) {
+        deferRetry(`refresh:${existingSeries.id}`);
+        return existingSeries;
+      }
+    }
+    // Keep the boundary from BEFORE this batch. Newly persisted episodes
+    // must not stop a resumed refresh on its overlap page.
+    const stopEpisodeIds = progress?.stopEpisodeIds ??
+      existingSeries.episodes.slice(0, 50).map((episode) => episode.id);
+    // Save the original boundary before committing any new episodes so a
+    // process exit between episode persistence and checkpoint advancement is safe.
+    storage.writeState(progressKey, {
+      cursor: progress?.cursor ??
+        `/radio/catalog/${existingSeries.catalogKind}/${existingSeries.id}/episodes?page=1&pageSize=50`,
+      stopEpisodeIds,
+    });
     const result = await nrkRadio.getNewEpisodes(existingSeries.id, existingSeries.catalogKind!, {
       skipEpisodeIds,
+      stopEpisodeIds: new Set(stopEpisodeIds),
+      cursorHref: progress?.cursor,
       onEpisodeFailure,
     });
     if (result === null) {
-      console.error(`Failed to refresh series ${existingSeries.id}, serving stale data`);
+      deferRetry(`refresh:${existingSeries.id}`);
       return existingSeries;
     }
-    if (result.episodes.length > 0) {
-      storage.addEpisodes(existingSeries.id, result.episodes.map(nrkRadio.parseEpisode));
+    if (
+      result.episodes.length > 0 && !storage.addEpisodes(existingSeries.id, result.episodes.map(nrkRadio.parseEpisode))
+    ) {
+      deferRetry(`refresh:${existingSeries.id}`);
+      return existingSeries;
     }
-    if (!result.sawAllPages) {
-      // pagination broke mid-burst: re-open the archive crawl so the
-      // episodes beyond the break get fetched (the next refresh alone
-      // would stop at page one, which is now known)
-      console.error(`Refresh of ${existingSeries.id} was partial, re-opening archive crawl`);
-      storage.setBacklogState(existingSeries.id, null, false);
-      enqueueBacklogCrawl(existingSeries.id);
+    if (!result.sawAllPages && result.resumeHref) {
+      storage.writeState(progressKey, { cursor: result.resumeHref, stopEpisodeIds });
+      deferRetry(`refresh:${existingSeries.id}`);
+    } else {
+      storage.deleteState(progressKey);
+      clearRetry(`refresh:${existingSeries.id}`);
+      storage.touchLastFetched(existingSeries.id);
     }
-    storage.touchLastFetched(existingSeries.id);
     return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
   }
 
@@ -88,6 +121,7 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
     // NRK outage or rate limiting: serve the stale copy rather than
     // pretending the series disappeared
     console.error(`Failed to refresh series ${existingSeries.id}, serving stale data`);
+    deferRetry(`refresh:${existingSeries.id}`);
     return existingSeries;
   }
 
@@ -95,15 +129,17 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
   // existing episodes are kept, so the archive accumulates
   if (!storage.writeSeries(update)) {
     console.error(`Failed to update series ${existingSeries.id}`);
+    deferRetry(`refresh:${existingSeries.id}`);
     return existingSeries;
   }
 
+  clearRetry(`refresh:${existingSeries.id}`);
   return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
 }
 
 /**
- * Refresh cadence adapts to how actively a show publishes: hourly while
- * it's putting out episodes, daily once it's dormant. A small random
+ * Refresh cadence adapts to how actively a show publishes: every three hours while
+ * it's putting out episodes, weekly once it's long dormant. A small random
  * jitter keeps refreshes from clustering at the top of the hour.
  */
 function intervalHoursFor(newestEpisodeAt: Date | null | undefined): number {
@@ -112,12 +148,13 @@ function intervalHoursFor(newestEpisodeAt: Date | null | undefined): number {
   }
   const ageDays = (Date.now() - newestEpisodeAt.getTime()) / (24 * 60 * 60 * 1000);
   if (ageDays < 2) {
-    return 1;
+    return 3;
   }
   if (ageDays < 30) {
-    return 6;
+    return 12;
   }
-  return 24;
+  if (ageDays < 180) return 72;
+  return 168;
 }
 
 function refreshIntervalHours(series: Series): number {
@@ -135,6 +172,9 @@ function metaIsFresh(seriesId: string): boolean {
   if (!meta) {
     return false;
   }
+  if (storage.readState(`refresh-progress:${seriesId}`) && canRetry(`refresh:${seriesId}`)) return false;
+  if (!meta.backlogComplete && canRetry(`backlog:${seriesId}`)) return false;
+  if (!canRetry(`refresh:${seriesId}`)) return true;
   const ageHours = (Date.now() - meta.lastFetchedAt.getTime()) / (60 * 60 * 1000);
   return ageHours <= intervalHoursFor(meta.newestEpisodeAt) * 0.85;
 }
@@ -163,10 +203,16 @@ async function fetchSeries(options: { id: string }): Promise<Series | null> {
   const seriesFromStorage = storage.readSeries(options);
 
   let series: Series | null;
-  if (seriesFromStorage === null) {
+  if (!canRetry(`refresh:${options.id}`)) {
+    if (!seriesFromStorage) throw new Error("Refresh is waiting for its retry deadline");
+    series = seriesFromStorage;
+  } else if (seriesFromStorage === null) {
     // first time we see this feed
     series = await initialFetch(options);
-  } else if (isSeriesFromStorageNew(seriesFromStorage, refreshIntervalWithJitter(seriesFromStorage))) {
+  } else if (
+    !storage.readState(`refresh-progress:${options.id}`) &&
+    isSeriesFromStorageNew(seriesFromStorage, refreshIntervalWithJitter(seriesFromStorage))
+  ) {
     // cached and fresh
     series = seriesFromStorage;
   } else {
@@ -194,26 +240,7 @@ function pruneExpired(map: Map<string, number>) {
   }
 }
 
-/** stale series are garbage-collected once a day */
-const GC_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
-const GC_INTERVAL_MS = 24 * 60 * 60 * 1000;
-let lastGcAt = 0;
-
-function maybeCollectGarbage() {
-  if (Date.now() - lastGcAt < GC_INTERVAL_MS) {
-    return;
-  }
-  lastGcAt = Date.now();
-  const deleted = storage.deleteStaleSeries(GC_MAX_AGE_MS);
-  recordGcRun(deleted);
-  if (deleted > 0) {
-    console.log(`Garbage collected ${deleted} series not requested in 90 days`);
-  }
-}
-
 async function getSeries(options: { id: string }): Promise<Series | null> {
-  maybeCollectGarbage();
-
   const missUntil = notFoundUntil.get(options.id);
   if (missUntil !== undefined) {
     if (missUntil > Date.now()) {
@@ -242,6 +269,7 @@ export const caching = {
 };
 
 export const forTestingOnly = {
+  intervalHoursFor,
   getTimeSinceLastFetch,
   isSeriesFromStorageNew,
 };

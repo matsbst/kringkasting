@@ -2,6 +2,10 @@
 
 The app sends CDN-friendly headers (`Cache-Control: public, max-age=1800, s-maxage=3600`, `ETag`, `Last-Modified`), but Cloudflare needs a little configuration to make use of them. With the steps below, nearly all feed polls are served from Cloudflare's edge and your origin only sees roughly one revalidation per feed per hour.
 
+An edge revalidation does not necessarily trigger a request to NRK. The application checks each show's own refresh window: 3 hours, 12 hours, 3 days, or 7 days depending on its newest episode, with ±15% jitter. Refreshes and retries are request-driven; there is no timer polling idle shows. See [NRK API usage](nrk-api-usage.md) for checkpoint recovery, persistent retry deadlines, and indefinite archive retention.
+
+The path rule below also covers chapter endpoints. Successful chapter responses and confirmed missing episodes advertise a one-day browser/edge TTL (`max-age=86400, s-maxage=86400`); the application keeps their results in SQLite for seven days. Keep the rule configured to respect response headers rather than forcing a single TTL on all feed paths.
+
 ## 1. Cache Rule for feeds (the important one)
 
 By default Cloudflare only caches responses by file extension, so `/api/feeds/...` (no extension) always hits your origin.

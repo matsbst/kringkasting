@@ -91,10 +91,7 @@ export const handler = define.handlers({
     const seriesId = String(form.get("seriesId") ?? "");
     let notice = "Ukjent handling";
 
-    if (action === "gc") {
-      const deleted = storage.deleteStaleSeries(90 * 24 * 60 * 60 * 1000);
-      notice = `Rydding kjørt: ${deleted} serier fjernet`;
-    } else if (isValidResourceId(seriesId)) {
+    if (isValidResourceId(seriesId)) {
       if (action === "refresh") {
         storage.expireSeries(seriesId);
         await caching.getSeries({ id: seriesId });
@@ -277,15 +274,7 @@ function Dashboard({ data }: { data: Extract<Data, { view: "dashboard" }> }) {
       <section class="mt-12">
         <div class="flex items-baseline justify-between">
           <h2 class="text-xl font-semibold">Serier ({data.series.length})</h2>
-          <form method="post">
-            <input type="hidden" name="action" value="gc" />
-            <button
-              type="submit"
-              class="text-sm underline underline-offset-2 text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark cursor-pointer"
-            >
-              Kjør rydding nå
-            </button>
-          </form>
+          <p class="text-sm text-ink-2 dark:text-ink-2-dark">Arkiver beholdes til de slettes manuelt.</p>
         </div>
         <table class="mt-3 w-full text-sm">
           <thead>

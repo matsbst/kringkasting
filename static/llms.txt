@@ -6,6 +6,9 @@
 
 - Search for an NRK podcast on https://kringkast.ing and tap "Abonner i app" to subscribe in Apple Podcasts, Overcast, Pocket Casts, Castro, AntennaPod or YouTube Music. Spotify does not support open RSS feeds.
 - A feed for any NRK podcast is available at https://kringkast.ing/api/feeds/{seriesId}, where seriesId is NRK's series slug (for example https://kringkast.ing/api/feeds/oppdatert).
+- Archives are fetched in the background after the first feed request, so a new feed may initially contain only recent episodes. Interrupted crawls resume from saved checkpoints, and archives are retained until manually deleted.
+- Episode checks are request-driven, with base intervals of 3 hours (newest episode under 2 days old), 12 hours (2–30 days), 3 days (30–180 days), and 7 days (180 days or more), plus ±15% jitter. Idle shows are not polled by a timer.
+- Chapter results and the discovery catalog are cached in SQLite for seven days. Retry deadlines survive restarts, use increasing delays, and respect upstream Retry-After headers.
 
 ## Source
 

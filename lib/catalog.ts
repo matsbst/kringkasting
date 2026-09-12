@@ -1,7 +1,9 @@
 import { get } from "./http.ts";
+import { storage } from "./storage.ts";
+import { canRetry, clearRetry, deferRetry } from "./retry.ts";
 
 /**
- * A daily-refreshed in-memory list of every podcast in NRK's catalog,
+ * A weekly-refreshed, persistent list of every podcast in NRK's catalog,
  * used to serve rotating suggestions on the front page. Loaded lazily
  * in the background so no request ever waits for the ~13 paged fetches.
  */
@@ -14,11 +16,18 @@ type CatalogPage = {
 };
 
 const nrkAPI = "https://psapi.nrk.no";
-const CATALOG_TTL_MS = 24 * 60 * 60 * 1000;
+const CATALOG_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_PAGES = 30;
 
 let cache: { expires: number; entries: CatalogEntry[] } | null = null;
 let loading: Promise<void> | null = null;
+let restored = false;
+function restoreCache() {
+  if (!restored) {
+    cache = storage.readState("catalog");
+    restored = true;
+  }
+}
 
 async function loadCatalog() {
   const entries: CatalogEntry[] = [];
@@ -28,8 +37,9 @@ async function loadCatalog() {
   for (let page = 0; page < MAX_PAGES && href; page++) {
     const body: CatalogPage | null = (await get<CatalogPage>(`${nrkAPI}${href}`)).body;
     if (!body) {
-      // NRK hiccup: keep whatever we already collected
-      break;
+      // Keep the previous complete catalog; retry later.
+      deferRetry("catalog");
+      return;
     }
     for (const item of body.series ?? []) {
       // customSeason rows are seasons of umbrella shows, not series
@@ -42,16 +52,25 @@ async function loadCatalog() {
     href = body._links?.nextPage?.href ?? null;
   }
 
+  if (href || entries.length === 0) {
+    deferRetry("catalog");
+    return;
+  }
   if (entries.length > 0) {
     cache = { expires: Date.now() + CATALOG_TTL_MS, entries };
+    storage.writeState("catalog", cache);
+    clearRetry("catalog");
     console.log(`Catalog loaded: ${entries.length} podcasts`);
   }
 }
 
 function refreshInBackground() {
-  if (!loading) {
+  if (!loading && canRetry("catalog")) {
     loading = loadCatalog()
-      .catch((error) => console.error(`Catalog load failed: ${error}`))
+      .catch((error) => {
+        deferRetry("catalog");
+        console.error(`Catalog load failed: ${error}`);
+      })
       .finally(() => {
         loading = null;
       });
@@ -60,6 +79,7 @@ function refreshInBackground() {
 
 /** number of shows in NRK's catalog, when loaded */
 export function getCatalogSize(): number | null {
+  restoreCache();
   if (!cache || cache.expires < Date.now()) {
     refreshInBackground();
   }
@@ -72,6 +92,7 @@ export function getCatalogSize(): number | null {
  * a stale cache is served while refreshing.
  */
 export function getRandomShowTitles(count: number): string[] | null {
+  restoreCache();
   if (!cache || cache.expires < Date.now()) {
     refreshInBackground();
   }
@@ -93,3 +114,11 @@ export function getRandomShowTitles(count: number): string[] | null {
   }
   return picks;
 }
+
+export const forTestingOnly = {
+  loadCatalog,
+  resetMemory: () => {
+    cache = null;
+    restored = false;
+  },
+};
