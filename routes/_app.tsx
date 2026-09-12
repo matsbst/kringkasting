@@ -60,6 +60,7 @@ export default define.page(function App(ctx) {
           <div class="border-t border-line dark:border-line-dark pt-6 text-sm text-ink-2 dark:text-ink-2-dark space-y-1.5">
             <p>
               Kringkasting er ikke tilknyttet NRK. Alt innhold i strømmene tilhører NRK og hentes fra deres åpne API.
+              Kringkasting lagrer ingen data.
             </p>
             <p>
               Kringkasting er{" "}
