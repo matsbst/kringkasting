@@ -44,11 +44,29 @@ export async function isAuthenticated(request: Request): Promise<boolean> {
   return cookie !== null && await matches(cookie);
 }
 
+/**
+ * Behind Cloudron/Cloudflare the upstream request is plain HTTP, so the
+ * request URL alone would drop the Secure attribute on an HTTPS site.
+ * Trust the forwarded proto / configured origin; only genuinely local
+ * HTTP development skips Secure.
+ */
+function isHttps(request: Request): boolean {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  if (forwardedProto) {
+    return forwardedProto.split(",")[0].trim() === "https";
+  }
+  const configured = Deno.env.get("APP_ORIGIN") ?? Deno.env.get("CLOUDRON_APP_ORIGIN");
+  if (configured) {
+    return configured.startsWith("https:");
+  }
+  return new URL(request.url).protocol === "https:";
+}
+
 export async function tryLogin(request: Request, submittedToken: string): Promise<Headers | null> {
   if (!(await matches(submittedToken))) {
     return null;
   }
-  const secure = new URL(request.url).protocol === "https:" ? " Secure;" : "";
+  const secure = isHttps(request) ? " Secure;" : "";
   const headers = new Headers();
   headers.set(
     "Set-Cookie",

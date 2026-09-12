@@ -290,11 +290,22 @@ async function getSeries(seriesId: string, options: FetchOptions = {}): Promise<
  * episode listing only (one request instead of two) and resolves
  * manifests for episodes not in the skip set.
  */
+export type NewEpisodesResult = {
+  episodes: NrkOriginalEpisode[];
+  /**
+   * false when pagination stopped early (a page failed, or the page cap
+   * was hit before reaching known episodes) — the caller must re-open
+   * the archive crawl, or episodes beyond the break would be lost: the
+   * next refresh sees page one as known and stops there.
+   */
+  sawAllPages: boolean;
+};
+
 async function getNewEpisodes(
   seriesId: string,
   catalogKind: CatalogKind,
   options: FetchOptions = {},
-): Promise<NrkOriginalEpisode[] | null> {
+): Promise<NewEpisodesResult | null> {
   const episodes: NrkOriginalEpisode[] = [];
   let href: string | null = `/radio/catalog/${catalogKind}/${seriesId}/episodes?page=1&pageSize=50`;
 
@@ -305,7 +316,7 @@ async function getNewEpisodes(
     const status = response.status;
     const body = response.body;
     if (status !== STATUS_CODE.OK || !body) {
-      return page === 0 ? null : episodes;
+      return page === 0 ? null : { episodes, sawAllPages: false };
     }
 
     const candidates: PodcastEpisodesSingle[] = body._embedded.episodes ?? [];
@@ -323,7 +334,7 @@ async function getNewEpisodes(
     const sawKnownEpisode = newCandidates.length < candidates.length;
     href = sawKnownEpisode ? null : body._links.next?.href ?? null;
   }
-  return episodes;
+  return { episodes, sawAllPages: href === null };
 }
 
 async function getEpisode(

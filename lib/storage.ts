@@ -147,7 +147,42 @@ function hasSeries(seriesId: string): boolean {
   return getDb().prepare("SELECT 1 FROM series WHERE id = ?").get(seriesId) !== undefined;
 }
 
+export type SeriesMeta = {
+  id: string;
+  lastFetchedAt: Date;
+  backlogComplete: boolean;
+  newestEpisodeAt: Date | null;
+};
+
+/** freshness data without loading the (possibly huge) episode list */
+function readSeriesMeta(seriesId: string): SeriesMeta | null {
+  const database = getDb();
+  const row = database
+    .prepare("SELECT last_fetched_at, backlog_complete FROM series WHERE id = ?")
+    .get(seriesId) as { last_fetched_at: number; backlog_complete: number } | undefined;
+  if (!row) {
+    return null;
+  }
+  const newest = database
+    .prepare("SELECT MAX(date) AS newest FROM episodes WHERE series_id = ?")
+    .get(seriesId) as { newest: number | null };
+  return {
+    id: seriesId,
+    lastFetchedAt: new Date(row.last_fetched_at),
+    backlogComplete: row.backlog_complete === 1,
+    newestEpisodeAt: newest.newest === null ? null : new Date(newest.newest),
+  };
+}
+
+let fullReadCount = 0;
+
+/** how many times the full episode list has been read (test observability) */
+function getFullReadCount(): number {
+  return fullReadCount;
+}
+
 function readSeries(options: { id: string }): Series | null {
+  fullReadCount++;
   const database = getDb();
   const row = database
     .prepare("SELECT * FROM series WHERE id = ?")
@@ -459,6 +494,8 @@ function expireSeries(seriesId: string): void {
 export const storage = {
   hasSeries,
   readSeries,
+  readSeriesMeta,
+  getFullReadCount,
   listSeriesOverview,
   listFailedEpisodes,
   countEpisodes,

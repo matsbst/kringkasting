@@ -55,6 +55,25 @@ export function allowRequest(
   return true;
 }
 
+/**
+ * Per-client limit plus a global backstop for the same scope. Client
+ * identity comes from forwarding headers, which a direct-to-origin
+ * attacker can forge — the global bucket bounds total damage regardless.
+ */
+export function allowScoped(
+  scope: string,
+  clientKey: string,
+  clientCapacity: number,
+  clientRefillPerSecond: number,
+  globalCapacity: number,
+  globalRefillPerSecond: number,
+): boolean {
+  if (!allowRequest(`global:${scope}`, globalCapacity, globalRefillPerSecond)) {
+    return false;
+  }
+  return allowRequest(`${scope}:${clientKey}`, clientCapacity, clientRefillPerSecond);
+}
+
 /** best client identity available behind Cloudflare/nginx */
 export function getClientKey(request: Request): string {
   return request.headers.get("cf-connecting-ip") ??

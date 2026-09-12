@@ -18,13 +18,20 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * above it.
  */
 const MAX_CONCURRENT_UPSTREAM = 12;
+/** beyond this, requests fail fast instead of queueing unboundedly */
+const MAX_QUEUED_UPSTREAM = 64;
 let inFlightUpstream = 0;
 const upstreamWaiters: (() => void)[] = [];
+
+class UpstreamSaturatedError extends Error {}
 
 async function acquireUpstreamSlot(): Promise<void> {
   if (inFlightUpstream < MAX_CONCURRENT_UPSTREAM) {
     inFlightUpstream++;
     return;
+  }
+  if (upstreamWaiters.length >= MAX_QUEUED_UPSTREAM) {
+    throw new UpstreamSaturatedError("upstream queue saturated");
   }
   await new Promise<void>((resolve) => upstreamWaiters.push(resolve));
 }
@@ -46,7 +53,11 @@ export type GetResult<T> = {
 
 /** HEAD request returning the Content-Length, for enclosure byte sizes */
 export async function head(url: string): Promise<{ status: number; contentLength: number | null }> {
-  await acquireUpstreamSlot();
+  try {
+    await acquireUpstreamSlot();
+  } catch {
+    return { status: 0, contentLength: null };
+  }
   try {
     const response = await fetch(url, {
       method: "HEAD",
@@ -70,7 +81,11 @@ export async function head(url: string): Promise<{ status: number; contentLength
 }
 
 export async function get<T>(url: string): Promise<GetResult<T>> {
-  await acquireUpstreamSlot();
+  try {
+    await acquireUpstreamSlot();
+  } catch {
+    return { status: 0, body: null };
+  }
   try {
     const response = await fetch(url, {
       headers: { accept: "application/json" },

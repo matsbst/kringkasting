@@ -3,7 +3,7 @@ import { define } from "../../utils.ts";
 import { nrkRadio } from "../../lib/nrk/nrk.ts";
 import { toSeriesSummary } from "../../lib/series-summary.ts";
 import { responseJSON, withCacheHeaders } from "../../lib/utils.ts";
-import { allowRequest, getClientKey } from "../../lib/rate-limit.ts";
+import { allowScoped, getClientKey } from "../../lib/rate-limit.ts";
 import { recordSearchServed } from "../../lib/stats.ts";
 
 const MIN_QUERY_LENGTH = 2;
@@ -19,7 +19,7 @@ export const handler = define.handlers({
       return responseJSON({ results: [] }, STATUS_CODE.OK);
     }
 
-    if (!allowRequest(`search:${getClientKey(ctx.req)}`, 30, 0.5)) {
+    if (!allowScoped("search", getClientKey(ctx.req), 30, 0.5, 120, 2)) {
       const response = responseJSON({ message: "Too many requests" }, STATUS_CODE.TooManyRequests);
       response.headers.set("Retry-After", "30");
       response.headers.set("Cache-Control", "no-store");
