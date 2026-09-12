@@ -18,6 +18,7 @@ export default define.page(function App(ctx) {
         <meta name="description" content={DESCRIPTION} />
         <title>Kringkasting – NRK-podkaster som RSS</title>
         <link rel="canonical" href={canonical} />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
