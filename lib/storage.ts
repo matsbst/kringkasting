@@ -444,9 +444,16 @@ function deleteSeriesById(seriesId: string): void {
   }
 }
 
-/** admin action: mark a series stale so the next request refreshes it */
+/**
+ * Admin action: mark a series stale so the next request refreshes it.
+ * 25h back beats every adaptive refresh interval, while staying far from
+ * the 90-day GC cutoff (timestamp 0 would get the series deleted if the
+ * forced refresh happened to fail).
+ */
 function expireSeries(seriesId: string): void {
-  getDb().prepare("UPDATE series SET last_fetched_at = 0 WHERE id = ?").run(seriesId);
+  getDb()
+    .prepare("UPDATE series SET last_fetched_at = ? WHERE id = ?")
+    .run(Date.now() - 25 * 60 * 60 * 1000, seriesId);
 }
 
 export const storage = {
