@@ -28,6 +28,9 @@ export type SeriesData =
   );
 
 export type FetchOptions = {
+  metadataOnly?: boolean;
+  cursorHref?: string | null;
+  stopEpisodeIds?: Set<string>;
   /** episodes to skip (already stored, or under failure backoff) */
   skipEpisodeIds?: Set<string>;
   onEpisodeFailure?: OnEpisodeFailure;
@@ -226,6 +229,7 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
   let episodeResponse: PodcastEpisodes | null = null;
   let serieResponse: Podcast | RadioSeries | null = null;
   let usedKind: CatalogKind = "podcast";
+  let transient = false;
 
   // stored catalog kind goes first, so the wrong-family requests are
   // only spent on brand-new series (or ones NRK has recatalogued)
@@ -234,9 +238,12 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
       { status: episodeStatus, body: episodeResponse },
       { status: seriesStatus, body: serieResponse },
     ] = await Promise.all([
-      get<PodcastEpisodes>(`${nrkAPI}/radio/catalog/${kind}/${seriesId}/episodes`),
+      options.metadataOnly
+        ? Promise.resolve({ status: STATUS_CODE.OK, body: null })
+        : get<PodcastEpisodes>(`${nrkAPI}/radio/catalog/${kind}/${seriesId}/episodes`),
       get<Podcast>(`${nrkAPI}/radio/catalog/${kind}/${seriesId}`),
     ]);
+    transient ||= [episodeStatus, seriesStatus].some((status) => status === 0 || status === 429 || status >= 500);
     usedKind = kind;
     if (episodeStatus === STATUS_CODE.OK && seriesStatus === STATUS_CODE.OK) {
       break;
@@ -247,11 +254,11 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
     episodeStatus === STATUS_CODE.OK &&
     seriesStatus === STATUS_CODE.OK &&
     serieResponse?.series &&
-    episodeResponse?._embedded.episodes?.length
+    (options.metadataOnly || episodeResponse?._embedded.episodes?.length)
   ) {
-    const episodes = await extractEpisodes(
+    const episodes = options.metadataOnly ? [] : await extractEpisodes(
       serieResponse,
-      episodeResponse,
+      episodeResponse ?? undefined,
       options.skipEpisodeIds,
       options.onEpisodeFailure,
     );
@@ -266,7 +273,6 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
     `Error getting episodes for ${seriesId}: EpisodeStatus: ${episodeStatus}. SerieStatus: ${seriesStatus}`,
   );
   // 5xx/timeouts are outages, not proof the series doesn't exist
-  const transient = [episodeStatus, seriesStatus].some((status) => status === 0 || status >= 500);
   return transient ? "error" : null;
 }
 
@@ -299,6 +305,8 @@ export type NewEpisodesResult = {
    * next refresh sees page one as known and stops there.
    */
   sawAllPages: boolean;
+  /** Last safe page to revisit, including one page of overlap. */
+  resumeHref: string | null;
 };
 
 async function getNewEpisodes(
@@ -307,7 +315,9 @@ async function getNewEpisodes(
   options: FetchOptions = {},
 ): Promise<NewEpisodesResult | null> {
   const episodes: NrkOriginalEpisode[] = [];
-  let href: string | null = `/radio/catalog/${catalogKind}/${seriesId}/episodes?page=1&pageSize=50`;
+  let href: string | null = options.cursorHref ??
+    `/radio/catalog/${catalogKind}/${seriesId}/episodes?page=1&pageSize=50`;
+  let previousHref = href;
 
   // follow pagination until a page contains an already-known episode, so
   // a burst of more-than-a-page new episodes isn't silently truncated
@@ -316,7 +326,7 @@ async function getNewEpisodes(
     const status = response.status;
     const body = response.body;
     if (status !== STATUS_CODE.OK || !body) {
-      return page === 0 ? null : { episodes, sawAllPages: false };
+      return page === 0 ? null : { episodes, sawAllPages: false, resumeHref: previousHref };
     }
 
     const candidates: PodcastEpisodesSingle[] = body._embedded.episodes ?? [];
@@ -329,28 +339,35 @@ async function getNewEpisodes(
       NRK_FETCH_CONCURRENCY,
       (episode) => getEpisodeWithDownloadLink(episode, catalogKind),
     );
-    episodes.push(...collectEpisodes(newCandidates, results, options.onEpisodeFailure).episodes);
-
-    const sawKnownEpisode = newCandidates.length < candidates.length;
+    const collected = collectEpisodes(newCandidates, results, options.onEpisodeFailure);
+    episodes.push(...collected.episodes);
+    if (collected.transientFailures > 0) {
+      return { episodes, sawAllPages: false, resumeHref: previousHref };
+    }
+    const stopIds = options.stopEpisodeIds ?? options.skipEpisodeIds;
+    const sawKnownEpisode = candidates.some((episode) => stopIds?.has(episode.id));
+    previousHref = href;
     href = sawKnownEpisode ? null : body._links.next?.href ?? null;
   }
-  return { episodes, sawAllPages: href === null };
+  return { episodes, sawAllPages: href === null, resumeHref: href ? previousHref : null };
 }
 
-async function getEpisode(
+async function getEpisodeResult(
   seriesId: string,
   episodeId: string,
-): Promise<NrkPodcastEpisode | null> {
-  // a series can be catalogued as a podcast or a radio series; try both
+): Promise<{ episode: NrkPodcastEpisode | null; status: number }> {
+  let failed = false;
   for (const catalog of ["podcast", "series"] as const) {
     const url = `${nrkAPI}/radio/catalog/${catalog}/${seriesId}/episodes/${episodeId}`;
-    const { status, body: episode } = await get<NrkPodcastEpisode>(url);
-    if (status === STATUS_CODE.OK && episode) {
-      return episode;
-    }
+    const { status, body } = await get<NrkPodcastEpisode>(url);
+    if (status === STATUS_CODE.OK && body) return { episode: body, status };
+    if (status !== STATUS_CODE.NotFound) failed = true;
   }
-  console.error(`Error getting episode ${episodeId} for series ${seriesId}`);
-  return null;
+  return { episode: null, status: failed ? 503 : 404 };
+}
+
+async function getEpisode(seriesId: string, episodeId: string): Promise<NrkPodcastEpisode | null> {
+  return (await getEpisodeResult(seriesId, episodeId)).episode;
 }
 
 type Manifest = playbackComponents["schemas/playback-channel.json"]["components"]["schemas"]["PlayableManifest"];
@@ -452,6 +469,7 @@ export const nrkRadio = {
   getSeries,
   getNewEpisodes,
   getEpisode,
+  getEpisodeResult,
   getEpisodePage,
   parseSeries,
   parseEpisode,

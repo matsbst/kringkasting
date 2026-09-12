@@ -2,6 +2,7 @@ import { assertEquals, assertExists } from "@std/assert";
 import { forTestingOnly, nrkRadio } from "./nrk.ts";
 import { caching } from "../caching.ts";
 import { storage } from "../storage.ts";
+import { forTestingOnly as backlogTesting } from "../backlog.ts";
 
 /**
  * Offline tests against a stubbed NRK API, so CI is deterministic.
@@ -126,6 +127,7 @@ Deno.test("getSeries parses episodes with byte sizes and drops unavailable ones"
     // "gone" is a definitive failure; "flaky" (503) is transient and not reported
     assertEquals(failures, ["gone"]);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -141,6 +143,7 @@ Deno.test("getSeries skips episodes in the skip set", async () => {
     const manifestCalls = stub.requests.filter((line) => line.includes("/playback/manifest/"));
     assertEquals(manifestCalls.length, 1);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -160,6 +163,7 @@ Deno.test("getEpisodePage follows pagination and reports failures", async () => 
     assertEquals(second.episodes.map((episode) => episode.id), ["ep3"]);
     assertEquals(second.nextHref, null);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -174,6 +178,7 @@ Deno.test("search encodes the query and parses results", async () => {
     assertExists(searchCall);
     assertEquals(searchCall.includes("berrum%20%26%20beyer%20offline"), true);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -192,9 +197,9 @@ Deno.test("caching stores fetched series and blocks failed episodes from refetch
     // catalog kind was learned during the initial fetch
     assertEquals(storage.readSeries({ id: "testserie" })?.catalogKind, "podcast");
 
-    // age the series past even the dormant-show refresh window (24h+jitter)
+    // Age past the weekly dormant-show window, including jitter.
     const stored = storage.readSeries({ id: "testserie" })!;
-    stored.lastFetchedAt = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    stored.lastFetchedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     storage.writeSeries(stored);
 
     stub.requests.length = 0;
@@ -210,9 +215,13 @@ Deno.test("caching stores fetched series and blocks failed episodes from refetch
     assertEquals(metadataFetches.length, 0);
     const fallbackFetches = stub.requests.filter((line) => line.includes("/radio/catalog/series/"));
     assertEquals(fallbackFetches.length, 0);
-    // freshness renewed
-    assertEquals(refreshed.lastFetchedAt.getTime() > Date.now() - 60_000, true);
+    // The flaky manifest leaves a durable checkpoint instead of claiming freshness.
+    assertExists(storage.readState("refresh-progress:testserie"));
+    const requestsBeforeRetry = stub.requests.length;
+    await caching.getSeries({ id: "testserie" });
+    assertEquals(stub.requests.length, requestsBeforeRetry);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -240,6 +249,7 @@ Deno.test("unknown series is not-found; upstream outage is a distinct error", as
   try {
     assertEquals(await nrkRadio.getSeries("finnes-ikke"), null);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 
@@ -261,6 +271,7 @@ Deno.test("transient manifest failures are counted so the crawler can retry the 
     // "flaky" (503) is the only unresolved candidate on the page
     assertEquals(page.transientFailures, 1);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });
@@ -294,6 +305,7 @@ Deno.test("search queries are clamped to 100 characters at the choke point", asy
     const sent = new URL(searchCall!.split(" ")[1]).searchParams.get("q")!;
     assertEquals(sent.length, 100);
   } finally {
+    await backlogTesting.waitForIdle();
     stub.restore();
   }
 });

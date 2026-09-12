@@ -35,6 +35,7 @@ export type Series = {
 };
 
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS app_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS series (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -471,6 +472,8 @@ function deleteSeriesById(seriesId: string): void {
     database.prepare("DELETE FROM episodes WHERE series_id = ?").run(seriesId);
     database.prepare("DELETE FROM failed_episodes WHERE series_id = ?").run(seriesId);
     database.prepare("DELETE FROM series WHERE id = ?").run(seriesId);
+    database.prepare("DELETE FROM app_state WHERE key IN (?, ?, ?)")
+      .run(`refresh-progress:${seriesId}`, `retry:refresh:${seriesId}`, `retry:backlog:${seriesId}`);
     database.exec("COMMIT");
     bumpDataVersion(seriesId);
   } catch (error) {
@@ -481,17 +484,37 @@ function deleteSeriesById(seriesId: string): void {
 
 /**
  * Admin action: mark a series stale so the next request refreshes it.
- * 25h back beats every adaptive refresh interval, while staying far from
+ * 9 days back beats every adaptive refresh interval, while staying far from
  * the 90-day GC cutoff (timestamp 0 would get the series deleted if the
  * forced refresh happened to fail).
  */
 function expireSeries(seriesId: string): void {
   getDb()
     .prepare("UPDATE series SET last_fetched_at = ? WHERE id = ?")
-    .run(Date.now() - 25 * 60 * 60 * 1000, seriesId);
+    .run(Date.now() - 9 * 24 * 60 * 60 * 1000, seriesId);
+}
+
+/** Durable caches and work checkpoints survive process restarts. */
+function readState<T>(key: string): T | null {
+  const row = getDb().prepare("SELECT value FROM app_state WHERE key = ?").get(key) as { value: string } | undefined;
+  return row ? JSON.parse(row.value) as T : null;
+}
+
+function writeState(key: string, value: unknown): void {
+  getDb().prepare(
+    "INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+  )
+    .run(key, JSON.stringify(value));
+}
+
+function deleteState(key: string): void {
+  getDb().prepare("DELETE FROM app_state WHERE key = ?").run(key);
 }
 
 export const storage = {
+  readState,
+  writeState,
+  deleteState,
   hasSeries,
   readSeries,
   readSeriesMeta,

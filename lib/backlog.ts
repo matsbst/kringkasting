@@ -1,5 +1,6 @@
 import { nrkRadio } from "./nrk/nrk.ts";
 import { storage } from "./storage.ts";
+import { canRetry, clearRetry, deferRetry } from "./retry.ts";
 
 /**
  * Background crawler that pages through a series' complete episode
@@ -18,6 +19,7 @@ const MAX_PAGES_PER_RUN = 200;
 const queue: string[] = [];
 const queued = new Set<string>();
 let running = false;
+let active: Promise<void> | null = null;
 
 /** ring buffer of recent crawl events for the admin dashboard */
 const events: { at: Date; message: string }[] = [];
@@ -37,7 +39,7 @@ export function getBacklogStatus() {
 }
 
 export function enqueueBacklogCrawl(seriesId: string) {
-  if (queued.has(seriesId)) {
+  if (queued.has(seriesId) || !canRetry(`backlog:${seriesId}`)) {
     return;
   }
   queued.add(seriesId);
@@ -45,10 +47,11 @@ export function enqueueBacklogCrawl(seriesId: string) {
 
   if (!running) {
     running = true;
-    processQueue()
+    active = processQueue()
       .catch((error) => console.error(`Backlog queue crashed: ${error}`))
       .finally(() => {
         running = false;
+        active = null;
       });
   }
 }
@@ -59,6 +62,7 @@ async function processQueue() {
     try {
       await crawlSeries(seriesId);
     } catch (error) {
+      deferRetry(`backlog:${seriesId}`);
       console.error(`Backlog crawl failed for ${seriesId}: ${error}`);
     } finally {
       queued.delete(seriesId);
@@ -68,7 +72,7 @@ async function processQueue() {
 
 async function crawlSeries(seriesId: string) {
   const series = storage.readSeries({ id: seriesId });
-  if (!series || series.backlogComplete) {
+  if (!series || series.backlogComplete || !canRetry(`backlog:${seriesId}`)) {
     return;
   }
 
@@ -92,14 +96,17 @@ async function crawlSeries(seriesId: string) {
       // NRK hiccup: keep the cursor so a later run resumes from here
       console.error(`Backlog crawl for ${seriesId} paused at cursor ${cursor}`);
       recordEvent(`${seriesId}: pauset – NRK utilgjengelig`);
+      deferRetry(`backlog:${seriesId}`);
       return;
     }
 
+    if (!storage.hasSeries(seriesId)) return;
     if (page.episodes.length > 0) {
       if (!storage.addEpisodes(seriesId, page.episodes.map(nrkRadio.parseEpisode))) {
         // failed write: don't advance past episodes we didn't persist
         console.error(`Backlog crawl for ${seriesId} paused: episode write failed`);
         recordEvent(`${seriesId}: pauset – databaselagring feilet`);
+        deferRetry(`backlog:${seriesId}`);
         return;
       }
     }
@@ -111,13 +118,17 @@ async function crawlSeries(seriesId: string) {
         `Backlog crawl for ${seriesId} paused: ${page.transientFailures} transient manifest failures`,
       );
       recordEvent(`${seriesId}: pauset – ${page.transientFailures} forbigående manifest-feil`);
+      deferRetry(`backlog:${seriesId}`);
       return;
     }
 
+    const completedCursor = cursor;
     cursor = page.nextHref;
-    storage.setBacklogState(seriesId, cursor, cursor === null);
+    // Revisit the last completed page after a pause/restart for overlap.
+    storage.setBacklogState(seriesId, cursor === null ? null : completedCursor, cursor === null);
 
     if (cursor === null) {
+      clearRetry(`backlog:${seriesId}`);
       console.log(`Backlog crawl for ${seriesId} complete`);
       recordEvent(`${seriesId}: arkiv komplett`);
       return;
@@ -126,5 +137,12 @@ async function crawlSeries(seriesId: string) {
     await new Promise((resolve) => setTimeout(resolve, PAGE_DELAY_MS));
   }
 
+  deferRetry(`backlog:${seriesId}`);
   console.log(`Backlog crawl for ${seriesId} hit the per-run page limit, will resume later`);
 }
+
+export const forTestingOnly = {
+  waitForIdle: async () => {
+    await active;
+  },
+};
