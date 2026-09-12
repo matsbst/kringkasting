@@ -9,7 +9,10 @@ import { enqueueBacklogCrawl } from "../lib/backlog.ts";
 import { getStats, startedAt } from "../lib/stats.ts";
 import { getCatalogSize } from "../lib/catalog.ts";
 import { adminEnabled, isAuthenticated, tryLogin } from "../lib/admin-auth.ts";
+import { allowScoped, getClientKey } from "../lib/rate-limit.ts";
 import { isValidResourceId } from "../lib/utils.ts";
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
 
 function noStore(response: Response): Response {
   response.headers.set("Cache-Control", "no-store");
@@ -53,10 +56,10 @@ export const handler = define.handlers({
       throw new HttpError(404);
     }
     if (!(await isAuthenticated(ctx.req))) {
-      return page({ view: "login", failed: false } satisfies Data);
+      return page({ view: "login", failed: false } satisfies Data, { headers: NO_STORE_HEADERS });
     }
     const notice = new URL(ctx.req.url).searchParams.get("m");
-    return page(dashboardData(notice));
+    return page(dashboardData(notice), { headers: NO_STORE_HEADERS });
   },
 
   async POST(ctx) {
@@ -65,12 +68,15 @@ export const handler = define.handlers({
     }
     const form = await ctx.req.formData();
 
-    // login
+    // login, throttled: 5 attempts, then one per minute
     const token = form.get("token");
     if (typeof token === "string") {
+      if (!allowScoped("adminlogin", getClientKey(ctx.req), 5, 1 / 60, 20, 1 / 30)) {
+        return page({ view: "login", failed: true } satisfies Data, { headers: NO_STORE_HEADERS });
+      }
       const headers = await tryLogin(ctx.req, token);
       if (!headers) {
-        return page({ view: "login", failed: true } satisfies Data);
+        return page({ view: "login", failed: true } satisfies Data, { headers: NO_STORE_HEADERS });
       }
       headers.set("Location", "/admin");
       return noStore(new Response(null, { status: 303, headers }));

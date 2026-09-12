@@ -56,16 +56,24 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
     metadataAge < METADATA_TTL_MS;
 
   if (cheapRefresh) {
-    const newEpisodes = await nrkRadio.getNewEpisodes(existingSeries.id, existingSeries.catalogKind!, {
+    const result = await nrkRadio.getNewEpisodes(existingSeries.id, existingSeries.catalogKind!, {
       skipEpisodeIds,
       onEpisodeFailure,
     });
-    if (newEpisodes === null) {
+    if (result === null) {
       console.error(`Failed to refresh series ${existingSeries.id}, serving stale data`);
       return existingSeries;
     }
-    if (newEpisodes.length > 0) {
-      storage.addEpisodes(existingSeries.id, newEpisodes.map(nrkRadio.parseEpisode));
+    if (result.episodes.length > 0) {
+      storage.addEpisodes(existingSeries.id, result.episodes.map(nrkRadio.parseEpisode));
+    }
+    if (!result.sawAllPages) {
+      // pagination broke mid-burst: re-open the archive crawl so the
+      // episodes beyond the break get fetched (the next refresh alone
+      // would stop at page one, which is now known)
+      console.error(`Refresh of ${existingSeries.id} was partial, re-opening archive crawl`);
+      storage.setBacklogState(existingSeries.id, null, false);
+      enqueueBacklogCrawl(existingSeries.id);
     }
     storage.touchLastFetched(existingSeries.id);
     return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
@@ -98,12 +106,11 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
  * it's putting out episodes, daily once it's dormant. A small random
  * jitter keeps refreshes from clustering at the top of the hour.
  */
-function refreshIntervalHours(series: Series): number {
-  const newest = series.episodes.at(0)?.date;
-  if (!newest) {
+function intervalHoursFor(newestEpisodeAt: Date | null | undefined): number {
+  if (!newestEpisodeAt) {
     return SYNC_INTERVAL_HOURS;
   }
-  const ageDays = (Date.now() - newest.getTime()) / (24 * 60 * 60 * 1000);
+  const ageDays = (Date.now() - newestEpisodeAt.getTime()) / (24 * 60 * 60 * 1000);
   if (ageDays < 2) {
     return 1;
   }
@@ -111,6 +118,25 @@ function refreshIntervalHours(series: Series): number {
     return 6;
   }
   return 24;
+}
+
+function refreshIntervalHours(series: Series): number {
+  return intervalHoursFor(series.episodes.at(0)?.date);
+}
+
+/**
+ * Cheap freshness probe for the feed fast path: true only when the
+ * series is comfortably inside its refresh window (the conservative end
+ * of the jitter range), so the fast path never serves anything the slow
+ * path would have refreshed.
+ */
+function metaIsFresh(seriesId: string): boolean {
+  const meta = storage.readSeriesMeta(seriesId);
+  if (!meta) {
+    return false;
+  }
+  const ageHours = (Date.now() - meta.lastFetchedAt.getTime()) / (60 * 60 * 1000);
+  return ageHours <= intervalHoursFor(meta.newestEpisodeAt) * 0.85;
 }
 
 function refreshIntervalWithJitter(series: Series): number {
@@ -212,6 +238,7 @@ async function getSeries(options: { id: string }): Promise<Series | null> {
 
 export const caching = {
   getSeries,
+  metaIsFresh,
 };
 
 export const forTestingOnly = {

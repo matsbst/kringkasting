@@ -19,9 +19,21 @@ type CacheEntry = RenderedFeed & { version: number };
 const MAX_ENTRIES = 500;
 const cache = new Map<string, CacheEntry>();
 
-export async function renderFeed(series: Series, origin: string): Promise<RenderedFeed> {
+/** cached rendered feed when its version snapshot is still current */
+export function peekFeed(seriesId: string, origin: string, version: number): RenderedFeed | null {
+  const cached = cache.get(`${seriesId}|${origin}`);
+  return cached && cached.version === version ? cached : null;
+}
+
+/**
+ * `version` must be snapshotted BEFORE the series was read from storage.
+ * A write landing between snapshot and read then caches stale XML under
+ * the OLD version, which no longer matches — self-healing on the next
+ * request — instead of stale XML being cached under the newest version
+ * and served indefinitely.
+ */
+export async function renderFeed(series: Series, origin: string, version: number): Promise<RenderedFeed> {
   const key = `${series.id}|${origin}`;
-  const version = storage.getDataVersion(series.id);
 
   const cached = cache.get(key);
   if (cached && cached.version === version) {
