@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { SeriesSummary } from "../lib/series-summary.ts";
 import SeriesCard from "../components/SeriesCard.tsx";
-import { IconLoader, IconSearch } from "../components/icons.tsx";
+import { IconSearch } from "../components/icons.tsx";
+import SignalBars from "../components/SignalBars.tsx";
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -125,9 +126,7 @@ export default function InstantSearch(props: Props) {
         <label class="sr-only" htmlFor="query">Søk etter NRK-podkast</label>
         <div class="relative">
           <span class="absolute left-4 top-1/2 -translate-y-1/2 text-ink-3 dark:text-ink-3-dark pointer-events-none">
-            {loading
-              ? <IconLoader size={18} class="animate-spin motion-reduce:animate-none" />
-              : <IconSearch size={18} />}
+            {loading ? <SignalBars size={18} /> : <IconSearch size={18} />}
           </span>
           <input
             type="search"

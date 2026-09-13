@@ -33,14 +33,6 @@ export function IconSearch(props: IconProps) {
   );
 }
 
-export function IconLoader(props: IconProps) {
-  return (
-    <svg {...base(props)}>
-      <path d="M12 3a9 9 0 1 0 9 9" />
-    </svg>
-  );
-}
-
 export function IconCopy(props: IconProps) {
   return (
     <svg {...base(props)}>
@@ -54,6 +46,15 @@ export function IconCheck(props: IconProps) {
   return (
     <svg {...base(props)}>
       <path d="M5 12l5 5l10 -10" />
+    </svg>
+  );
+}
+
+/** checkmark that draws itself in — for success confirmations */
+export function IconCheckDraw(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path class="check-draw" pathLength={1} d="M5 12l5 5l10 -10" />
     </svg>
   );
 }

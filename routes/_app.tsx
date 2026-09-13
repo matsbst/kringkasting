@@ -45,9 +45,18 @@ export default define.page(function App(ctx) {
         {/* broadcast arcs radiating from the page's own corner */}
         <BroadcastArcs class="pointer-events-none absolute top-0 right-0 w-72 sm:w-[27rem] text-ink/10 dark:text-ink-dark/15" />
         <header class="w-full max-w-2xl mx-auto px-6 pt-10">
-          <a href="/" class="inline-flex items-center gap-2">
-            {/* the bare broadcast glyph is the page's color signature */}
-            <IconRss size={24} class="text-brand" stroke-width="2.5" />
+          <a href="/" class="logo-ping inline-flex items-center gap-2">
+            {
+              /* the bare broadcast glyph is the page's color signature;
+                it pings a ring outward on hover */
+            }
+            <span class="relative grid place-items-center">
+              <IconRss size={24} class="text-brand" stroke-width="2.5" />
+              <span
+                aria-hidden="true"
+                class="logo-ring pointer-events-none absolute inset-0 rounded-full border border-brand opacity-0"
+              />
+            </span>
             <span class="text-xl font-bold tracking-tight">kringkasting</span>
           </a>
         </header>

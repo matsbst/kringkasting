@@ -10,6 +10,9 @@ export default function BroadcastArcs(props: { class?: string }) {
       {radii.map((radius, index) => (
         <circle
           key={radius}
+          class="arc-emit"
+          // inner rings emit first, outer ones trail — a ripple outward
+          style={{ animationDelay: `${index * 90}ms` }}
           cx="480"
           cy="0"
           r={radius}
