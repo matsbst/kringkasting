@@ -47,3 +47,29 @@ jobs:
             GIT_REVISION=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    # keep production in lockstep with main; only real pushes, only when
+    # tests, image build, and Cloudron credentials are all present
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 22
+      - run: npm install -g cloudron
+      - name: Deploy to Cloudron
+        env:
+          CLOUDRON_SERVER: ${{ secrets.CLOUDRON_SERVER }}
+          CLOUDRON_TOKEN: ${{ secrets.CLOUDRON_TOKEN }}
+        run: |
+          if [ -z "$CLOUDRON_SERVER" ] || [ -z "$CLOUDRON_TOKEN" ]; then
+            echo "CLOUDRON_SERVER / CLOUDRON_TOKEN secrets not set — skipping deploy."
+            exit 0
+          fi
+          cloudron update \
+            --server "$CLOUDRON_SERVER" \
+            --token "$CLOUDRON_TOKEN" \
+            --app kringkast.ing \
+            --image ghcr.io/${{ github.repository }}:${{ github.sha }}
