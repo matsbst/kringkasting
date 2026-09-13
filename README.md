@@ -49,6 +49,7 @@ Configuration:
 | `KRINGKASTING_DB_PATH`               | Path of the SQLite database holding podcast metadata and the crawled episode archives (default `/app/data/kringkasting.sqlite3` in the container). Losing it means archives get re-crawled from NRK. |
 | `APP_ORIGIN` / `CLOUDRON_APP_ORIGIN` | Public origin used for absolute URLs inside the RSS feeds. Falls back to the request origin.                                                                                                         |
 | `ADMIN_TOKEN`                        | Enables the admin dashboard at `/admin` (operational stats, NRK-traffic counters, archive health, per-series actions). Unset = admin disabled. Use a long random string.                             |
+| `SENTRY_DSN`                         | Optional. Sentry-protocol DSN (works with self-hosted Bugsink) for server-side error reporting. Reports exceptions with the release SHA, scrubbed of IP/query/body; unset = disabled.                |
 
 If the instance sits behind a CDN such as Cloudflare, see [docs/cloudflare.md](./docs/cloudflare.md) for the recommended edge-caching setup.
 
