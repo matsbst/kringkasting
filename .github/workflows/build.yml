@@ -68,8 +68,9 @@ jobs:
             echo "CLOUDRON_SERVER / CLOUDRON_TOKEN secrets not set — skipping deploy."
             exit 0
           fi
-          cloudron update \
+          cloudron \
             --server "$CLOUDRON_SERVER" \
             --token "$CLOUDRON_TOKEN" \
+            update \
             --app kringkast.ing \
             --image ghcr.io/${{ github.repository }}:${{ github.sha }}
