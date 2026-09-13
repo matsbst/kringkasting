@@ -4,12 +4,19 @@ import { captureException, errorReportingEnabled } from "./lib/errors.ts";
 
 export const app = new App<State>();
 
-// background failures (backlog crawler, unawaited work) surface here
+// background failures (backlog crawler, unawaited work) surface here.
+// preventDefault stops Deno from terminating on an unhandled rejection
+// before the report is sent — and keeps the server alive through a
+// background task's failure instead of crashing the whole process.
 if (errorReportingEnabled()) {
   globalThis.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault();
+    console.error(`Unhandled rejection: ${event.reason}`);
     captureException(event.reason, { tags: { kind: "unhandledrejection" } });
   });
   globalThis.addEventListener("error", (event) => {
+    event.preventDefault();
+    console.error(`Uncaught error: ${event.error ?? event.message}`);
     captureException(event.error ?? event.message, { tags: { kind: "uncaught" } });
   });
 }

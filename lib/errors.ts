@@ -17,19 +17,27 @@ type Dsn = {
 
 function parseDsn(raw: string): Dsn | null {
   try {
-    // https://<publicKey>@<host>/<projectId>
+    // https://<publicKey>@<host>[/<pathPrefix>]/<projectId>
     const url = new URL(raw);
-    const projectId = url.pathname.replace(/^\//, "");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const projectId = segments.pop();
     if (!url.username || !projectId) {
       return null;
     }
+    // preserve any reverse-proxy subpath in front of the project id
+    const prefix = segments.length ? `/${segments.join("/")}` : "";
     return {
-      endpoint: `${url.protocol}//${url.host}/api/${projectId}/store/`,
+      endpoint: `${url.protocol}//${url.host}${prefix}/api/${projectId}/store/`,
       publicKey: url.username,
     };
   } catch {
     return null;
   }
+}
+
+/** strip query strings and fragments from any URLs in reported text */
+function scrub(text: string): string {
+  return text.replace(/(https?:\/\/[^\s?#]+)[?#]\S*/g, "$1").slice(0, 2000);
 }
 
 let dsn: Dsn | null | undefined;
@@ -78,7 +86,8 @@ async function send(target: Dsn, error: unknown, context: Context): Promise<void
     exception: {
       values: [{
         type: err.name,
-        value: err.message,
+        // scrub in case a message interpolates a URL with a query string
+        value: scrub(err.message),
         stacktrace: err.stack ? { frames: parseStack(err.stack) } : undefined,
       }],
     },
@@ -103,13 +112,13 @@ function parseStack(stack: string) {
     .split("\n")
     .slice(1)
     .map((line) => {
-      const match = line.match(/at (?:(.+?) )?\(?(.+?):(\d+):(\d+)\)?$/);
+      const match = line.match(/at (?:async )?(?:(.+?) )?\(?(.+?):(\d+):(\d+)\)?$/);
       if (!match) {
         return null;
       }
       return {
         function: match[1] ?? "?",
-        filename: match[2],
+        filename: scrub(match[2]),
         lineno: Number(match[3]),
         colno: Number(match[4]),
       };
