@@ -12,6 +12,9 @@ Kringkasting started as a fork of [olaven/nrss](https://github.com/olaven/nrss).
 - Redesigned UI with instant search and one-tap subscribe (Apple Podcasts, Overcast, Pocket Casts, Castro, AntennaPod — your choice is remembered)
 - Removed the Vipps donation integration
 - All remote `https://` imports replaced with local code or `npm:`/`jsr:` packages
+- Per-client rate limiting, a global upstream concurrency cap, and security headers
+- Optional admin dashboard (`/admin`) with operational stats, NRK-traffic counters, and archive health
+- Optional server-side error reporting over the Sentry protocol (works with self-hosted [Bugsink](https://www.bugsink.com/))
 - Dockerized, image built by GitHub Actions
 
 ## Why?
