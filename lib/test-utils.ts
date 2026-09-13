@@ -3,7 +3,9 @@ import { Episode, Series } from "./storage.ts";
 
 function generateSeries(overrides: Partial<Series> = {}): Series {
   return {
-    id: faker.word.words(1),
+    // a UUID, not a faker word: storage tests share one in-memory DB, and
+    // low-cardinality ids collide across tests (flaky under unseeded RNG)
+    id: faker.string.uuid(),
     title: faker.word.words(3),
     subtitle: faker.word.words(3),
     link: faker.internet.url(),
