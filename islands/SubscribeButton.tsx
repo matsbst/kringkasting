@@ -1,6 +1,6 @@
 import { ComponentChildren } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
-import { IconCheck, IconChevronDown, IconCopy, IconPodcast } from "../components/icons.tsx";
+import { IconCheckDraw, IconChevronDown, IconCopy, IconPodcast } from "../components/icons.tsx";
 import {
   AntennaPodIcon,
   ApplePodcastsIcon,
@@ -220,7 +220,7 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 data-umami-event="kopier-rss"
                 class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer"
               >
-                {copyState === "copied" ? <IconCheck size={20} /> : <IconCopy size={20} />}
+                {copyState === "copied" ? <IconCheckDraw size={20} /> : <IconCopy size={20} />}
                 {copyState === "copied" ? "Kopiert!" : "Kopier RSS-lenke"}
               </button>
               {/* announce the outcome to screen readers */}
