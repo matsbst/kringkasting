@@ -1,13 +1,39 @@
-import { App, staticFiles } from "fresh";
+import { App, HttpError, staticFiles } from "fresh";
 import { type State } from "./utils.ts";
+import { captureException, errorReportingEnabled } from "./lib/errors.ts";
 
 export const app = new App<State>();
+
+// background failures (backlog crawler, unawaited work) surface here
+if (errorReportingEnabled()) {
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    captureException(event.reason, { tags: { kind: "unhandledrejection" } });
+  });
+  globalThis.addEventListener("error", (event) => {
+    captureException(event.error ?? event.message, { tags: { kind: "uncaught" } });
+  });
+}
 
 const SECURITY_HEADERS: Record<string, string> = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "same-origin",
   "X-Frame-Options": "DENY",
 };
+
+// report handler exceptions, then rethrow so Fresh still renders _error.
+// Only the path/method are attached — never query strings or client IP.
+app.use(async (ctx) => {
+  try {
+    return await ctx.next();
+  } catch (error) {
+    if (!(error instanceof HttpError)) {
+      captureException(error, {
+        tags: { method: ctx.req.method, path: new URL(ctx.req.url).pathname },
+      });
+    }
+    throw error;
+  }
+});
 
 app.use(async (ctx) => {
   const response = await ctx.next();
