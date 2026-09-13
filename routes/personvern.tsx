@@ -31,7 +31,8 @@ export default define.page(function Personvern() {
             <p class="mt-2">
               IP-adressen din brukes flyktig i minnet til å begrense misbruk (rate-begrensning) og skrives aldri til
               disk. Nettstedet leveres via Cloudflare, som behandler trafikk som CDN. Valget ditt av podkast-app lagres
-              kun i din egen nettleser (localStorage) og sendes aldri til oss.
+              kun i din egen nettleser (localStorage) og sendes aldri til oss. Hvis noe kræsjer, sender vi en teknisk
+              feilrapport til vår egen, selvdriftede feilovervåking – uten IP-adresse eller noe som identifiserer deg.
             </p>
           </div>
 
