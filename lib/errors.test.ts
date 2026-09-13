@@ -10,6 +10,19 @@ Deno.test("parseDsn extracts endpoint and key, rejects malformed", () => {
   assertEquals(forTestingOnly.parseDsn("not-a-url"), null);
   assertEquals(forTestingOnly.parseDsn("https://bugsink.example.com/4"), null); // no key
   assertEquals(forTestingOnly.parseDsn("https://abc@bugsink.example.com/"), null); // no project
+
+  // reverse-proxy subpath is preserved, project id is the last segment
+  const sub = forTestingOnly.parseDsn("https://abc123@host.example.com/bugsink/4");
+  assertExists(sub);
+  assertEquals(sub.endpoint, "https://host.example.com/bugsink/api/4/store/");
+});
+
+Deno.test("parseStack handles async frames without mislabeling the function", () => {
+  const frames = forTestingOnly.parseStack(
+    "Error: x\n    at async Server.handler (file:///app/x.ts:5:3)",
+  );
+  assertEquals(frames[0].function, "Server.handler");
+  assertEquals(frames[0].filename, "file:///app/x.ts");
 });
 
 Deno.test("stack frames are oldest-first with parsed locations", () => {
@@ -50,13 +63,18 @@ Deno.test("captured event scrubs to exception + tags, no PII", async () => {
   }) as typeof fetch;
 
   try {
-    mod.captureException(new Error("kaboom"), { tags: { path: "/api/feeds/x" } });
+    mod.captureException(
+      new Error("failed to fetch https://psapi.nrk.no/x?token=secret&user=me"),
+      { tags: { path: "/api/feeds/x" } },
+    );
     await new Promise((resolve) => setTimeout(resolve, 20));
     assertExists(captured);
     assertEquals(captured!.url, "https://bugsink.test/api/9/store/");
     assertEquals(captured!.auth.includes("sentry_key=key"), true);
     const event = JSON.parse(captured!.body);
-    assertEquals(event.exception.values[0].value, "kaboom");
+    // the query string (token/user) is scrubbed from the message
+    assertEquals(event.exception.values[0].value, "failed to fetch https://psapi.nrk.no/x");
+    assertEquals(event.exception.values[0].value.includes("token"), false);
     assertEquals(event.tags.path, "/api/feeds/x");
     // no client identity fields
     assertEquals("server_name" in event, false);
