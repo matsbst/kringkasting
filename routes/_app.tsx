@@ -89,6 +89,13 @@ export default define.page(function App(ctx) {
               ·{" "}
               <a href="/personvern" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">
                 Personvern
+              </a>{" "}
+              ·{" "}
+              <a
+                href="https://github.com/matsbst/kringkasting/issues/new"
+                class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
+              >
+                Funnet en feil?
               </a>
             </p>
           </div>
