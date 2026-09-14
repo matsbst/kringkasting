@@ -148,7 +148,8 @@ function intervalHoursFor(newestEpisodeAt: Date | null | undefined): number {
   }
   const ageDays = (Date.now() - newestEpisodeAt.getTime()) / (24 * 60 * 60 * 1000);
   if (ageDays < 2) {
-    return 3;
+    // recently-active shows (daily news etc.) refresh hourly
+    return 1;
   }
   if (ageDays < 30) {
     return 12;

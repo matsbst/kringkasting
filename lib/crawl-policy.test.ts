@@ -21,7 +21,7 @@ const episode = (id: string) => ({
 });
 
 Deno.test("polling tiers cover active, dormant and empty shows", () => {
-  for (const [days, hours] of [[0, 3], [2, 12], [30, 72], [180, 168]]) {
+  for (const [days, hours] of [[0, 1], [2, 12], [30, 72], [180, 168]]) {
     assertEquals(cacheTesting.intervalHoursFor(new Date(Date.now() - days * DAY)), hours);
   }
   assertEquals(cacheTesting.intervalHoursFor(null), 3);

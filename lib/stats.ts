@@ -4,7 +4,43 @@
  * No per-user data is ever recorded.
  */
 
+import { captureException } from "./errors.ts";
+
 export const startedAt = new Date();
+
+/**
+ * Upstream health watch: alert (once, throttled) when NRK requests fail
+ * in a sustained run, so a real outage or block gets surfaced to Bugsink
+ * — without spamming on the transient 503/timeout that normal operation
+ * shrugs off. Only network/timeout (0), 5xx, and 429/403 count as
+ * failures; any other response (200, 301, 404) proves NRK is reachable
+ * and clears the run — the alert is for sustained *unreachability*.
+ */
+const HEALTH_FAILURE_THRESHOLD = 8;
+const HEALTH_ALERT_THROTTLE_MS = 30 * 60 * 1000;
+let consecutiveFailures = 0;
+let lastHealthAlertAt = 0;
+
+function isHealthFailure(status: number): boolean {
+  return status === 0 || status >= 500 || status === 429 || status === 403;
+}
+
+function recordUpstreamHealth(status: number) {
+  if (!isHealthFailure(status)) {
+    consecutiveFailures = 0;
+    return;
+  }
+  consecutiveFailures++;
+  if (consecutiveFailures >= HEALTH_FAILURE_THRESHOLD && Date.now() - lastHealthAlertAt > HEALTH_ALERT_THROTTLE_MS) {
+    lastHealthAlertAt = Date.now();
+    captureException(
+      new Error(
+        `NRK API appears unhealthy: ${consecutiveFailures} consecutive upstream failures (latest status ${status})`,
+      ),
+      { tags: { kind: "upstream-health", status: String(status) } },
+    );
+  }
+}
 
 type UpstreamCategory = "katalog" | "episodeliste" | "manifest" | "filstørrelse" | "søk" | "annet";
 
@@ -32,6 +68,7 @@ export function recordUpstreamRequest(url: string, method: string, status: numbe
   if (status === 0 || status >= 500) {
     bucket.errors++;
   }
+  recordUpstreamHealth(status);
 }
 
 const served = {
@@ -73,3 +110,13 @@ export function getStats() {
     lastGc,
   };
 }
+
+export const forTestingOnly = {
+  isHealthFailure,
+  feedStatus: recordUpstreamHealth,
+  consecutiveFailures: () => consecutiveFailures,
+  reset: () => {
+    consecutiveFailures = 0;
+    lastHealthAlertAt = 0;
+  },
+};
