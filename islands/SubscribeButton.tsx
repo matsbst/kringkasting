@@ -92,10 +92,32 @@ export default function SubscribeButton(props: { feedUrl: string }) {
   }, []);
 
   const chosen = APPS.find((app) => app.id === chosenId) ?? null;
+  const [appleHint, setAppleHint] = useState(false);
 
   const open = () => {
     setCopyState("idle");
     dialogRef.current?.showModal();
+  };
+
+  /**
+   * Apple Podcasts on the desktop opens its "Follow a Show by URL" dialog
+   * but — unlike iOS — does not pre-fill the feed URL (an Apple platform
+   * limitation). So on a non-touch device we copy the URL first and show
+   * a paste hint; the deep link still opens the app. Touch devices
+   * (iOS/iPadOS) subscribe directly and take the native anchor path.
+   */
+  const activate = (app: PodcastApp, event: Event) => {
+    const isDesktop = typeof navigator !== "undefined" && navigator.maxTouchPoints === 0;
+    if (app.id !== "apple" || !isDesktop) {
+      return; // let the anchor navigate natively
+    }
+    event.preventDefault();
+    const href = app.href(props.feedUrl);
+    navigator.clipboard.writeText(props.feedUrl).catch(() => {}).finally(() => {
+      setAppleHint(true);
+      setTimeout(() => setAppleHint(false), 7000);
+      globalThis.location.href = href;
+    });
   };
 
   const close = () => dialogRef.current?.close();
@@ -139,7 +161,10 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           <span class="inline-flex" ref={controlRef}>
             <a
               href={chosen.href(props.feedUrl)}
-              onClick={() => setPulse((count) => count + 1)}
+              onClick={(event) => {
+                setPulse((count) => count + 1);
+                activate(chosen, event);
+              }}
               data-umami-event={`app-${chosen.id}`}
               data-umami-event-app={chosen.name}
               data-umami-event-handling="aapne"
@@ -194,7 +219,10 @@ export default function SubscribeButton(props: { feedUrl: string }) {
               <li key={app.id}>
                 <a
                   href={app.href(props.feedUrl)}
-                  onClick={() => remember(app)}
+                  onClick={(event) => {
+                    activate(app, event);
+                    remember(app);
+                  }}
                   data-umami-event={`app-${app.id}`}
                   data-umami-event-app={app.name}
                   data-umami-event-handling="velg"
@@ -252,6 +280,16 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           </button>
         </div>
       </dialog>
+
+      {/* desktop Apple Podcasts paste hint */}
+      {appleHint && (
+        <div
+          role="status"
+          class="fixed inset-x-0 bottom-4 z-50 mx-auto w-fit max-w-[90vw] rounded-xl bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark px-4 py-3 text-sm shadow-lg text-center"
+        >
+          Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).
+        </div>
+      )}
     </>
   );
 }
