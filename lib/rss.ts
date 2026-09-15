@@ -6,8 +6,24 @@ import { isHlsUrl } from "./utils.ts";
  * @param origin the public origin of this instance, used for
  * absolute URLs pointing back to the app (e.g. chapters).
  */
+/**
+ * A series is "stream-only" when NRK offers every episode as HLS and none
+ * as a downloadable file — those play only in HLS-capable apps (Apple
+ * Podcasts), so the UI warns about them rather than hiding them.
+ */
+export function isStreamOnly(series: Series): boolean {
+  return series.episodes.length > 0 && series.episodes.every((episode) => isHlsUrl(episode.url));
+}
+
 function assembleFeed(series: Series, origin: string): string {
   // Originally adapted from https://raw.githubusercontent.com/olaven/paperpod/1cde9abd3174b26e126aa74fc5a3b63fd078c0fd/packages/converter/src/rss.ts
+
+  // Drop stray HLS episodes from shows that also have real downloadable
+  // ones, so ordinary feeds carry only playable enclosures. Keep them for
+  // wholly stream-only shows, where dropping would leave an empty feed and
+  // an HLS-capable app could still play them.
+  const episodes = isStreamOnly(series) ? series.episodes : series.episodes.filter((episode) => !isHlsUrl(episode.url));
+
   return serialize(
     declaration([
       ["version", "1.0"],
@@ -50,7 +66,7 @@ function assembleFeed(series: Series, origin: string): string {
               ]),
             ]
             : []),
-          ...series.episodes.map((episode) => assembleEpisode(episode, series.id, origin)),
+          ...episodes.map((episode) => assembleEpisode(episode, series.id, origin)),
         ]),
       ],
       [

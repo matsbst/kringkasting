@@ -326,6 +326,25 @@ function touchLastFetched(seriesId: string): void {
     .run(Date.now(), seriesId);
 }
 
+/**
+ * Of the given series, which are stream-only (have episodes, all HLS) —
+ * for the "not downloadable" UI hint on search results. One query;
+ * unknown/uncrawled series are simply absent from the result.
+ */
+function streamOnlySeriesIds(ids: string[]): Set<string> {
+  if (ids.length === 0) {
+    return new Set();
+  }
+  const placeholders = ids.map(() => "?").join(",");
+  const rows = getDb().prepare(`
+    SELECT series_id FROM episodes
+    WHERE series_id IN (${placeholders})
+    GROUP BY series_id
+    HAVING SUM(CASE WHEN url LIKE '%.m3u8%' THEN 0 ELSE 1 END) = 0
+  `).all(...ids) as { series_id: string }[];
+  return new Set(rows.map((row) => row.series_id));
+}
+
 function setBacklogState(seriesId: string, cursor: string | null, complete: boolean): void {
   getDb()
     .prepare("UPDATE series SET backlog_cursor = ?, backlog_complete = ? WHERE id = ?")
@@ -530,6 +549,7 @@ export const storage = {
   readEpisodeIds,
   touchLastFetched,
   setBacklogState,
+  streamOnlySeriesIds,
   getDataVersion,
   recordEpisodeFailure,
   readBlockedEpisodeIds,

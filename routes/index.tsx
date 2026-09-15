@@ -6,8 +6,9 @@ import InstantSearch from "../islands/InstantSearch.tsx";
 
 import { nrkRadio } from "../lib/nrk/nrk.ts";
 import { getRandomShowTitles } from "../lib/catalog.ts";
+import { storage } from "../lib/storage.ts";
 import { allowScoped, getClientKey } from "../lib/rate-limit.ts";
-import { SeriesSummary, toSeriesSummary } from "../lib/series-summary.ts";
+import { SeriesSummary, toSummaries } from "../lib/series-summary.ts";
 import { getOrigin } from "../lib/utils.ts";
 
 /** shown until the live catalog has loaded */
@@ -28,8 +29,9 @@ export const handler = define.handlers({
       // same admission control as /api/search; over the limit the page
       // renders without results rather than querying NRK
       if (allowScoped("search", getClientKey(ctx.req), 30, 0.5, 120, 2)) {
-        const searchResult = await nrkRadio.search(query);
-        results = (searchResult ?? []).map(toSeriesSummary);
+        const searchResult = await nrkRadio.search(query) ?? [];
+        const streamOnly = storage.streamOnlySeriesIds(searchResult.map((s) => s.seriesId));
+        results = toSummaries(searchResult, streamOnly);
       }
     }
     const suggestions = getRandomShowTitles(6) ?? FALLBACK_SUGGESTIONS;
