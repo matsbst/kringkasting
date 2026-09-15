@@ -29,6 +29,16 @@ export function isValidResourceId(id: string): boolean {
   return RESOURCE_ID_PATTERN.test(id);
 }
 
+/**
+ * NRK serves some radio programs only as HLS streams (.m3u8), which are
+ * not valid downloadable podcast enclosures — most apps report "invalid
+ * audio file" if such a URL is labelled audio/mpeg. Detect them so we can
+ * prefer a progressive file and label the type honestly.
+ */
+export function isHlsUrl(url: string): boolean {
+  return url.includes(".m3u8");
+}
+
 /** strong ETag (quoted SHA-1 hex) for a response body */
 export async function etagFor(content: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(content));

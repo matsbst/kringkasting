@@ -1,6 +1,7 @@
 import { STATUS_CODE } from "@std/http/status";
 import { get, GetResult, head } from "../http.ts";
 import { CatalogKind, Episode, Series } from "../storage.ts";
+import { isHlsUrl } from "../utils.ts";
 import { components as catalogComponents } from "./nrk-catalog.ts";
 import { external as playbackComponents } from "./nrk-playback.ts";
 import { components as searchComponents } from "./nrk-search.ts";
@@ -387,11 +388,15 @@ async function getEpisodeWithDownloadLink(
     `${nrkAPI}/playback/manifest/${endpoint}/${episode.episodeId}`,
   );
 
-  const url = body?.playable?.assets?.at(0)?.url;
+  // prefer a progressive download (MP3) over an HLS stream — some radio
+  // programs offer both, and only the file works as a podcast enclosure
+  const assets = body?.playable?.assets ?? [];
+  const asset = assets.find((candidate) => candidate?.url && !isHlsUrl(candidate.url)) ?? assets.at(0);
+  const url = asset?.url;
   if (status === STATUS_CODE.OK && url) {
-    // RSS enclosures want the file size in bytes
-    const { contentLength } = await head(url);
-    return { ...episode, url, bytes: contentLength };
+    // HLS playlists have no meaningful file size; only HEAD real files
+    const bytes = isHlsUrl(url) ? null : (await head(url)).contentLength;
+    return { ...episode, url, bytes };
   }
 
   console.error(`No playable manifest for episode ${episode.episodeId} (status ${status})`);
