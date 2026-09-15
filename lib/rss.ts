@@ -1,5 +1,6 @@
 import { declaration, serialize, Tag, tag } from "./xml.ts";
 import { Episode, Series } from "./storage.ts";
+import { isHlsUrl } from "./utils.ts";
 
 /**
  * @param origin the public origin of this instance, used for
@@ -82,7 +83,9 @@ function assembleEpisode(episode: Episode, seriesId: Series["id"], origin: strin
       ["url", episode.url],
       // RSS defines length as the file size in bytes ("0" = unknown)
       ["length", (episode.bytes ?? 0).toString()],
-      ["type", "audio/mpeg"],
+      // label HLS streams honestly instead of as audio/mpeg, which makes
+      // apps report "invalid audio file" when the download isn't an MP3
+      ["type", isHlsUrl(episode.url) ? "application/vnd.apple.mpegurl" : "audio/mpeg"],
     ]),
   ]);
 }
