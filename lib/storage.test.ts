@@ -138,3 +138,23 @@ Deno.test("garbage collection removes stale series and keeps fresh ones", () => 
   assertEquals(storage.readBlockedEpisodeIds(stale.id).size, 0);
   assertEquals(storage.readSeries({ id: fresh.id })?.id, fresh.id);
 });
+
+Deno.test("streamOnlySeriesIds flags all-HLS series only", () => {
+  const streamOnly = testUtils.generateSeries();
+  streamOnly.episodes = [
+    testUtils.generateEpisode({ url: "https://cdn/x/muxed.m3u8?adap=audio" }),
+    testUtils.generateEpisode({ url: "https://cdn/y/muxed.m3u8?adap=audio" }),
+  ];
+  const mixed = testUtils.generateSeries();
+  mixed.episodes = [
+    testUtils.generateEpisode({ url: "https://podkast.nrk.no/a.mp3" }),
+    testUtils.generateEpisode({ url: "https://cdn/z/muxed.m3u8" }),
+  ];
+  storage.writeSeries(streamOnly);
+  storage.writeSeries(mixed);
+
+  const flagged = storage.streamOnlySeriesIds([streamOnly.id, mixed.id, "does-not-exist"]);
+  assertEquals(flagged.has(streamOnly.id), true);
+  assertEquals(flagged.has(mixed.id), false);
+  assertEquals(flagged.has("does-not-exist"), false);
+});

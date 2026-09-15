@@ -10,6 +10,8 @@ export type SeriesSummary = {
   title: string;
   description: string | null;
   imageUrl: string | null;
+  /** NRK offers this show only as a stream (HLS); needs an HLS-capable app */
+  streamOnly?: boolean;
 };
 
 /** pick the image variant closest to the wanted rendered size */
@@ -31,4 +33,16 @@ export function toSeriesSummary(result: SearchResult): SeriesSummary {
     description: result.description ?? null,
     imageUrl: image?.uri ?? null,
   };
+}
+
+/**
+ * Map NRK results to summaries, flagging the ones we've already crawled
+ * and found to be stream-only. `streamOnlyIds` is supplied by the caller
+ * (server-only) so this module stays free of storage/client-bundle deps.
+ */
+export function toSummaries(results: SearchResult[], streamOnlyIds: Set<string>): SeriesSummary[] {
+  return results.map((result) => {
+    const summary = toSeriesSummary(result);
+    return streamOnlyIds.has(summary.seriesId) ? { ...summary, streamOnly: true } : summary;
+  });
 }

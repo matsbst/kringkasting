@@ -65,3 +65,20 @@ Deno.test("progressive MP3 enclosures stay audio/mpeg", () => {
   assertEquals(feed.includes(`type="audio/mpeg"`), true);
   assertEquals(feed.includes("mpegurl"), false);
 });
+
+Deno.test("mixed shows drop HLS episodes; stream-only shows keep them", () => {
+  const mp3 = () => testUtils.generateEpisode({ url: "https://podkast.nrk.no/fil/x_ID192MP3.mp3" });
+  const hls = () => testUtils.generateEpisode({ url: "https://cdn.akamaized.net/x/muxed.m3u8?adap=audio" });
+
+  const mixed = testUtils.generateSeries();
+  mixed.episodes = [mp3(), hls(), mp3()];
+  const mixedFeed = rss.assembleFeed(mixed, ORIGIN);
+  assertEquals(mixedFeed.includes("m3u8"), false); // HLS dropped
+  assertEquals((mixedFeed.match(/<item>/g) || []).length, 2);
+
+  const streamOnly = testUtils.generateSeries();
+  streamOnly.episodes = [hls(), hls()];
+  const streamFeed = rss.assembleFeed(streamOnly, ORIGIN);
+  assertEquals((streamFeed.match(/<item>/g) || []).length, 2); // kept
+  assertEquals(streamFeed.includes("application/vnd.apple.mpegurl"), true);
+});

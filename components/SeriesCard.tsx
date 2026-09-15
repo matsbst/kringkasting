@@ -28,7 +28,7 @@ export default function SeriesCard(props: { serie: SeriesSummary; origin: string
           </p>
         )}
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <SubscribeButton feedUrl={feedUrl} />
+          <SubscribeButton feedUrl={feedUrl} streamOnly={props.serie.streamOnly} />
           <ShareButton
             title={props.serie.title}
             url={new URL(`/?query=${encodeURIComponent(props.serie.title)}`, props.origin).toString()}

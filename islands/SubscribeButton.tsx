@@ -74,7 +74,7 @@ const APPS: PodcastApp[] = [
  * remembered in localStorage so later visits get a one-tap
  * "Åpne i <app>" with a small chevron to switch apps.
  */
-export default function SubscribeButton(props: { feedUrl: string }) {
+export default function SubscribeButton(props: { feedUrl: string; streamOnly?: boolean }) {
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   // incremented per tap; keyed span re-runs the pulse-ring animation
@@ -214,6 +214,12 @@ export default function SubscribeButton(props: { feedUrl: string }) {
           <h2 id={headingId} class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">
             Velg podkast-app
           </h2>
+          {props.streamOnly && (
+            <p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">
+              NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de
+              fleste andre apper.
+            </p>
+          )}
           <ul>
             {APPS.map((app) => (
               <li key={app.id}>
@@ -230,6 +236,9 @@ export default function SubscribeButton(props: { feedUrl: string }) {
                 >
                   <app.icon size={20} />
                   {app.name}
+                  {props.streamOnly && app.id === "apple" && (
+                    <span class="ml-auto text-xs text-ink-3 dark:text-ink-3-dark">anbefalt</span>
+                  )}
                 </a>
               </li>
             ))}
