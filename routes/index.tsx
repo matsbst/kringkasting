@@ -76,9 +76,21 @@ export default define.page<typeof handler>(function Home({ data }) {
           NRK-podkaster, i appen <span class="text-brand">du</span> velger
         </h1>
         <p class="relative mt-5 text-lg text-ink-2 dark:text-ink-2-dark max-w-lg text-pretty">
-          NRK låser podkastene sine inne i sin egen app og støtter ikke lenger åpne standarder. Det bør ikke en
-          kringkaster finansiert av deg og meg gjøre. Kringkast.ing åpner podkastene opp igjen som helt vanlige
-          RSS-strømmer slik at du kan bruke den i appen du selv velger.
+          NRK låser podkastene sine inne i sin egen app og støtter ikke lenger{" "}
+          <a
+            href="https://podstandards.org"
+            class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
+          >
+            åpne standarder
+          </a>. Det bør ikke en kringkaster finansiert av deg og meg gjøre. Kringkasting er en{" "}
+          <a
+            href="https://github.com/matsbst/kringkasting"
+            class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark"
+          >
+            åpen kildekode app
+          </a>{" "}
+          du kan hoste selv som åpner podkastene opp igjen som helt vanlige RSS-strømmer slik at du kan bruke den i
+          appen du selv velger.
         </p>
       </section>
 
