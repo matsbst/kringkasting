@@ -19,6 +19,19 @@ export function getOrigin(request: Request): string {
 }
 
 /**
+ * Optional Umami analytics config, read from the environment so the tracked
+ * origin/site lives with the deployment rather than in the source. Returns
+ * null unless BOTH the script URL and website id are set, so forks stay
+ * analytics-free (and never report into someone else's dashboard) by default.
+ */
+export function getUmamiConfig(): { src: string; websiteId: string } | null {
+  const src = Deno.env.get("UMAMI_SRC");
+  const websiteId = Deno.env.get("UMAMI_WEBSITE_ID");
+  if (!src || !websiteId) return null;
+  return { src, websiteId };
+}
+
+/**
  * NRK series/episode ids are short slugs. Rejecting anything else keeps
  * user-controlled route params from steering requests to other paths on
  * NRK's API (or growing the KV keyspace with garbage).
