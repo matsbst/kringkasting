@@ -24,4 +24,9 @@ COPY --from=builder /build/_fresh /app/code/_fresh
 COPY start.sh /app/code/start.sh
 RUN chmod +x /app/code/start.sh
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:8000/ >/dev/null || exit 1
+
+EXPOSE 8000
+
 CMD [ "/app/code/start.sh" ]
