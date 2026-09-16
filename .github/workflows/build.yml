@@ -49,9 +49,11 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    # keep production in lockstep with main; only real pushes, only when
-    # tests, image build, and Cloudron credentials are all present
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # the maintainer's own auto-deploy to kringkast.ing — scoped to this
+    # repository so forks get test + build + image publish but never a
+    # deploy job wired to someone else's server. Set CLOUDRON_SERVER /
+    # CLOUDRON_TOKEN secrets to point it at your own Cloudron.
+    if: github.repository == 'matsbst/kringkasting' && github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: docker
     runs-on: ubuntu-latest
     steps:

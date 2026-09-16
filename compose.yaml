@@ -1,0 +1,28 @@
+services:
+  kringkasting:
+    image: ghcr.io/matsbst/kringkasting:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # holds the SQLite database (podcast metadata + crawled episode
+      # archives). Keep it to preserve archives across restarts/upgrades.
+      - kringkasting-data:/app/data
+    environment:
+      # Public URL of your instance. Set this so RSS/canonical/OG URLs are
+      # correct behind a reverse proxy or CDN (otherwise the request Host
+      # is reflected). Example: https://kringkasting.example.com
+      APP_ORIGIN: ${APP_ORIGIN:-}
+      # Optional: enable the admin dashboard at /admin. Unset = disabled.
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      # Optional: Sentry-protocol DSN (works with self-hosted Bugsink).
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  kringkasting-data:
