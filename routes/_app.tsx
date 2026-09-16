@@ -1,5 +1,5 @@
 import { define } from "../utils.ts";
-import { getOrigin } from "../lib/utils.ts";
+import { getOrigin, getUmamiConfig } from "../lib/utils.ts";
 import { IconRss } from "../components/icons.tsx";
 import BroadcastArcs from "../components/BroadcastArcs.tsx";
 
@@ -10,6 +10,7 @@ export default define.page(function App(ctx) {
   const { Component } = ctx;
   const origin = getOrigin(ctx.req);
   const canonical = `${origin}${ctx.url.pathname}`;
+  const umami = getUmamiConfig();
   return (
     <html lang="no">
       <head>
@@ -37,8 +38,8 @@ export default define.page(function App(ctx) {
         <meta name="twitter:title" content="Kringkasting – NRK-podkaster som RSS" />
         <meta name="twitter:description" content={DESCRIPTION} />
         <meta name="twitter:image" content={`${origin}/og.png`} />
-        {/* self-hosted, cookieless Umami analytics */}
-        <script defer src="https://data.i1.no/script.js" data-website-id="e70aeb45-6ad7-4d32-bc32-2bbeeff91ed0" />
+        {/* optional cookieless Umami analytics, enabled via UMAMI_* env vars */}
+        {umami && <script defer src={umami.src} data-website-id={umami.websiteId} />}
       </head>
       <body class="relative min-h-screen flex flex-col overflow-x-clip bg-canvas text-ink dark:bg-canvas-dark dark:text-ink-dark antialiased">
         <a href="#innhold" class="skip-link">Hopp til innhold</a>

@@ -17,6 +17,9 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
       # Optional: Sentry-protocol DSN (works with self-hosted Bugsink).
       SENTRY_DSN: ${SENTRY_DSN:-}
+      # Optional: cookieless Umami analytics (both must be set to enable).
+      UMAMI_SRC: ${UMAMI_SRC:-}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]
       interval: 30s
