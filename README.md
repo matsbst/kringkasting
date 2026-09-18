@@ -5,6 +5,7 @@
 Kringkasting started as a fork of [olaven/nrss](https://github.com/olaven/nrss). Notable differences from upstream:
 
 - **Full episode archives**: a background crawler pages through each series' complete backlog, so feeds aren't limited to the latest ~20 episodes (fixes upstream [issue #8](https://github.com/olaven/NRSS/issues/8))
+- **Per-season feeds**: NRK publishes many standalone shows as seasons of umbrella podcasts (e.g. Radiodokumentaren's titles); each gets its own feed at `/api/feeds/{serie}/sesong/{sesong}` with its own title and artwork, mirroring NRK's structure
 - Storage on plain **SQLite** (built-in `node:sqlite`) — a single embedded file, no external database
 - **Conditional GETs**: feeds answer `304 Not Modified` to polling clients, and send CDN-friendly caching headers
 - Feeds carry real enclosure byte sizes, `atom:link rel=self`, `language`, and the registered `audio/mpeg` MIME type; stream-only shows are handled honestly

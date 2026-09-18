@@ -12,7 +12,7 @@ type CatalogEntry = { seriesId: string; title: string };
 
 type CatalogPage = {
   _links?: { nextPage?: { href: string } };
-  series?: { seriesId?: string; title?: string; type?: string }[];
+  series?: { seriesId?: string; seasonId?: string; title?: string; type?: string }[];
 };
 
 const nrkAPI = "https://psapi.nrk.no";
@@ -42,11 +42,16 @@ async function loadCatalog() {
       return;
     }
     for (const item of body.series ?? []) {
-      // customSeason rows are seasons of umbrella shows, not series
-      if (!item.seriesId || !item.title || item.type === "customSeason" || seen.has(item.seriesId)) {
+      if (!item.seriesId || !item.title) {
         continue;
       }
-      seen.add(item.seriesId);
+      // customSeason rows are standalone shows published under umbrella
+      // podcasts; they have their own feeds, so their titles count too
+      const key = item.type === "customSeason" ? `${item.seriesId}/${item.seasonId ?? item.title}` : item.seriesId;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
       entries.push({ seriesId: item.seriesId, title: item.title });
     }
     href = body._links?.nextPage?.href ?? null;

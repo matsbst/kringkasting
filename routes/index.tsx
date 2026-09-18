@@ -30,8 +30,7 @@ export const handler = define.handlers({
       // renders without results rather than querying NRK
       if (allowScoped("search", getClientKey(ctx.req), 30, 0.5, 120, 2)) {
         const searchResult = await nrkRadio.search(query) ?? [];
-        const streamOnly = storage.streamOnlySeriesIds(searchResult.map((s) => s.seriesId));
-        results = toSummaries(searchResult, streamOnly);
+        results = toSummaries(searchResult, storage.streamOnlySeriesIds);
       }
     }
     const suggestions = getRandomShowTitles(6) ?? FALLBACK_SUGGESTIONS;

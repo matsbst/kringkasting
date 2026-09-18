@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { SeriesSummary } from "../lib/series-summary.ts";
+import { feedIdOf, type SeriesSummary } from "../lib/series-summary.ts";
 import SeriesCard from "../components/SeriesCard.tsx";
 import { IconSearch } from "../components/icons.tsx";
 import SignalBars from "../components/SignalBars.tsx";
@@ -171,7 +171,7 @@ export default function InstantSearch(props: Props) {
                 {hits.items.length} treff for «{hits.query}»
               </p>
               <div class="space-y-10">
-                {hits.items.map((serie) => <SeriesCard key={serie.seriesId} serie={serie} origin={props.origin} />)}
+                {hits.items.map((serie) => <SeriesCard key={feedIdOf(serie)} serie={serie} origin={props.origin} />)}
               </div>
             </section>
           )

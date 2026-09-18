@@ -76,6 +76,38 @@ function stubNrk(): Stub {
       }));
     }
 
+    // customSeason "testsesong" of umbrella "testserie": one embedded
+    // episode plus a second page, to exercise season pagination
+    if (pathname === "/radio/catalog/podcast/testserie/seasons/testsesong") {
+      return Promise.resolve(jsonResponse({
+        seriesType: "umbrella",
+        type: "podcast",
+        titles: { title: "Testsesong", subtitle: "En sesong som egen serie" },
+        squareImage: [{ url: "https://gfx.test/sesong", width: 300 }],
+        _links: {},
+        _embedded: {
+          episodes: {
+            _links: { next: { href: "/radio/catalog/podcast/testserie/seasons/testsesong/episodes?page=2" } },
+            _embedded: { episodes: [episodeItem("sep1")] },
+          },
+        },
+      }));
+    }
+
+    if (pathname === "/radio/catalog/podcast/testserie/seasons/testsesong/episodes") {
+      if (searchParams.get("page") === "2") {
+        return Promise.resolve(jsonResponse({
+          _embedded: { episodes: [episodeItem("sep2")] },
+          _links: {},
+        }));
+      }
+      // the backlog crawler's first page (pageSize=50): everything at once
+      return Promise.resolve(jsonResponse({
+        _embedded: { episodes: [episodeItem("sep1"), episodeItem("sep2")] },
+        _links: {},
+      }));
+    }
+
     if (pathname.startsWith("/playback/manifest/podcast/")) {
       const id = pathname.split("/").at(-1);
       if (id === "gone") {
@@ -220,6 +252,70 @@ Deno.test("caching stores fetched series and blocks failed episodes from refetch
     const requestsBeforeRetry = stub.requests.length;
     await caching.getSeries({ id: "testserie" });
     assertEquals(stub.requests.length, requestsBeforeRetry);
+  } finally {
+    await backlogTesting.waitForIdle();
+    stub.restore();
+  }
+});
+
+Deno.test("getSeason follows season pagination and builds a season feed", async () => {
+  const stub = stubNrk();
+  try {
+    const result = await nrkRadio.getSeason("testserie", "testsesong");
+    assertExists(result);
+    if (result === "error") throw new Error("unexpected upstream error");
+    assertEquals(result.id, "testserie/sesong/testsesong");
+    assertEquals(result.title, "Testsesong");
+    assertEquals(result.link, "https://radio.nrk.no/podkast/testserie/sesong/testsesong");
+    assertEquals(result.imageUrl, "https://gfx.test/sesong");
+    assertEquals(result.episodes.map((episode) => episode.id).sort(), ["sep1", "sep2"]);
+  } finally {
+    await backlogTesting.waitForIdle();
+    stub.restore();
+  }
+});
+
+Deno.test("unknown season is not-found, not an error", async () => {
+  const stub = stubNrk();
+  try {
+    assertEquals(await nrkRadio.getSeason("testserie", "finnes-ikke"), null);
+  } finally {
+    await backlogTesting.waitForIdle();
+    stub.restore();
+  }
+});
+
+Deno.test("caching fetches, crawls and refreshes season feeds via the season endpoints", async () => {
+  const stub = stubNrk();
+  const feedId = "testserie/sesong/testsesong";
+  try {
+    const series = await caching.getSeries({ id: feedId });
+    assertExists(series);
+    assertEquals(series.id, feedId);
+    assertEquals(series.episodes.length, 2);
+
+    // the backlog crawl runs against the season's own episode listing and completes
+    await backlogTesting.waitForIdle();
+    assertEquals(storage.readSeries({ id: feedId })?.backlogComplete, true);
+    const crawlPages = stub.requests.filter((line) => line.includes("/seasons/testsesong/episodes?page=1&pageSize=50"));
+    assertEquals(crawlPages.length, 1);
+
+    // age past every refresh window; the refresh takes the full season
+    // path (no cheap newest-first paging, which seasons don't support)
+    const stored = storage.readSeries({ id: feedId })!;
+    stored.lastFetchedAt = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    storage.writeSeries(stored);
+
+    stub.requests.length = 0;
+    const refreshed = await caching.getSeries({ id: feedId });
+    assertExists(refreshed);
+    assertEquals(refreshed.episodes.length, 2);
+    assertEquals(storage.readState(`refresh-progress:${feedId}`), null);
+    const seasonFetches = stub.requests.filter((line) => line.endsWith("/seasons/testsesong"));
+    assertEquals(seasonFetches.length, 1);
+    // known episodes don't get their manifests re-resolved
+    const manifestCalls = stub.requests.filter((line) => line.includes("/playback/manifest/"));
+    assertEquals(manifestCalls.length, 0);
   } finally {
     await backlogTesting.waitForIdle();
     stub.restore();

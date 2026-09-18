@@ -33,6 +33,16 @@ Deno.test("chapter URLs point at the given origin", () => {
   assertEquals(feed.includes(`${ORIGIN}/api/feeds/${series.id}/`), true);
 });
 
+Deno.test("season feeds link to themselves but chapters resolve via the parent series", () => {
+  const series = testUtils.generateSeries({ id: "radiodokumentaren/sesong/mannen-som-forsvant" });
+  series.episodes = [testUtils.generateEpisode({ id: "ep1" })];
+  const feed = rss.assembleFeed(series, ORIGIN);
+  // atom:link rel=self must be the season feed's own URL
+  assertEquals(feed.includes(`${ORIGIN}/api/feeds/radiodokumentaren/sesong/mannen-som-forsvant`), true);
+  // chapters live under the parent seriesId (that's what NRK's catalog resolves)
+  assertEquals(feed.includes(`${ORIGIN}/api/feeds/radiodokumentaren/ep1/chapters`), true);
+});
+
 Deno.test("special characters are escaped", () => {
   const series = testUtils.generateSeries();
   series.title = `Ost & kjeks <3`;

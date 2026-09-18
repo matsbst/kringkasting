@@ -36,9 +36,8 @@ export const handler = define.handlers({
       return response;
     }
 
-    const streamOnly = storage.streamOnlySeriesIds(result.map((series) => series.seriesId));
     return withCacheHeaders(
-      responseJSON({ results: toSummaries(result, streamOnly) }, STATUS_CODE.OK),
+      responseJSON({ results: toSummaries(result, storage.streamOnlySeriesIds) }, STATUS_CODE.OK),
       { maxAge: SEARCH_TTL_SECONDS, sMaxAge: SEARCH_TTL_SECONDS },
     );
   },
