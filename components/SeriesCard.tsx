@@ -1,10 +1,12 @@
 import ShareButton from "../islands/ShareButton.tsx";
 import SubscribeButton from "../islands/SubscribeButton.tsx";
-import type { SeriesSummary } from "../lib/series-summary.ts";
+import { feedIdOf, type SeriesSummary } from "../lib/series-summary.ts";
 
 export default function SeriesCard(props: { serie: SeriesSummary; origin: string }) {
-  const feedUrl = new URL(`/api/feeds/${props.serie.seriesId}`, props.origin).toString();
-  const nrkUrl = `https://radio.nrk.no/podkast/${props.serie.seriesId}`;
+  // the feed id doubles as NRK's own URL path (seasons included)
+  const feedId = feedIdOf(props.serie);
+  const feedUrl = new URL(`/api/feeds/${feedId}`, props.origin).toString();
+  const nrkUrl = `https://radio.nrk.no/podkast/${feedId}`;
 
   return (
     <article class="flex gap-5">

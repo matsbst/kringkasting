@@ -1,4 +1,5 @@
 import { declaration, serialize, Tag, tag } from "./xml.ts";
+import { parseFeedId } from "./feed-id.ts";
 import { Episode, Series } from "./storage.ts";
 import { isHlsUrl } from "./utils.ts";
 
@@ -23,6 +24,10 @@ function assembleFeed(series: Series, origin: string): string {
   // wholly stream-only shows, where dropping would leave an empty feed and
   // an HLS-capable app could still play them.
   const episodes = isStreamOnly(series) ? series.episodes : series.episodes.filter((episode) => !isHlsUrl(episode.url));
+
+  // season feeds have a composite id; chapters resolve against NRK's
+  // catalog by the parent seriesId, which the chapters route expects
+  const chaptersSeriesId = parseFeedId(series.id).seriesId;
 
   return serialize(
     declaration([
@@ -66,7 +71,7 @@ function assembleFeed(series: Series, origin: string): string {
               ]),
             ]
             : []),
-          ...episodes.map((episode) => assembleEpisode(episode, series.id, origin)),
+          ...episodes.map((episode) => assembleEpisode(episode, chaptersSeriesId, origin)),
         ]),
       ],
       [

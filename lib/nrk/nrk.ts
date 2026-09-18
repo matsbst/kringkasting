@@ -1,5 +1,6 @@
 import { STATUS_CODE } from "@std/http/status";
 import { get, GetResult, head } from "../http.ts";
+import { parseFeedId, seasonFeedId } from "../feed-id.ts";
 import { CatalogKind, Episode, Series } from "../storage.ts";
 import { isHlsUrl } from "../utils.ts";
 import { components as catalogComponents } from "./nrk-catalog.ts";
@@ -278,6 +279,74 @@ async function getSeriesData(seriesId: string, options: FetchOptions = {}): Prom
 }
 
 /**
+ * Fetch one customSeason of an umbrella podcast as its own feed — NRK
+ * publishes standalone shows this way (own title, artwork, description).
+ * The returned Series has the composite "{seriesId}/sesong/{seasonId}" id.
+ *
+ * Seasons are small, so every refresh walks the whole season; like
+ * getSeries, `options.skipEpisodeIds` limits manifest lookups to new
+ * episodes and the caller merges with its stored ones.
+ */
+async function getSeason(
+  seriesId: string,
+  seasonId: string,
+  options: FetchOptions = {},
+): Promise<Series | null | "error"> {
+  let transient = false;
+
+  for (const kind of catalogOrder(options.catalogKind)) {
+    const { status, body } = await get<SeasonEpisodes>(
+      `${nrkAPI}/radio/catalog/${kind}/${seriesId}/seasons/${seasonId}`,
+    );
+    transient ||= status === 0 || status === 429 || status >= 500;
+    if (status !== STATUS_CODE.OK || !body) {
+      continue;
+    }
+
+    // the embedded episode list is the first page; follow pagination so
+    // long seasons aren't silently truncated
+    let candidates: PodcastEpisodesSingle[] = body._embedded.episodes?._embedded.episodes ?? [];
+    let nextHref = body._embedded.episodes?._links.next?.href ?? null;
+    for (let page = 0; page < 30 && nextHref; page++) {
+      const nextPage: GetResult<PodcastEpisodes> = await get<PodcastEpisodes>(`${nrkAPI}${nextHref}`);
+      if (nextPage.status !== STATUS_CODE.OK || !nextPage.body) {
+        // partial listing would silently lose the tail; retry later
+        return "error";
+      }
+      candidates = candidates.concat(nextPage.body._embedded.episodes ?? []);
+      nextHref = nextPage.body._links.next?.href ?? null;
+    }
+
+    const newCandidates = options.skipEpisodeIds
+      ? candidates.filter((episode) => !options.skipEpisodeIds!.has(episode.id))
+      : candidates;
+    const results = options.metadataOnly ? [] : await mapConcurrent(
+      newCandidates,
+      NRK_FETCH_CONCURRENCY,
+      (episode) => getEpisodeWithDownloadLink(episode, kind),
+    );
+    const episodes = options.metadataOnly
+      ? []
+      : collectEpisodes(newCandidates, results, options.onEpisodeFailure).episodes;
+
+    return {
+      id: seasonFeedId(seriesId, seasonId),
+      title: body.titles.title,
+      subtitle: body.titles.subtitle ?? null,
+      link: `https://radio.nrk.no/podkast/${seasonFeedId(seriesId, seasonId)}`,
+      imageUrl: body.squareImage?.at(-1)?.url ?? "",
+      lastFetchedAt: new Date(),
+      catalogKind: kind,
+      isUmbrella: false,
+      episodes: episodes.map(parseEpisode),
+    };
+  }
+
+  // 5xx/timeouts are outages, not proof the season doesn't exist
+  return transient ? "error" : null;
+}
+
+/**
  * Fetch a series with episode download links.
  *
  * When `options.skipEpisodeIds` is given, the returned series only
@@ -424,12 +493,13 @@ export type EpisodePage = {
  * later from the same cursor.
  */
 async function getEpisodePage(
-  seriesId: string,
+  feedId: string,
   cursorHref: string | null,
   skipEpisodeIds: Set<string>,
   onEpisodeFailure?: OnEpisodeFailure,
   catalogKind?: CatalogKind | null,
 ): Promise<EpisodePage | null> {
+  const { seriesId, seasonId } = parseFeedId(feedId);
   let href = cursorHref;
   let body: PodcastEpisodes | null = null;
 
@@ -437,7 +507,10 @@ async function getEpisodePage(
     ({ body } = await get<PodcastEpisodes>(`${nrkAPI}${href.startsWith("/") ? "" : "/"}${href}`));
   } else {
     for (const catalog of catalogOrder(catalogKind)) {
-      href = `/radio/catalog/${catalog}/${seriesId}/episodes?page=1&pageSize=50`;
+      // season feeds have their own paged listing under the parent series
+      href = seasonId
+        ? `/radio/catalog/${catalog}/${seriesId}/seasons/${seasonId}/episodes?page=1&pageSize=50`
+        : `/radio/catalog/${catalog}/${seriesId}/episodes?page=1&pageSize=50`;
       ({ body } = await get<PodcastEpisodes>(`${nrkAPI}${href}`));
       if (body) {
         break;
@@ -472,6 +545,7 @@ async function getEpisodePage(
 export const nrkRadio = {
   search,
   getSeries,
+  getSeason,
   getNewEpisodes,
   getEpisode,
   getEpisodeResult,

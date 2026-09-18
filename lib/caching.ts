@@ -1,4 +1,5 @@
 import { nrkRadio } from "./nrk/nrk.ts";
+import { parseFeedId } from "./feed-id.ts";
 import { Series, storage } from "./storage.ts";
 import { enqueueBacklogCrawl } from "./backlog.ts";
 import { canRetry, clearRetry, deferRetry } from "./retry.ts";
@@ -16,8 +17,17 @@ const notFoundUntil = new Map<string, number>();
 /** coalesce concurrent requests for the same series into one NRK fetch */
 const inFlight = new Map<string, Promise<Series | null>>();
 
+/** season feeds resolve via NRK's season endpoint, everything else via the series catalog */
+function fetchFromNrk(
+  feedId: string,
+  options: Parameters<typeof nrkRadio.getSeries>[1],
+): ReturnType<typeof nrkRadio.getSeries> {
+  const { seriesId, seasonId } = parseFeedId(feedId);
+  return seasonId === null ? nrkRadio.getSeries(feedId, options) : nrkRadio.getSeason(seriesId, seasonId, options);
+}
+
 async function initialFetch(options: { id: string }): Promise<Series | null> {
-  const series = await nrkRadio.getSeries(options.id, {
+  const series = await fetchFromNrk(options.id, {
     onEpisodeFailure: (episodeId) => storage.recordEpisodeFailure(options.id, episodeId),
   });
   if (series === "error") {
@@ -52,9 +62,13 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
 
   // metadata (title/artwork) changes rarely: most refreshes only need the
   // episode listing (one NRK request instead of two). Umbrella shows and
-  // series with unknown catalog kind take the full path.
+  // series with unknown catalog kind take the full path; season feeds do
+  // too (their listing is oldest-first, so the newest-first early-stop
+  // in getNewEpisodes doesn't apply — and a full season walk is small).
   const metadataAge = Date.now() - (existingSeries.metadataRefreshedAt?.getTime() ?? 0);
-  const cheapRefresh = !existingSeries.isUmbrella && existingSeries.catalogKind;
+  const cheapRefresh = !existingSeries.isUmbrella &&
+    parseFeedId(existingSeries.id).seasonId === null &&
+    existingSeries.catalogKind;
 
   if (cheapRefresh) {
     const progressKey = `refresh-progress:${existingSeries.id}`;
@@ -112,7 +126,7 @@ async function updateFetch(existingSeries: Series): Promise<Series> {
     return storage.readSeries({ id: existingSeries.id }) ?? existingSeries;
   }
 
-  const update = await nrkRadio.getSeries(existingSeries.id, {
+  const update = await fetchFromNrk(existingSeries.id, {
     skipEpisodeIds,
     onEpisodeFailure,
     catalogKind: existingSeries.catalogKind,

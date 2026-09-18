@@ -10,7 +10,7 @@ import { getStats, startedAt } from "../lib/stats.ts";
 import { getCatalogSize } from "../lib/catalog.ts";
 import { adminEnabled, isAuthenticated, tryLogin } from "../lib/admin-auth.ts";
 import { allowScoped, getClientKey } from "../lib/rate-limit.ts";
-import { isValidResourceId } from "../lib/utils.ts";
+import { isValidFeedId } from "../lib/feed-id.ts";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
 
@@ -91,7 +91,8 @@ export const handler = define.handlers({
     const seriesId = String(form.get("seriesId") ?? "");
     let notice = "Ukjent handling";
 
-    if (isValidResourceId(seriesId)) {
+    // season feeds have composite "{seriesId}/sesong/{seasonId}" ids
+    if (isValidFeedId(seriesId)) {
       if (action === "refresh") {
         storage.expireSeries(seriesId);
         await caching.getSeries({ id: seriesId });

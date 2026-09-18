@@ -31,16 +31,7 @@ export function getUmamiConfig(): { src: string; websiteId: string } | null {
   return { src, websiteId };
 }
 
-/**
- * NRK series/episode ids are short slugs. Rejecting anything else keeps
- * user-controlled route params from steering requests to other paths on
- * NRK's API (or growing the KV keyspace with garbage).
- */
-const RESOURCE_ID_PATTERN = /^[a-zA-Z0-9_-]{1,100}$/;
-
-export function isValidResourceId(id: string): boolean {
-  return RESOURCE_ID_PATTERN.test(id);
-}
+export { isValidResourceId } from "./feed-id.ts";
 
 /**
  * NRK serves some radio programs only as HLS streams (.m3u8), which are
