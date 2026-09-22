@@ -1,0 +1,26 @@
+// An 8px rhythm with 4px adjustments, plus the fixed control sizes that keep
+// adjacent controls on a shared height.
+__canvas__
+
+export space = tokens {
+  xs: 4px,
+  sm: 8px,
+  md: 12px,
+  lg: 16px,
+  xl: 24px,
+  xxl: 32px,
+  section: 48px,
+  chapter: 64px
+}
+
+export size = tokens {
+  controlSmall: 32px,
+  controlMedium: 40px,
+  trackWidth: 44px,
+  trackHeight: 26px,
+  knob: 22px,
+  hairline: 1px,
+  swatch: 64px,
+  fieldWidth: 320px,
+  panelWidth: 380px
+}

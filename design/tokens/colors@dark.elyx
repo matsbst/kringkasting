@@ -1,0 +1,45 @@
+import "./colors.elyx" as Base
+
+@context(theme=dark)
+__file__
+
+// Dark inverts the ladder rather than restating it: the same alpha buys more
+// contrast on a dark canvas, so the quiet rungs drop. Surfaces lift instead of
+// sinking, since a shadow reads as nothing against near-black.
+__canvas__
+
+export darkSurface = tokens : Base.surface {
+  canvas: rgb(3.92%, 3.92%, 3.92%),
+  raised: rgb(7.84%, 7.84%, 7.84%),
+  sunken: rgb(100%, 100%, 100%, 4%),
+  scrim: rgb(0%, 0%, 0%, 60%)
+}
+
+export darkContent = tokens : Base.content {
+  primary: .white,
+  secondary: rgb(100%, 100%, 100%, 56%),
+  tertiary: rgb(100%, 100%, 100%, 50%),
+  onEmphasis: rgb(3.92%, 3.92%, 3.92%),
+  disabled: rgb(100%, 100%, 100%, 48%)
+}
+
+export darkLine = tokens : Base.line {
+  hairline: rgb(100%, 100%, 100%, 11%),
+  strong: rgb(100%, 100%, 100%, 20%),
+  control: rgb(100%, 100%, 100%, 42%),
+  focus: .white
+}
+
+export darkState = tokens : Base.state {
+  hover: rgb(100%, 100%, 100%, 9%),
+  pressed: rgb(100%, 100%, 100%, 14%),
+  emphasis: .white,
+  emphasisHover: rgb(100%, 100%, 100%, 88%),
+  emphasisPressed: rgb(100%, 100%, 100%, 76%),
+  trackOff: rgb(100%, 100%, 100%, 25%)
+}
+
+// Lifted off the light-mode red so it still clears 7:1 against the dark canvas.
+export darkFeedback = tokens : Base.feedback {
+  danger: rgb(100%, 41.96%, 41.96%)
+}

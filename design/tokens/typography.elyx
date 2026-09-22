@@ -1,0 +1,35 @@
+// Hanken Grotesk, the open-source grotesque the app already ships. Hierarchy
+// comes from size and whitespace; only two weights are used so the label and
+// heading ladder stays legible.
+__canvas__
+
+export fontFamily = tokens {
+  sans: "Hanken Grotesk"
+}
+
+export weight = tokens {
+  regular: "Regular",
+  medium: "Medium"
+}
+
+export fontSize = tokens {
+  title: 32,
+  heading: 20,
+  body: 16,
+  small: 14,
+  caption: 12
+}
+
+export lineHeight = tokens {
+  tight: 1.15,
+  snug: 1.3,
+  normal: 1.55,
+  compact: 1.45,
+  caption: 1.4
+}
+
+export letterSpacing = tokens {
+  tight: -2%,
+  snug: -1%,
+  none: 0%
+}

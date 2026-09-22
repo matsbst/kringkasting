@@ -1,0 +1,19 @@
+{
+  "assets": {
+    "fonts": {
+      "writePath": "resources/fonts"
+    },
+    "images": {
+      "writePath": "resources/images"
+    }
+  },
+  "defaults": {
+    "text": {
+      "font": {
+        "family": "Hanken Grotesk",
+        "style": "Regular"
+      },
+      "fontSize": 16
+    }
+  }
+}

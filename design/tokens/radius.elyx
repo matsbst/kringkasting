@@ -1,0 +1,11 @@
+// Restrained corners. `medium` is the system default and matches the shipped
+// app; `full` is reserved for toggles and pills, never for panels or fields.
+__canvas__
+
+export radius = tokens {
+  small: 6px,
+  medium: 8px,
+  large: 12px,
+  xlarge: 16px,
+  full: 999px
+}

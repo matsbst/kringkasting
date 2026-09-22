@@ -1,0 +1,72 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+
+// A switch. Off and on differ only by track fill and which end the knob sits at,
+// so the two states share one subtree and the knob never changes colour — it is
+// the canvas showing through in both themes.
+__canvas__
+
+export toggle = frame {
+  name: "Toggle",
+  left: 0px,
+  top: 0px,
+  width: Spacing.size.trackWidth,
+  height: Spacing.size.trackHeight,
+  layout: {direction: .row, justify-content: .start, align-items: .center},
+  fill: Colors.state.trackOff,
+  border: [
+    {color: Colors.line.focus, width: 2px, position: .outside, visible: .false}
+  ],
+  corner-radius: Radius.radius.full,
+  padding: [0px, 2px],
+  children: knob,
+
+  knob = frame {
+    name: "Knob",
+    width: Spacing.size.knob,
+    height: Spacing.size.knob,
+    fill: Colors.surface.canvas,
+    // The knob carries its own edge so it stays legible on a light track and at
+    // reduced opacity, not only against the dark "on" fill.
+    border: {color: Colors.line.strong, width: 1px, position: .inside},
+    corner-radius: Radius.radius.full
+  }
+}
+
+@variant
+export toggleOn = frame : toggle {
+  name: "Toggle / On",
+  left: 72px,
+  top: 0px,
+  layout.justify-content: .end,
+  fill[0].color: Colors.state.emphasis
+}
+
+@variant
+export toggleFocused = frame : toggle {
+  name: "Toggle / Focused",
+  left: 144px,
+  top: 0px,
+  border[0].visible: .true
+}
+
+// Dimming the whole control keeps the track/knob contrast that says "switch",
+// where a washed-out track alone loses the knob entirely.
+@variant
+export toggleDisabled = frame : toggle {
+  name: "Toggle / Disabled",
+  left: 216px,
+  top: 0px,
+  opacity: 0.45
+}
+
+@variant
+export toggleOnDisabled = frame : toggle {
+  name: "Toggle / On disabled",
+  left: 288px,
+  top: 0px,
+  layout.justify-content: .end,
+  opacity: 0.45,
+  fill[0].color: Colors.state.emphasis
+}

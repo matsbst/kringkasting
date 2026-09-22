@@ -1,0 +1,15 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/spacing.elyx" as Spacing
+
+// A hairline rule. It separates content; it never bounds a control — that is
+// what a control's own border is for.
+__canvas__
+
+export divider = frame {
+  name: "Divider",
+  left: 0px,
+  top: 0px,
+  width: 100%,
+  height: Spacing.size.hairline,
+  fill: Colors.line.hairline
+}

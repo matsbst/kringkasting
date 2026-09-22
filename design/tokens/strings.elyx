@@ -1,0 +1,21 @@
+// Copy that states a token's resolved value. It belongs in a token group because
+// the value genuinely differs per theme: the swatch under content.secondary is
+// 64% black on a light canvas and 56% white on a dark one, so the caption has to
+// travel with the theme rather than be hard-coded next to the chip.
+__canvas__
+
+export swatchValue = tokens {
+  canvas: "white",
+  raised: "white",
+  sunken: "black 3%",
+  primary: "black 100%",
+  secondary: "black 64%",
+  tertiary: "black 56%",
+  disabled: "black 48%",
+  hairline: "black 10%",
+  strong: "black 18%",
+  control: "black 45% · 3:1",
+  emphasis: "black · primary action",
+  danger: "#B31717 · state only",
+  mark: "#D9530B · mark only"
+}

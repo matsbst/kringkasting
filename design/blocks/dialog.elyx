@@ -1,0 +1,80 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+import "../foundations/text.elyx" as TextStyles
+import "../controls/button.elyx" as Buttons
+
+// A confirmation dialog. Built only from instances: the footer holds a real
+// quiet button and a real primary button, so a change to the button family
+// reaches this dialog without editing it.
+__canvas__
+
+export dialog = frame {
+  name: "Dialog",
+  left: 0px,
+  top: 0px,
+  width: 420px,
+  height: .auto,
+  layout: {
+    direction: .column,
+    align-items: .stretch,
+    item-gap: Spacing.space.md
+  },
+  fill: Colors.surface.raised,
+  border: {color: Colors.line.hairline, width: 1px, position: .inside},
+  corner-radius: Radius.radius.large,
+  shadow: {
+    drop-shadow: {
+      color: rgb(0%, 0%, 0%, 12%),
+      offset: point(0px, 8px),
+      blur-radius: 24px,
+      spread: 0px
+    }
+  },
+  padding: Spacing.space.xl,
+  children: [heading, description, actions],
+
+  heading = text : TextStyles.heading {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "Remove this feed?"
+  }
+
+  description = text : TextStyles.body {
+    left: 0px,
+    top: 0px,
+    width: 100%,
+    max-width: .nil,
+    contents: "The archive stays on disk and will be rebuilt the next time anyone subscribes.",
+    fill[0].color: Colors.content.secondary
+  }
+
+  // The destructive action carries the weight because it is the one the reader
+  // came here to take; cancel stays quiet beside it.
+  actions = frame {
+    name: "Actions",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .row,
+      justify-content: .end,
+      align-items: .center,
+      item-gap: Spacing.space.sm
+    },
+    padding: [Spacing.space.sm, 0px, 0px],
+    children: [cancelAction, confirmAction],
+
+    cancelAction = frame : Buttons.buttonQuiet {
+      Buttons.button.label {
+        contents: "Cancel"
+      }
+    }
+
+    confirmAction = frame : Buttons.buttonDanger {
+      Buttons.button.label {
+        contents: "Remove"
+      }
+    }
+  }
+}

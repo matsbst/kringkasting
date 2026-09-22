@@ -1,0 +1,159 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+import "../tokens/typography.elyx" as Typography
+import "../foundations/text.elyx" as TextStyles
+
+// One button family. The base is the secondary (outlined) button — the shape,
+// height, radius and label weight every other button shares — and each variant
+// changes only its appearance or state. Every variant keeps the same subtree, so
+// a primary and a quiet button stay swappable in place.
+__canvas__
+
+export button = frame {
+  name: "Button",
+  left: 0px,
+  top: 0px,
+  width: .auto,
+  height: Spacing.size.controlMedium,
+  layout: {
+    direction: .row,
+    justify-content: .center,
+    align-items: .center,
+    item-gap: Spacing.space.sm
+  },
+  fill: Colors.surface.canvas,
+  // The second border is the focus ring, carried invisibly so the focused
+  // variant is a visibility flip rather than a structural change.
+  border: [
+    {color: Colors.line.control, width: 1px, position: .inside},
+    {color: Colors.line.focus, width: 2px, position: .outside, visible: .false}
+  ],
+  corner-radius: Radius.radius.medium,
+  padding: [0px, Spacing.space.lg],
+  children: label,
+
+  label = text : TextStyles.small {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "Subscribe",
+    font-style: Typography.weight.medium
+  }
+}
+
+@variant
+export buttonPrimary = frame : button {
+  name: "Button / Primary",
+  left: 180px,
+  top: 0px,
+  fill[0].color: Colors.state.emphasis,
+  border[0].visible: .false,
+
+  button.label {
+    fill[0].color: Colors.content.onEmphasis
+  }
+}
+
+@variant
+export buttonPrimaryHover = frame : button {
+  name: "Button / Primary hover",
+  left: 360px,
+  top: 0px,
+  fill[0].color: Colors.state.emphasisHover,
+  border[0].visible: .false,
+
+  button.label {
+    fill[0].color: Colors.content.onEmphasis
+  }
+}
+
+@variant
+export buttonPrimaryPressed = frame : button {
+  name: "Button / Primary pressed",
+  left: 540px,
+  top: 0px,
+  fill[0].color: Colors.state.emphasisPressed,
+  border[0].visible: .false,
+
+  button.label {
+    fill[0].color: Colors.content.onEmphasis
+  }
+}
+
+// Disabled keeps its slot and stays readable: a disabled control still has to
+// say what it is.
+@variant
+export buttonPrimaryDisabled = frame : button {
+  name: "Button / Primary disabled",
+  left: 720px,
+  top: 0px,
+  fill[0].color: Colors.state.pressed,
+  border[0].visible: .false,
+
+  button.label {
+    fill[0].color: Colors.content.disabled
+  }
+}
+
+@variant
+export buttonHover = frame : button {
+  name: "Button / Hover",
+  left: 180px,
+  top: 64px,
+  fill[0].color: Colors.state.hover
+}
+
+@variant
+export buttonPressed = frame : button {
+  name: "Button / Pressed",
+  left: 360px,
+  top: 64px,
+  fill[0].color: Colors.state.pressed
+}
+
+@variant
+export buttonFocused = frame : button {
+  name: "Button / Focused",
+  left: 540px,
+  top: 64px,
+  border[1].visible: .true
+}
+
+// No boundary of its own — for the least-used action in a group, where a full
+// outline would make the quietest control the heaviest thing in the region.
+@variant
+export buttonQuiet = frame : button {
+  name: "Button / Quiet",
+  left: 720px,
+  top: 64px,
+  fill[0].visible: .false,
+  border[0].visible: .false,
+
+  button.label {
+    fill[0].color: Colors.content.secondary
+  }
+}
+
+@variant
+export buttonDanger = frame : button {
+  name: "Button / Danger",
+  left: 180px,
+  top: 128px,
+  fill[0].color: Colors.feedback.danger,
+  border[0].visible: .false,
+
+  button.label {
+    contents: "Delete feed",
+    fill[0].color: Colors.content.onEmphasis
+  }
+}
+
+@variant
+export buttonSmall = frame : button {
+  name: "Button / Small",
+  left: 360px,
+  top: 128px,
+  height: Spacing.size.controlSmall,
+  padding: [0px, Spacing.space.md]
+}
