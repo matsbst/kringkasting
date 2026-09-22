@@ -1,0 +1,71 @@
+use "../../static/fonts/hanken-grotesk-latin.woff2"
+
+import "../tokens/colors.elyx" as Colors
+import "../tokens/typography.elyx" as Typography
+
+// The typography scale. `body` is the base: it is the only style that names the
+// family, weight and ink, and every other style is a variant that declares only
+// what separates it from body. Changing the family here changes it everywhere.
+__canvas__
+
+export body = text {
+  name: "Body",
+  left: 0px,
+  top: 0px,
+  contents: "Body — the reading default. Kringkasting turns NRK's podcasts into open RSS feeds you can take to any player.",
+  max-width: 520px,
+  font-family: Typography.fontFamily.sans,
+  font-style: Typography.weight.regular,
+  font-size: Typography.fontSize.body,
+  line-height: Typography.lineHeight.normal,
+  fill: Colors.content.primary
+}
+
+// Page-level. Tightened tracking because the optical gaps open up at this size.
+@variant
+export title = text : body {
+  name: "Title",
+  left: 0px,
+  top: 96px,
+  contents: "Title",
+  font-style: Typography.weight.medium,
+  font-size: Typography.fontSize.title,
+  line-height: Typography.lineHeight.tight,
+  letter-spacing: Typography.letterSpacing.tight
+}
+
+@variant
+export heading = text : body {
+  name: "Heading",
+  left: 0px,
+  top: 160px,
+  contents: "Heading",
+  font-style: Typography.weight.medium,
+  font-size: Typography.fontSize.heading,
+  line-height: Typography.lineHeight.snug,
+  letter-spacing: Typography.letterSpacing.snug
+}
+
+// Labels, controls and dense rows. Same ink as body — a rung down in size, not
+// in contrast.
+@variant
+export small = text : body {
+  name: "Small",
+  left: 0px,
+  top: 208px,
+  contents: "Small — labels, controls and dense rows.",
+  font-size: Typography.fontSize.small,
+  line-height: Typography.lineHeight.compact
+}
+
+// Metadata and helper text. The one style that steps down the ink ladder.
+@variant
+export caption = text : body {
+  name: "Caption",
+  left: 0px,
+  top: 248px,
+  contents: "Caption — metadata and helper text.",
+  font-size: Typography.fontSize.caption,
+  line-height: Typography.lineHeight.caption,
+  fill: Colors.content.secondary
+}

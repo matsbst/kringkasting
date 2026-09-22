@@ -1,0 +1,51 @@
+// Neutral foundation: a white canvas with an alpha-black ink ladder, so every
+// intermediate tone is the same black at a different strength rather than a
+// separate gray with its own cast. Roles are semantic — layers reference what a
+// colour means, never a raw value.
+__canvas__
+
+export surface = tokens {
+  canvas: .white,
+  raised: .white,
+  sunken: rgb(0%, 0%, 0%, 3%),
+  scrim: rgb(0%, 0%, 0%, 44%)
+}
+
+// `disabled` is deliberately heavier than the usual 32%: a disabled control sits
+// on the `pressed` fill, and at 32% the label fell to ~1.9:1 against it. A
+// control that will not respond still has to say what it is.
+export content = tokens {
+  primary: .black,
+  secondary: rgb(0%, 0%, 0%, 64%),
+  tertiary: rgb(0%, 0%, 0%, 56%),
+  onEmphasis: .white,
+  disabled: rgb(0%, 0%, 0%, 48%)
+}
+
+// `control` carries the 3:1 minimum a control boundary owes the canvas (WCAG 1.4.11);
+// `hairline` and `strong` are quieter and separate content rather than bound it.
+export line = tokens {
+  hairline: rgb(0%, 0%, 0%, 10%),
+  strong: rgb(0%, 0%, 0%, 18%),
+  control: rgb(0%, 0%, 0%, 45%),
+  focus: .black
+}
+
+export state = tokens {
+  hover: rgb(0%, 0%, 0%, 5%),
+  pressed: rgb(0%, 0%, 0%, 9%),
+  emphasis: .black,
+  emphasisHover: rgb(0%, 0%, 0%, 82%),
+  emphasisPressed: rgb(0%, 0%, 0%, 70%),
+  trackOff: rgb(0%, 0%, 0%, 25%)
+}
+
+// Encodes state, not decoration: the only hue allowed into interface chrome.
+export feedback = tokens {
+  danger: rgb(70.2%, 9.02%, 9.02%)
+}
+
+// Brand mark only — never interface chrome.
+export brand = tokens {
+  mark: rgb(85.1%, 32.55%, 4.31%)
+}

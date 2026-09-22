@@ -1,0 +1,140 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+import "../tokens/typography.elyx" as Typography
+import "../foundations/text.elyx" as TextStyles
+
+// Label, input and helper as one control. The helper line is always present so
+// an error never changes the height of a form — it swaps the message and the
+// ink, and the layout underneath it does not move.
+__canvas__
+
+export field = frame {
+  name: "Field",
+  left: 0px,
+  top: 0px,
+  width: Spacing.size.fieldWidth,
+  height: .auto,
+  layout: {
+    direction: .column,
+    align-items: .stretch,
+    item-gap: Spacing.space.xs
+  },
+  children: [label, input, helper],
+
+  label = text : TextStyles.small {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "Feed URL",
+    font-style: Typography.weight.medium
+  }
+
+  input = frame {
+    name: "Input",
+    width: 100%,
+    height: Spacing.size.controlMedium,
+    layout: {direction: .row, align-items: .center, item-gap: Spacing.space.sm},
+    fill: Colors.surface.canvas,
+    border: [
+      {color: Colors.line.control, width: 1px, position: .inside},
+      {
+        color: Colors.line.focus,
+        width: 2px,
+        position: .outside,
+        visible: .false
+      }
+    ],
+    corner-radius: Radius.radius.medium,
+    padding: [0px, Spacing.space.md],
+    children: value,
+
+    value = text : TextStyles.body {
+      left: 0px,
+      top: 0px,
+      max-width: .nil,
+      contents: "https://kringkast.ing/api/feeds/…",
+      fill[0].color: Colors.content.tertiary
+    }
+  }
+
+  helper = text : TextStyles.caption {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "Paste this into any podcast app."
+  }
+}
+
+@variant
+export fieldFilled = frame : field {
+  name: "Field / Filled",
+  left: 360px,
+  top: 0px,
+
+  field.input {
+    field.input.value {
+      contents: "https://kringkast.ing/feeds/abels-taarn",
+      fill[0].color: Colors.content.primary
+    }
+  }
+}
+
+@variant
+export fieldFocused = frame : field {
+  name: "Field / Focused",
+  left: 720px,
+  top: 0px,
+
+  field.input {
+    border[1].visible: .true
+  }
+}
+
+// The message replaces the helper rather than joining it, so the reason is
+// where the reader already looked.
+@variant
+export fieldError = frame : field {
+  name: "Field / Error",
+  left: 0px,
+  top: 120px,
+
+  field.input {
+    border[0].color: Colors.feedback.danger,
+    border[0].width: 1.5px,
+
+    field.input.value {
+      contents: "kringkast.ing/abels-taarn",
+      fill[0].color: Colors.content.primary
+    }
+  }
+
+  field.helper {
+    contents: "Enter a full URL, including https://",
+    fill[0].color: Colors.feedback.danger
+  }
+}
+
+@variant
+export fieldDisabled = frame : field {
+  name: "Field / Disabled",
+  left: 360px,
+  top: 120px,
+
+  field.label {
+    fill[0].color: Colors.content.disabled
+  }
+
+  field.input {
+    fill[0].color: Colors.surface.sunken,
+    border[0].color: Colors.line.strong,
+
+    field.input.value {
+      fill[0].color: Colors.content.disabled
+    }
+  }
+
+  field.helper {
+    contents: "Locked while the feed is crawling."
+  }
+}

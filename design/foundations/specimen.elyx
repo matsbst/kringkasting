@@ -1,0 +1,101 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+import "./text.elyx" as TextStyles
+
+// Presentation components for the overview sheet: the repeated units that show
+// a token rather than use one. They are documentation furniture, not product
+// controls, which is why they live beside the foundations instead of in
+// controls/.
+__canvas__
+
+export swatch = frame {
+  name: "Swatch",
+  left: 0px,
+  top: 0px,
+  width: 136px,
+  height: .auto,
+  layout: {direction: .column, align-items: .start, item-gap: Spacing.space.sm},
+  children: [chip, role, value],
+
+  // The chip always carries a hairline so a white swatch still reads as a
+  // swatch on a white canvas.
+  chip = frame {
+    name: "Chip",
+    width: 100%,
+    height: Spacing.size.swatch,
+    fill: Colors.surface.canvas,
+    border: {color: Colors.line.hairline, width: 1px, position: .inside},
+    corner-radius: Radius.radius.medium
+  }
+
+  role = text : TextStyles.caption {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "surface.canvas",
+    fill[0].color: Colors.content.primary
+  }
+
+  value = text : TextStyles.caption {
+    left: 0px,
+    top: 0px,
+    max-width: .nil,
+    contents: "#FFFFFF"
+  }
+}
+
+export spacingBar = frame {
+  name: "Spacing bar",
+  left: 0px,
+  top: 200px,
+  width: 100%,
+  height: .auto,
+  layout: {direction: .row, align-items: .center, item-gap: Spacing.space.lg},
+  children: [barMeta, bar],
+
+  barMeta = text : TextStyles.caption {
+    left: 0px,
+    top: 0px,
+    width: 120px,
+    max-width: .nil,
+    contents: "sm · 8px",
+    fill[0].color: Colors.content.primary
+  }
+
+  // A measuring bar, not a pill: a fixed height and a near-square corner so the
+  // width is the only thing that varies and the 4px step is still visible.
+  bar = frame {
+    name: "Bar",
+    width: Spacing.space.sm,
+    height: 12px,
+    fill: Colors.content.primary,
+    corner-radius: 2px
+  }
+}
+
+// One row of the type scale. `sample` is an instance of the base body style, so
+// each row switches it to another step with @use-variant instead of restating
+// any type properties here.
+export typeRow = frame {
+  name: "Type row",
+  left: 0px,
+  top: 280px,
+  width: 100%,
+  height: .auto,
+  layout: {direction: .row, align-items: .center, item-gap: Spacing.space.xl},
+  children: [meta, sample],
+
+  meta = text : TextStyles.caption {
+    left: 0px,
+    top: 0px,
+    width: 200px,
+    max-width: .nil,
+    contents: "body · 16 / 1.55 / Regular"
+  }
+
+  sample = text : TextStyles.body {
+    left: 0px,
+    top: 0px
+  }
+}

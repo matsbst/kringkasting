@@ -1,0 +1,168 @@
+import "../tokens/colors.elyx" as Colors
+import "../tokens/radius.elyx" as Radius
+import "../tokens/spacing.elyx" as Spacing
+import "../foundations/text.elyx" as TextStyles
+import "../controls/button.elyx" as Buttons
+import "../controls/divider.elyx" as Dividers
+import "../controls/field.elyx" as Fields
+import "../controls/toggle.elyx" as Toggles
+
+// A settings panel: one chapter container holding real controls rather than a
+// grid of small cards. `settingRow` is the panel's own repeated unit, defined
+// once and instanced twice so the two rows cannot drift apart.
+__canvas__
+
+export settingRow = frame {
+  name: "Setting row",
+  left: 0px,
+  top: 560px,
+  width: 332px,
+  height: .auto,
+  layout: {
+    direction: .row,
+    justify-content: .space-between,
+    align-items: .center,
+    item-gap: Spacing.space.lg
+  },
+  children: [rowText, rowToggle],
+
+  rowText = frame {
+    name: "Row text",
+    width: .auto,
+    height: .auto,
+    layout: {direction: .column, align-items: .start, item-gap: 2px},
+    children: [rowLabel, rowCaption],
+
+    rowLabel = text : TextStyles.small {
+      left: 0px,
+      top: 0px,
+      max-width: .nil,
+      contents: "Full archive"
+    }
+
+    rowCaption = text : TextStyles.caption {
+      left: 0px,
+      top: 0px,
+      max-width: .nil,
+      contents: "Crawl every past episode."
+    }
+  }
+
+  rowToggle = frame : Toggles.toggleOn {
+    left: 0px,
+    top: 0px
+  }
+}
+
+export panel = frame {
+  name: "Panel",
+  left: 0px,
+  top: 0px,
+  width: Spacing.size.panelWidth,
+  height: .auto,
+  layout: {
+    direction: .column,
+    align-items: .stretch,
+    item-gap: Spacing.space.lg
+  },
+  fill: Colors.surface.raised,
+  border: {color: Colors.line.hairline, width: 1px, position: .inside},
+  corner-radius: Radius.radius.large,
+  padding: Spacing.space.xl,
+  children: [
+    panelHeader,
+    headerRule,
+    feedUrlField,
+    archiveRow,
+    conditionalGetRow,
+    footerRule,
+    panelFooter
+  ],
+
+  panelHeader = frame {
+    name: "Panel header",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .start,
+      item-gap: Spacing.space.xs
+    },
+    children: [panelTitle, panelSubtitle],
+
+    panelTitle = text : TextStyles.heading {
+      left: 0px,
+      top: 0px,
+      max-width: .nil,
+      contents: "Feed settings"
+    }
+
+    panelSubtitle = text : TextStyles.caption {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      max-width: .nil,
+      contents: "Applies to every episode Kringkasting publishes for this series."
+    }
+  }
+
+  headerRule = frame : Dividers.divider {}
+
+  feedUrlField = frame : Fields.field {
+    left: 0px,
+    top: 0px,
+    width: 100%
+  }
+
+  archiveRow = frame : settingRow {
+    left: 0px,
+    top: 0px,
+    width: 100%
+  }
+
+  conditionalGetRow = frame : settingRow {
+    left: 0px,
+    top: 0px,
+    width: 100%,
+
+    settingRow.rowText {
+      settingRow.rowText.rowLabel {
+        contents: "Conditional GETs"
+      }
+
+      settingRow.rowText.rowCaption {
+        contents: "Answer 304 to polling clients."
+      }
+    }
+
+    @use-variant(Toggles.toggle)
+    settingRow.rowToggle {}
+  }
+
+  footerRule = frame : Dividers.divider {}
+
+  panelFooter = frame {
+    name: "Panel footer",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .row,
+      justify-content: .end,
+      align-items: .center,
+      item-gap: Spacing.space.sm
+    },
+    children: [resetAction, saveAction],
+
+    resetAction = frame : Buttons.buttonQuiet {
+      Buttons.button.label {
+        contents: "Reset"
+      }
+    }
+
+    saveAction = frame : Buttons.buttonPrimary {
+      Buttons.button.label {
+        contents: "Save"
+      }
+    }
+  }
+}

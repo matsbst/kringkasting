@@ -1,0 +1,24 @@
+import "./strings.elyx" as Base
+
+@context(theme=dark)
+__file__
+
+// The same captions, resolved for the dark ladder. The brand mark is the one
+// value that does not move between themes.
+__canvas__
+
+export darkSwatchValue = tokens : Base.swatchValue {
+  canvas: "#0A0A0A",
+  raised: "#141414",
+  sunken: "white 4%",
+  primary: "white 100%",
+  secondary: "white 56%",
+  tertiary: "white 50%",
+  disabled: "white 48%",
+  hairline: "white 11%",
+  strong: "white 20%",
+  control: "white 42% · 3:1",
+  emphasis: "white · primary action",
+  danger: "#FF6B6B · state only",
+  mark: "#D9530B · mark only"
+}

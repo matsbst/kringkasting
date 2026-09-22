@@ -1,0 +1,773 @@
+import "./tokens/colors.elyx" as Colors
+// Imported for its side effect: loading the file is what makes theme=dark an
+// available choice for @with-context below.
+import "./tokens/colors@dark.elyx" as DarkColors
+import "./tokens/strings.elyx" as Strings
+import "./tokens/strings@dark.elyx" as DarkStrings
+import "./tokens/radius.elyx" as Radius
+import "./tokens/spacing.elyx" as Spacing
+import "./foundations/text.elyx" as TextStyles
+import "./foundations/specimen.elyx" as Specimen
+import "./controls/button.elyx" as Buttons
+import "./controls/divider.elyx" as Dividers
+import "./controls/field.elyx" as Fields
+import "./controls/toggle.elyx" as Toggles
+import "./blocks/dialog.elyx" as Dialogs
+import "./blocks/panel.elyx" as Panels
+
+// The overview sheet. Everything here is an instance — the sheet owns no colour,
+// type or control of its own, so it cannot drift from the system it documents.
+// `overviewDark` is the same sheet under theme=dark, which is the cheapest
+// honest test that the dark ladder actually holds up.
+__canvas__
+
+overview = frame {
+  name: "Design system overview",
+  left: 0px,
+  top: 0px,
+  width: 1040px,
+  height: .auto,
+  layout: {
+    direction: .column,
+    align-items: .stretch,
+    item-gap: Spacing.space.chapter
+  },
+  fill: Colors.surface.canvas,
+  padding: Spacing.space.chapter,
+  children: [
+    masthead,
+    colourSection,
+    typeSection,
+    spacingSection,
+    controlsSection,
+    blocksSection
+  ],
+
+  masthead = frame {
+    name: "Masthead",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.md
+    },
+    children: [mastheadTitle, mastheadBody, mastheadRule],
+
+    mastheadTitle = text : TextStyles.title {
+      left: 0px,
+      top: 0px,
+      max-width: .nil,
+      contents: "Kringkasting design system"
+    }
+
+    mastheadBody = text : TextStyles.body {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      max-width: 640px,
+      contents: "A calm, monochrome foundation: one canvas, an alpha-ink ladder, an 8px rhythm and two weights of Hanken Grotesk. Colour is reserved for state and for the brand mark.",
+      fill[0].color: Colors.content.secondary
+    }
+
+    mastheadRule = frame : Dividers.divider {}
+  }
+
+  // ── Colour ────────────────────────────────────────────────────────────────
+  colourSection = frame {
+    name: "Colour",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.xl
+    },
+    children: [colourHead, swatches],
+
+    colourHead = frame {
+      name: "Colour head",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .start,
+        item-gap: Spacing.space.xs
+      },
+      children: [colourTitle, colourNote],
+
+      colourTitle = text : TextStyles.heading {
+        left: 0px,
+        top: 0px,
+        max-width: .nil,
+        contents: "Colour"
+      }
+
+      colourNote = text : TextStyles.caption {
+        left: 0px,
+        top: 0px,
+        width: 100%,
+        max-width: 640px,
+        contents: "Intermediate tones are one ink at different strengths, never a separate gray. Roles are semantic, so the same swatch inverts cleanly under theme=dark."
+      }
+    }
+
+    swatches = frame {
+      name: "Swatches",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .row,
+        align-items: .start,
+        item-gap: Spacing.space.xl,
+        line-gap: Spacing.space.xl,
+        wrap: .true
+      },
+      children: [
+        swCanvas,
+        swRaised,
+        swSunken,
+        swPrimary,
+        swSecondary,
+        swTertiary,
+        swDisabled,
+        swHairline,
+        swStrong,
+        swControl,
+        swEmphasis,
+        swDanger,
+        swBrand
+      ],
+
+      swCanvas = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.surface.canvas
+        }
+
+        Specimen.swatch.role {
+          contents: "surface.canvas"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.canvas
+        }
+      }
+
+      swRaised = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.surface.raised
+        }
+
+        Specimen.swatch.role {
+          contents: "surface.raised"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.raised
+        }
+      }
+
+      swSunken = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.surface.sunken
+        }
+
+        Specimen.swatch.role {
+          contents: "surface.sunken"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.sunken
+        }
+      }
+
+      swPrimary = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.content.primary
+        }
+
+        Specimen.swatch.role {
+          contents: "content.primary"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.primary
+        }
+      }
+
+      swSecondary = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.content.secondary
+        }
+
+        Specimen.swatch.role {
+          contents: "content.secondary"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.secondary
+        }
+      }
+
+      swTertiary = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.content.tertiary
+        }
+
+        Specimen.swatch.role {
+          contents: "content.tertiary"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.tertiary
+        }
+      }
+
+      swDisabled = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.content.disabled
+        }
+
+        Specimen.swatch.role {
+          contents: "content.disabled"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.disabled
+        }
+      }
+
+      swHairline = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.line.hairline
+        }
+
+        Specimen.swatch.role {
+          contents: "line.hairline"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.hairline
+        }
+      }
+
+      swStrong = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.line.strong
+        }
+
+        Specimen.swatch.role {
+          contents: "line.strong"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.strong
+        }
+      }
+
+      swControl = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.line.control
+        }
+
+        Specimen.swatch.role {
+          contents: "line.control"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.control
+        }
+      }
+
+      swEmphasis = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.state.emphasis
+        }
+
+        Specimen.swatch.role {
+          contents: "state.emphasis"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.emphasis
+        }
+      }
+
+      swDanger = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.feedback.danger
+        }
+
+        Specimen.swatch.role {
+          contents: "feedback.danger"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.danger
+        }
+      }
+
+      swBrand = frame : Specimen.swatch {
+        Specimen.swatch.chip {
+          fill[0].color: Colors.brand.mark
+        }
+
+        Specimen.swatch.role {
+          contents: "brand.mark"
+        }
+
+        Specimen.swatch.value {
+          contents: Strings.swatchValue.mark
+        }
+      }
+    }
+  }
+
+  // ── Typography ────────────────────────────────────────────────────────────
+  typeSection = frame {
+    name: "Typography",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.xl
+    },
+    children: [typeHead, typeRows],
+
+    typeHead = frame {
+      name: "Type head",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .start,
+        item-gap: Spacing.space.xs
+      },
+      children: [typeTitle, typeNote],
+
+      typeTitle = text : TextStyles.heading {
+        left: 0px,
+        top: 0px,
+        max-width: .nil,
+        contents: "Typography"
+      }
+
+      typeNote = text : TextStyles.caption {
+        left: 0px,
+        top: 0px,
+        width: 100%,
+        max-width: 640px,
+        contents: "Five steps, all variants of body. Only body names the family, weight and ink; each step below declares nothing but its own difference."
+      }
+    }
+
+    typeRows = frame {
+      name: "Type rows",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .stretch,
+        item-gap: Spacing.space.lg
+      },
+      children: [rowTitle, rowHeading, rowBody, rowSmall, rowCaption],
+
+      rowTitle = frame : Specimen.typeRow {
+        Specimen.typeRow.meta {
+          contents: "title · 32 / 1.15 / Medium"
+        }
+
+        @use-variant(TextStyles.title)
+        Specimen.typeRow.sample {}
+      }
+
+      rowHeading = frame : Specimen.typeRow {
+        Specimen.typeRow.meta {
+          contents: "heading · 20 / 1.3 / Medium"
+        }
+
+        @use-variant(TextStyles.heading)
+        Specimen.typeRow.sample {}
+      }
+
+      rowBody = frame : Specimen.typeRow {
+        Specimen.typeRow.meta {
+          contents: "body · 16 / 1.55 / Regular"
+        }
+
+        Specimen.typeRow.sample {
+          contents: "Body — the reading default and the base every other step inherits."
+        }
+      }
+
+      rowSmall = frame : Specimen.typeRow {
+        Specimen.typeRow.meta {
+          contents: "small · 14 / 1.45 / Regular"
+        }
+
+        @use-variant(TextStyles.small)
+        Specimen.typeRow.sample {}
+      }
+
+      rowCaption = frame : Specimen.typeRow {
+        Specimen.typeRow.meta {
+          contents: "caption · 12 / 1.4 / secondary"
+        }
+
+        @use-variant(TextStyles.caption)
+        Specimen.typeRow.sample {}
+      }
+    }
+  }
+
+  // ── Spacing ───────────────────────────────────────────────────────────────
+  spacingSection = frame {
+    name: "Spacing",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.xl
+    },
+    children: [spacingHead, spacingRows],
+
+    spacingHead = frame {
+      name: "Spacing head",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .start,
+        item-gap: Spacing.space.xs
+      },
+      children: [spacingTitle, spacingNote],
+
+      spacingTitle = text : TextStyles.heading {
+        left: 0px,
+        top: 0px,
+        max-width: .nil,
+        contents: "Spacing"
+      }
+
+      spacingNote = text : TextStyles.caption {
+        left: 0px,
+        top: 0px,
+        width: 100%,
+        max-width: 640px,
+        contents: "An 8px rhythm with 4px adjustments. Groups are spaced tightly inside and generously between, so grouping reads before any border does."
+      }
+    }
+
+    spacingRows = frame {
+      name: "Spacing rows",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .stretch,
+        item-gap: Spacing.space.md
+      },
+      children: [
+        barXs,
+        barSm,
+        barMd,
+        barLg,
+        barXl,
+        barXxl,
+        barSection,
+        barChapter
+      ],
+
+      barXs = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "xs · 4px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.xs
+        }
+      }
+
+      barSm = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "sm · 8px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.sm
+        }
+      }
+
+      barMd = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "md · 12px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.md
+        }
+      }
+
+      barLg = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "lg · 16px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.lg
+        }
+      }
+
+      barXl = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "xl · 24px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.xl
+        }
+      }
+
+      barXxl = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "xxl · 32px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.xxl
+        }
+      }
+
+      barSection = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "section · 48px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.section
+        }
+      }
+
+      barChapter = frame : Specimen.spacingBar {
+        Specimen.spacingBar.barMeta {
+          contents: "chapter · 64px"
+        }
+
+        Specimen.spacingBar.bar {
+          width: Spacing.space.chapter
+        }
+      }
+    }
+  }
+
+  // ── Controls ──────────────────────────────────────────────────────────────
+  controlsSection = frame {
+    name: "Controls",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.xl
+    },
+    children: [controlsHead, buttonRow, buttonStateRow, toggleRow, fieldRow],
+
+    controlsHead = frame {
+      name: "Controls head",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .start,
+        item-gap: Spacing.space.xs
+      },
+      children: [controlsTitle, controlsNote],
+
+      controlsTitle = text : TextStyles.heading {
+        left: 0px,
+        top: 0px,
+        max-width: .nil,
+        contents: "Controls"
+      }
+
+      controlsNote = text : TextStyles.caption {
+        left: 0px,
+        top: 0px,
+        width: 100%,
+        max-width: 640px,
+        contents: "One button family at a shared height and radius. Weight tracks how often a control is used, so the quietest action is never the heaviest element in its row."
+      }
+    }
+
+    buttonRow = frame {
+      name: "Buttons",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .row,
+        align-items: .center,
+        item-gap: Spacing.space.md
+      },
+      children: [btnPrimary, btnSecondary, btnQuiet, btnDanger, btnSmall],
+
+      btnPrimary = frame : Buttons.buttonPrimary {}
+
+      btnSecondary = frame : Buttons.button {
+        left: 0px,
+        top: 0px
+      }
+
+      btnQuiet = frame : Buttons.buttonQuiet {}
+
+      btnDanger = frame : Buttons.buttonDanger {}
+
+      btnSmall = frame : Buttons.buttonSmall {}
+    }
+
+    buttonStateRow = frame {
+      name: "Button states",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .row,
+        align-items: .center,
+        item-gap: Spacing.space.md
+      },
+      children: [
+        btnPrimaryHover,
+        btnPrimaryPressed,
+        btnPrimaryDisabled,
+        btnHover,
+        btnFocused
+      ],
+
+      btnPrimaryHover = frame : Buttons.buttonPrimaryHover {}
+
+      btnPrimaryPressed = frame : Buttons.buttonPrimaryPressed {}
+
+      btnPrimaryDisabled = frame : Buttons.buttonPrimaryDisabled {}
+
+      btnHover = frame : Buttons.buttonHover {}
+
+      btnFocused = frame : Buttons.buttonFocused {}
+    }
+
+    toggleRow = frame {
+      name: "Toggles",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .row,
+        align-items: .center,
+        item-gap: Spacing.space.xl
+      },
+      children: [tglOff, tglOn, tglFocused, tglDisabled, tglOnDisabled],
+
+      tglOff = frame : Toggles.toggle {
+        left: 0px,
+        top: 0px
+      }
+
+      tglOn = frame : Toggles.toggleOn {}
+
+      tglFocused = frame : Toggles.toggleFocused {}
+
+      tglDisabled = frame : Toggles.toggleDisabled {}
+
+      tglOnDisabled = frame : Toggles.toggleOnDisabled {}
+    }
+
+    fieldRow = frame {
+      name: "Fields",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .row,
+        align-items: .start,
+        item-gap: Spacing.space.xl,
+        line-gap: Spacing.space.xl,
+        wrap: .true
+      },
+      children: [fldDefault, fldFocused, fldError, fldDisabled],
+
+      fldDefault = frame : Fields.field {
+        left: 0px,
+        top: 0px
+      }
+
+      fldFocused = frame : Fields.fieldFocused {}
+
+      fldError = frame : Fields.fieldError {}
+
+      fldDisabled = frame : Fields.fieldDisabled {}
+    }
+  }
+
+  // ── Blocks ────────────────────────────────────────────────────────────────
+  blocksSection = frame {
+    name: "Blocks",
+    width: 100%,
+    height: .auto,
+    layout: {
+      direction: .column,
+      align-items: .stretch,
+      item-gap: Spacing.space.xl
+    },
+    children: [blocksHead, blockRow],
+
+    blocksHead = frame {
+      name: "Blocks head",
+      width: 100%,
+      height: .auto,
+      layout: {
+        direction: .column,
+        align-items: .start,
+        item-gap: Spacing.space.xs
+      },
+      children: [blocksTitle, blocksNote],
+
+      blocksTitle = text : TextStyles.heading {
+        left: 0px,
+        top: 0px,
+        max-width: .nil,
+        contents: "Blocks"
+      }
+
+      blocksNote = text : TextStyles.caption {
+        left: 0px,
+        top: 0px,
+        width: 100%,
+        max-width: 640px,
+        contents: "Larger pieces assembled from the same controls. Neither block styles a button or a label itself."
+      }
+    }
+
+    blockRow = frame {
+      name: "Block row",
+      width: 100%,
+      height: .auto,
+      layout: {direction: .row, align-items: .start, item-gap: Spacing.space.xl},
+      children: [dialogSample, panelSample],
+
+      dialogSample = frame : Dialogs.dialog {
+        left: 0px,
+        top: 0px
+      }
+
+      panelSample = frame : Panels.panel {
+        left: 0px,
+        top: 0px
+      }
+    }
+  }
+}
+
+// The identical sheet, resolved against tokens/colors@dark.elyx.
+@with-context(theme=dark)
+overviewDark = frame : overview {
+  name: "Design system overview / Dark",
+  left: 1136px,
+  top: 0px
+}
