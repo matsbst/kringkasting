@@ -1,5 +1,5 @@
 # Build stage: compile the Fresh app to a self-contained _fresh/ bundle
-FROM denoland/deno:2.5.4 AS builder
+FROM denoland/deno:2.9.7 AS builder
 
 WORKDIR /build
 
