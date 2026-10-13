@@ -41,13 +41,13 @@
     "jsr:@std/uuid@^1.0.9": "1.1.1",
     "npm:@babel/core@^7.28.0": "7.29.7",
     "npm:@babel/preset-react@^7.27.1": "7.29.7_@babel+core@7.29.7",
-    "npm:@faker-js/faker@^9.9.0": "9.9.0",
+    "npm:@faker-js/faker@^10.6.0": "10.6.0",
     "npm:@opentelemetry/api@^1.9.0": "1.9.1",
-    "npm:@preact/signals@^2.5.1": "2.11.2_preact@10.29.8_preact-render-to-string@6.7.0",
-    "npm:@preact/signals@^2.9.0": "2.11.2_preact@10.29.8_preact-render-to-string@6.7.0",
-    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.8_vite@7.3.6_@types+node@26.5.1",
+    "npm:@preact/signals@^2.5.1": "2.11.2_preact@10.29.8__preact-render-to-string@6.7.0_preact-render-to-string@6.7.0__preact@10.29.8",
+    "npm:@preact/signals@^2.9.0": "2.11.2_preact@10.29.8__preact-render-to-string@6.7.0_preact-render-to-string@6.7.0__preact@10.29.8",
+    "npm:@prefresh/vite@^2.4.8": "2.4.12_preact@10.29.8__preact-render-to-string@6.7.0_vite@7.3.6__@types+node@26.5.1_@types+node@26.5.1",
     "npm:@remix-run/node-fetch-server@0.12": "0.12.0",
-    "npm:@tailwindcss/vite@^4.1.12": "4.3.3_vite@7.3.6_@types+node@26.5.1",
+    "npm:@tailwindcss/vite@^4.1.12": "4.3.3_vite@7.3.6__@types+node@26.5.1_@types+node@26.5.1",
     "npm:@types/babel__core@^7.20.5": "7.20.5",
     "npm:@types/node@^26.5.1": "26.5.1",
     "npm:esbuild-wasm@~0.25.11": "0.25.12",
@@ -784,8 +784,8 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
-    "@faker-js/faker@9.9.0": {
-      "integrity": "sha512-OEl393iCOoo/z8bMezRlJu+GlRGlsKbUAN7jKB6LhnKoqKve5DXRpalbItIIcwnCjs1k/FOPjFzcA6Qn+H+YbA=="
+    "@faker-js/faker@10.6.0": {
+      "integrity": "sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ=="
     },
     "@fastify/busboy@2.1.1": {
       "integrity": "sha512-vBZP4NlzfOlerQTnba4aqZoMhE/a9HY7HRqoOPaETQcSQuWEIyZMHGfVu6w9wGtGK5fED5qRs2DteVCjOH60sA=="
@@ -845,7 +845,7 @@
     "@preact/signals-core@1.14.4": {
       "integrity": "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="
     },
-    "@preact/signals@2.11.2_preact@10.29.8_preact-render-to-string@6.7.0": {
+    "@preact/signals@2.11.2_preact@10.29.8__preact-render-to-string@6.7.0_preact-render-to-string@6.7.0__preact@10.29.8": {
       "integrity": "sha512-rVTRTt/T0HIRgbugwS5FigbfF/kfdEFYFtiqxa+lbpqTajepqnR0firuAS2iNdHyejWB7Yc9p9QePkVNBtTAwg==",
       "dependencies": [
         "@preact/signals-core",
@@ -855,7 +855,7 @@
     "@prefresh/babel-plugin@0.5.3": {
       "integrity": "sha512-57LX2SHs4BX2s1IwCjNzTE2OJeEepRCNf1VTEpbNcUyHfMO68eeOWGDIt4ob9aYlW6PEWZ1SuwNikuoIXANDtQ=="
     },
-    "@prefresh/core@1.5.11_preact@10.29.8_preact-render-to-string@6.7.0": {
+    "@prefresh/core@1.5.11_preact@10.29.8__preact-render-to-string@6.7.0_preact-render-to-string@6.7.0__preact@10.29.8": {
       "integrity": "sha512-Ml00PP8jeHaADxfQqxUs4+M5JS+T5J26UnvPVfsrmlpGw2I3e9XtM0DMeuzkmvg+Tn7VdHSMpLBrDPG0iHoDqQ==",
       "dependencies": [
         "preact"
@@ -864,7 +864,7 @@
     "@prefresh/utils@1.2.1": {
       "integrity": "sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw=="
     },
-    "@prefresh/vite@2.4.12_preact@10.29.8_vite@7.3.6_@types+node@26.5.1": {
+    "@prefresh/vite@2.4.12_preact@10.29.8__preact-render-to-string@6.7.0_vite@7.3.6__@types+node@26.5.1_@types+node@26.5.1": {
       "integrity": "sha512-FY1fzXpUjiuosznMV0YM7XAOPZjB5FIdWS0W24+XnlxYkt9hNAwwsiKYn+cuTEoMtD/ZVazS5QVssBr9YhpCQA==",
       "dependencies": [
         "@babel/core",
@@ -1099,7 +1099,7 @@
         "@tailwindcss/oxide-win32-x64-msvc"
       ]
     },
-    "@tailwindcss/vite@4.3.3_vite@7.3.6_@types+node@26.5.1": {
+    "@tailwindcss/vite@4.3.3_vite@7.3.6__@types+node@26.5.1_@types+node@26.5.1": {
       "integrity": "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==",
       "dependencies": [
         "@tailwindcss/node",
@@ -1670,7 +1670,7 @@
       "jsr:@std/assert@^1.0.13",
       "jsr:@std/datetime@~0.225.5",
       "jsr:@std/http@^1.0.20",
-      "npm:@faker-js/faker@^9.9.0",
+      "npm:@faker-js/faker@^10.6.0",
       "npm:@preact/signals@^2.9.0",
       "npm:@tailwindcss/vite@^4.1.12",
       "npm:@types/babel__core@^7.20.5",
