@@ -36,7 +36,7 @@
     "@std/datetime": "jsr:@std/datetime@^0.225.5",
     "@std/http": "jsr:@std/http@^1.0.20",
     "iso8601-duration": "npm:iso8601-duration@^2.1.2",
-    "openapi-typescript": "npm:openapi-typescript@^6.7.5",
+    "openapi-typescript": "npm:openapi-typescript@^7.13.0",
     "@faker-js/faker": "npm:@faker-js/faker@^9.9.0"
   },
   "compilerOptions": {
