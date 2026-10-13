@@ -9,7 +9,7 @@ RUN deno task build
 
 # Runtime stage: Cloudron base image with the deno binary and the built app.
 # The _fresh/ bundle is self-contained, so no node_modules or source is needed.
-FROM cloudron/base:5.1.0@sha256:1c0666c9abe9e2090d33686826d4e97769b799124573118d41e0d7485135748e
+FROM cloudron/base:6.0.0@sha256:9bed4c8fa880645f8e669041ee28febe941481d00e9445e3e5a5483cb541d09b
 
 ARG GIT_REVISION=dev
 # Fresh uses this as an opaque build/version id for asset caching.
