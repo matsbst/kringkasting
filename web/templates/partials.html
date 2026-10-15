@@ -1,0 +1,91 @@
+{{/* Shared parts. Markup mirrors the Deno version's rendered HTML (see
+testdata/baseline/http/page_home_search.txt); data-* attributes are the
+hooks for web/static/app.js. */}}
+
+{{define "icon-search"}}<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"></path><path d="M21 21l-6 -6"></path></svg>{{end}}
+
+{{define "icon-podcast"}}<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 10a7 7 0 1 0 -14 0a6.97 6.97 0 0 0 1.626 4.486"></path><path d="M12 10m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path><path d="M9.5 15a3.5 3.5 0 0 1 5 0l-.25 6.5a2 2 0 0 1 -2 1.5h-.5a2 2 0 0 1 -2 -1.5z"></path></svg>{{end}}
+
+{{define "icon-copy"}}<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"></path><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"></path></svg>{{end}}
+
+{{define "icon-share"}}<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M18 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M8.7 10.7l6.6 -3.4"></path><path d="M8.7 13.3l6.6 3.4"></path></svg>{{end}}
+
+{{/* One search hit. The subscribe control starts as "Abonner i app";
+app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
+{{define "card"}}
+<article class="flex gap-5">
+{{if .ImageURL}}<img src="{{.ImageURL}}" alt="" width="128" height="128" loading="lazy" class="size-24 sm:size-32 shrink-0 rounded-xl object-cover"/>{{end}}
+<div class="min-w-0 flex flex-col">
+<h3 class="text-xl font-semibold leading-snug tracking-tight">{{.Title}}</h3>
+{{if .Description}}<p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark line-clamp-2">{{.Description}}</p>{{end}}
+<div class="mt-3 flex flex-wrap items-center gap-2">
+<span class="inline-flex" data-subscribe data-feed-url="{{.FeedURL}}">
+<button type="button" data-open-dialog="{{.DialogID}}" class="relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer px-3 py-2">{{template "icon-podcast"}} Abonner i app</button>
+</span>
+<dialog id="{{.DialogID}}" aria-labelledby="{{.DialogID}}-title" class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark">
+<div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+<h2 id="{{.DialogID}}-title" class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Velg podkast-app</h2>
+{{if .StreamOnly}}<p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de fleste andre apper.</p>{{end}}
+<ul>
+{{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}{{.Name}}{{if and $.StreamOnly (eq .ID "apple")}}<span class="ml-auto text-xs text-ink-3 dark:text-ink-3-dark">anbefalt</span>{{end}}</a></li>
+{{end}}<li aria-disabled="true" class="flex items-center gap-3 min-h-12 px-3 select-none"><span class="opacity-45">{{.SpotifyIcon}}</span><span class="text-base text-ink-3 dark:text-ink-3-dark">Spotify</span><span class="ml-auto text-sm text-ink-2 dark:text-ink-2-dark">støtter ikke RSS</span></li>
+<li class="mt-1 border-t border-line dark:border-line-dark pt-1">
+<button type="button" data-copy data-umami-event="kopier-rss" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-copy"}}<span data-copy-label>Kopier RSS-lenke</span></button>
+<p role="status" class="sr-only" data-copy-status></p>
+<div class="px-3 pb-2" data-copy-fallback hidden>
+<p class="text-sm text-ink-2 dark:text-ink-2-dark mb-1.5">Kunne ikke kopiere automatisk – marker lenken og kopier selv:</p>
+<input readonly value="{{.FeedURL}}" aria-label="RSS-lenke" class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"/>
+</div>
+</li>
+</ul>
+<button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Avbryt</button>
+</div>
+</dialog>
+<button type="button" data-share data-title="{{.Title}}" data-url="{{.ShareURL}}" class="inline-flex items-center gap-1.5 px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark transition-colors cursor-pointer">{{template "icon-share"}}<span data-share-label>Del</span></button>
+<a href="{{.NrkURL}}" class="px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark transition-colors">Hos NRK</a>
+</div>
+</div>
+</article>
+{{end}}
+
+{{/* Everything below the search form. Rendered into the page for direct
+loads and no-JS clients, and returned alone by /api/search/fragment. */}}
+{{define "search-results"}}
+<div data-search-results>
+{{if .Failed}}
+<section class="mt-14 space-y-1"><h2 class="text-xl font-medium">Søket feilet</h2><p class="text-ink-2 dark:text-ink-2-dark">Prøv igjen om et lite øyeblikk.</p></section>
+{{else if .HasResults}}
+{{if .Cards}}
+<section class="mt-10">
+<h2 class="sr-only">Søkeresultat</h2>
+<p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">{{len .Cards}} treff for «{{.Query}}»</p>
+<div class="space-y-10">
+{{range .Cards}}{{template "card" .}}{{end}}
+</div>
+</section>
+{{else}}
+<section class="mt-14 space-y-1">
+<h2 class="text-xl font-medium">Ingen treff for «{{.Query}}»</h2>
+<p class="text-ink-2 dark:text-ink-2-dark">Prøv et annet søkeord, eller sjekk skrivemåten.</p>
+</section>
+{{end}}
+{{else}}
+{{template "how-it-works" .}}
+{{end}}
+</div>
+{{end}}
+
+{{define "how-it-works"}}
+<section class="mt-5 flex flex-wrap gap-2">
+{{range .Suggestions}}<button type="button" data-suggestion="{{.}}" class="rounded-full border border-line dark:border-line-dark px-3.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark hover:text-ink dark:hover:text-ink-dark transition-colors cursor-pointer">{{.}}</button>
+{{end}}
+</section>
+<section class="mt-28">
+<h2 class="text-xl font-semibold mb-6">Slik funker det</h2>
+<ol class="grid sm:grid-cols-3 gap-3">
+<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">01</p><h3 class="mt-5 font-semibold">Søk</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Finn NRK-podkasten du vil høre på.</p></li>
+<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">02</p><h3 class="mt-5 font-semibold">Abonner</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Trykk «Abonner i app» og velg podkast-appen din.</p></li>
+<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">03</p><h3 class="mt-5 font-semibold">Hør</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Podkasten dukker opp i appen din, med hele arkivet.</p></li>
+</ol>
+</section>
+{{end}}
