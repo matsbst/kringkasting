@@ -8,8 +8,6 @@ Choose your setup: **[Docker Compose](#-docker-compose)** · **[Synology](self-h
 
 For recovery, see **[backups](#-backups)** and **[restore](#-restore-from-a-database-backup)**.
 
-> Image access check (2026-10-15): an anonymous pull of `ghcr.io/matsbst/kringkasting:latest` returned `unauthorized`. The commands below describe the intended installation, but a public install is not verified until image access is fixed. See [image access troubleshooting](#image-access).
-
 ## Before you start
 
 - A container runtime and an `amd64` or `arm64` Linux host. Images are published for both architectures.
@@ -148,7 +146,19 @@ docker rm kringkasting
 # Run your original docker run command again with the same volume and settings.
 ```
 
-Restarting an existing container does not switch it to a newly downloaded image. Keep a copy of your configuration. To select a specific release build, use `ghcr.io/matsbst/kringkasting:<git-sha>` instead of `:latest`.
+Restarting an existing container does not switch it to a newly downloaded image. Keep a copy of your configuration.
+
+### Image versions
+
+| Tag | Follows |
+| --- | --- |
+| `:latest` | every change merged to `main`, as soon as it is built |
+| `:2` | the newest 2.x release |
+| `:2.0` | the newest 2.0.x release |
+| `:2.0.0` | exactly that release, never moved |
+| `:<git-sha>` | exactly that build, never moved |
+
+`:latest` is what the public instance runs. For updates only when a release is published, use `:2` instead. Each release is listed with its changes under [Releases](https://github.com/matsbst/kringkasting/releases).
 
 ### Roll back an image
 
