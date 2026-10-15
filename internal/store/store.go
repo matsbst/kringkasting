@@ -63,6 +63,12 @@ var migrations = []string{
 	"ALTER TABLE series ADD COLUMN catalog_kind TEXT",
 	"ALTER TABLE series ADD COLUMN is_umbrella INTEGER NOT NULL DEFAULT 0",
 	"ALTER TABLE series ADD COLUMN metadata_refreshed_at INTEGER",
+	// NRK video for an episode (docs/nrk-video-pass-through.md): the clip
+	// reference from catalog listings, the confirmed HLS playlist URL, and
+	// when to check again. NULL next-check = never checked.
+	"ALTER TABLE episodes ADD COLUMN clip_id TEXT",
+	"ALTER TABLE episodes ADD COLUMN video_url TEXT",
+	"ALTER TABLE episodes ADD COLUMN video_next_check_at INTEGER",
 }
 
 const readPoolSize = 4

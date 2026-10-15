@@ -81,6 +81,29 @@ type FetchOptions struct {
 	OnEpisodeFailure OnEpisodeFailure
 	// CatalogKind is the stored kind: try that endpoint family first.
 	CatalogKind *store.CatalogKind
+	// OnClipIDs is told the NRK clip reference of every listed episode,
+	// including ones skipped as already stored (episode id → clip id).
+	OnClipIDs func(map[string]string)
+}
+
+// reportClipIDs passes listed episodes' clip references to the callback.
+func reportClipIDs(onClipIDs func(map[string]string), candidates []Episode) {
+	if onClipIDs == nil {
+		return
+	}
+	if ids := clipIDs(candidates); len(ids) > 0 {
+		onClipIDs(ids)
+	}
+}
+
+func clipIDs(candidates []Episode) map[string]string {
+	ids := map[string]string{}
+	for _, e := range candidates {
+		if e.ClipID != "" {
+			ids[e.ID] = e.ClipID
+		}
+	}
+	return ids
 }
 
 // Outcome distinguishes "not found" from an upstream failure.
@@ -151,10 +174,15 @@ func ParseEpisode(e episodeWithMedia) store.Episode {
 	if e.Links.Share != nil {
 		share = e.Links.Share.Href
 	}
-	return store.Episode{
+	episode := store.Episode{
 		ID: e.ID, Title: e.Titles.Title, Subtitle: e.Titles.Subtitle, URL: e.URL, ShareLink: share,
 		Date: ParseDate(e.Date), DurationInSeconds: e.DurationInSeconds, Bytes: e.Bytes,
 	}
+	if e.ClipID != "" {
+		clip := e.ClipID
+		episode.ClipID = &clip
+	}
+	return episode
 }
 
 func parseEpisodes(episodes []episodeWithMedia) []store.Episode {
@@ -305,7 +333,7 @@ func (c *Client) GetSeries(seriesID string, opts FetchOptions) (*store.Series, O
 		(opts.MetadataOnly || len(episodesBody.Embedded.Episodes) > 0) {
 		episodes := []episodeWithMedia{}
 		if !opts.MetadataOnly {
-			episodes = c.extractEpisodes(&seriesBody, &episodesBody, opts.SkipEpisodeIDs, opts.OnEpisodeFailure)
+			episodes = c.extractEpisodes(&seriesBody, &episodesBody, opts.SkipEpisodeIDs, opts.OnEpisodeFailure, opts.OnClipIDs)
 		}
 		kind := usedKind
 		s := seriesBody.Series
@@ -331,7 +359,7 @@ func (c *Client) GetSeries(seriesID string, opts FetchOptions) (*store.Series, O
 // shows list their episodes per season (first page of each season).
 // Non-playable episodes are dropped and reported, not fatal.
 func (c *Client) extractEpisodes(series *seriesResponse, page *episodesPage, skip map[string]bool,
-	onFailure OnEpisodeFailure) []episodeWithMedia {
+	onFailure OnEpisodeFailure, onClipIDs func(map[string]string)) []episodeWithMedia {
 	var candidates []Episode
 	if series.SeriesType == "umbrella" {
 		seasons := mapConcurrent(series.Links.Seasons, fetchConcurrency, func(season link) []Episode {
@@ -347,6 +375,7 @@ func (c *Client) extractEpisodes(series *seriesResponse, page *episodesPage, ski
 	} else {
 		candidates = page.Embedded.Episodes
 	}
+	reportClipIDs(onClipIDs, candidates)
 	fresh := filterSkipped(candidates, skip)
 	episodes, _ := collect(fresh, c.resolveAll(fresh, fetchConcurrency, series.Type), onFailure)
 	return episodes
@@ -391,6 +420,7 @@ func (c *Client) GetSeason(seriesID, seasonID string, opts FetchOptions) (*store
 
 		episodes := []episodeWithMedia{}
 		if !opts.MetadataOnly {
+			reportClipIDs(opts.OnClipIDs, candidates)
 			fresh := filterSkipped(candidates, opts.SkipEpisodeIDs)
 			episodes, _ = collect(fresh, c.resolveAll(fresh, fetchConcurrency, string(kind)), opts.OnEpisodeFailure)
 		}
@@ -449,6 +479,7 @@ func (c *Client) GetNewEpisodes(seriesID string, kind store.CatalogKind, opts Fe
 			return &NewEpisodesResult{Episodes: parseEpisodes(episodes), ResumeHref: &prev}
 		}
 		candidates := body.Embedded.Episodes
+		reportClipIDs(opts.OnClipIDs, candidates)
 		fresh := filterSkipped(candidates, opts.SkipEpisodeIDs)
 		collected, transient := collect(fresh, c.resolveAll(fresh, fetchConcurrency, string(kind)), opts.OnEpisodeFailure)
 		episodes = append(episodes, collected...)
@@ -505,6 +536,9 @@ type EpisodePage struct {
 	// TransientFailures are manifests that failed transiently; the page
 	// should be retried before advancing.
 	TransientFailures int
+	// ClipIDs are the clip references of every listed episode (episode id →
+	// clip id), skipped ones included.
+	ClipIDs map[string]string
 }
 
 // GetEpisodePage fetches one page of a feed's archive, resolving download
@@ -513,32 +547,8 @@ type EpisodePage struct {
 // the page could not be fetched; retry later from the same cursor.
 func (c *Client) GetEpisodePage(feedID, cursorHref string, skip map[string]bool, onFailure OnEpisodeFailure,
 	kind *store.CatalogKind) *EpisodePage {
-	ref := feedid.Parse(feedID)
-	href := cursorHref
-	var body episodesPage
-	ok := false
-
-	if href != "" {
-		if !strings.HasPrefix(href, "/") {
-			href = "/" + href
-		}
-		_, ok = c.up.getJSON(API+href, &body)
-		href = cursorHref
-	} else {
-		for _, k := range catalogOrder(kind) {
-			// season feeds have their own paged listing under the parent series
-			if ref.SeasonID != "" {
-				href = "/radio/catalog/" + string(k) + "/" + ref.SeriesID + "/seasons/" + ref.SeasonID + "/episodes?page=1&pageSize=50"
-			} else {
-				href = "/radio/catalog/" + string(k) + "/" + ref.SeriesID + "/episodes?page=1&pageSize=50"
-			}
-			body = episodesPage{}
-			if _, ok = c.up.getJSON(API+href, &body); ok {
-				break
-			}
-		}
-	}
-	if !ok || href == "" {
+	body, href, ok := c.listPage(feedID, cursorHref, kind)
+	if !ok {
 		return nil
 	}
 
@@ -556,7 +566,49 @@ func (c *Client) GetEpisodePage(feedID, cursorHref string, skip map[string]bool,
 	if body.Links.Next != nil {
 		next = body.Links.Next.Href
 	}
-	return &EpisodePage{Episodes: parseEpisodes(collected), NextHref: next, TransientFailures: transient}
+	return &EpisodePage{Episodes: parseEpisodes(collected), NextHref: next, TransientFailures: transient,
+		ClipIDs: clipIDs(body.Embedded.Episodes)}
+}
+
+// ListClipIDs fetches one listing page of a feed's archive and returns the
+// clip references on it, with no playback lookups (one request). ok is
+// false when the page could not be fetched.
+func (c *Client) ListClipIDs(feedID, cursorHref string, kind *store.CatalogKind) (clipIDsByEpisode map[string]string, next string, ok bool) {
+	body, _, ok := c.listPage(feedID, cursorHref, kind)
+	if !ok {
+		return nil, "", false
+	}
+	if body.Links.Next != nil {
+		next = body.Links.Next.Href
+	}
+	return clipIDs(body.Embedded.Episodes), next, true
+}
+
+// listPage fetches one archive listing page. An empty cursor starts from
+// the first page, trying both catalogs; href is the page actually used.
+func (c *Client) listPage(feedID, cursorHref string, kind *store.CatalogKind) (body episodesPage, href string, ok bool) {
+	ref := feedid.Parse(feedID)
+	href = cursorHref
+	if href != "" {
+		if !strings.HasPrefix(href, "/") {
+			href = "/" + href
+		}
+		_, ok = c.up.getJSON(API+href, &body)
+		return body, cursorHref, ok
+	}
+	for _, k := range catalogOrder(kind) {
+		// season feeds have their own paged listing under the parent series
+		if ref.SeasonID != "" {
+			href = "/radio/catalog/" + string(k) + "/" + ref.SeriesID + "/seasons/" + ref.SeasonID + "/episodes?page=1&pageSize=50"
+		} else {
+			href = "/radio/catalog/" + string(k) + "/" + ref.SeriesID + "/episodes?page=1&pageSize=50"
+		}
+		body = episodesPage{}
+		if _, ok = c.up.getJSON(API+href, &body); ok {
+			return body, href, true
+		}
+	}
+	return body, href, false
 }
 
 // Search searches NRK's series. An empty slice is a confirmed "no

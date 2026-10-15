@@ -13,6 +13,11 @@ type Episode struct {
 	DurationInSeconds int64
 	// Bytes is the enclosure file size, when known.
 	Bytes *int64
+	// ClipID is NRK's clip reference from catalog listings; it may point
+	// to a video version of the episode.
+	ClipID *string
+	// VideoURL is NRK's HLS video playlist, once confirmed to match.
+	VideoURL *string
 }
 
 // CatalogKind is which NRK catalog a series lives in ("podcast" or

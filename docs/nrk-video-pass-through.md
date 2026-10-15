@@ -1,6 +1,6 @@
 # Pass NRK video through in podcast feeds
 
-Status: proposal; implementation pending.
+Status: implemented (PR #13); player playback tests pending.
 
 ## Purpose
 
@@ -44,6 +44,25 @@ Use NRK URLs directly. Validate playlist URL longevity and whether normal metada
 - Representative current and older NRK playlists are checked for URL validity, redirects, codecs and audio/video correspondence without copying the media.
 - Test playback using the same feed in Pocket Casts and Podcast Addict, including seeking and audio fallback. Verify an audio-only player still uses the unchanged audio enclosure.
 - No website changes or Kringkasting media endpoints are introduced.
+
+## Implementation
+
+- **Clip references** (`clipId`) are captured from catalog listings the app fetches anyway: initial fetches, refreshes and archive crawl pages report them for every listed episode, including ones already stored. No extra requests.
+- **Video lookup** (`internal/video`): a background worker, queued after a feed is fetched or refreshed (never on plain polls). One feed at a time, at most 20 due episodes per round, two lookups at a time, through the shared NRK client (global cap, retry deadlines). Concurrent lookups of the same clip share one request; a result already found for the same clip in another feed (a podcast and its season feed) is reused.
+- **Matching**: `GET /playback/manifest/clip/{clipId}` must report `sourceMedium: video`, `playability: playable` and an unencrypted HLS asset, and the clip's duration must match the audio within max(60 s, 5 %). Trailers and promos fail the duration check.
+- **Re-checks**: a confirmed video is re-checked after 30 days (which also refreshes the URL); an episode without video is re-checked after 6 hours while under a week old (NRK can publish the video after the audio), otherwise after 30 days. Transient failures use the retry deadlines (`retry:video:{clipId}`) and change nothing.
+- **Older episodes**: for shows with at least one video and a complete archive crawl, clip references are recovered one listing page per round (`video-backfill:{feed}` in `app_state`), with no playback lookups.
+- **Storage**: additive `episodes` columns `clip_id`, `video_url`, `video_next_check_at`. Episode upserts never touch the video columns; a change of `video_url` bumps the feed's data version, so the rendered feed and its ETag move.
+- **Feed**: `<podcast:alternateEnclosure type="application/x-mpegURL" length="0" lang="no" title="Video"><podcast:source uri="…NRK playlist…"/></podcast:alternateEnclosure>` after the audio enclosure. `length="0"` is RSS's "unknown", as for enclosures; no bitrate or height is invented.
+
+Verified (2026-10-15):
+
+- Audio-only output is byte-identical to before (all golden feed tests, whose fixtures have no clip references).
+- Live, Sentralbordet: all 10 episodes get video; every item is otherwise unchanged; the XML is well-formed; playlists answer 200 and match the audio length.
+- The previous release serves a database written by this version (it ignores the new columns) and keeps the stored video data.
+- Tests cover matching, promo/audio-only/encrypted/missing clips, transient failures and recovery, re-checks, coalescing across feeds and requests, persistence across restarts, cache invalidation and the bounded backfill.
+
+Still to do before marking ready: playback in Pocket Casts and Podcast Addict (including seeking and audio fallback), and an audio-only player with the same feed.
 
 ## References
 
