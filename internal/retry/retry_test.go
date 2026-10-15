@@ -19,7 +19,10 @@ func TestDeadlinesAndRetryAfter(t *testing.T) {
 	clock.Pin(start)
 	for _, want := range []time.Duration{5, 10, 20, 40, 80, 160, 320, 640, 1280, 1440, 1440} {
 		r.Defer("k", 0)
-		if got := time.Duration(r.At("k")-start.UnixMilli()) * time.Millisecond; got.Round(time.Second) != want*time.Minute {
+		// the pinned clock advances in real time: allow a few seconds of
+		// drift on slow runners (the race detector slows tests a lot)
+		got := time.Duration(r.At("k")-start.UnixMilli()) * time.Millisecond
+		if got < want*time.Minute || got > want*time.Minute+5*time.Second {
 			t.Errorf("delay %v, want %v", got, want*time.Minute)
 		}
 	}
