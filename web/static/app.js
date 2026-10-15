@@ -5,7 +5,7 @@
 // inserted later.
 
 const STORAGE_KEY = "kringkasting:podcast-app";
-// feeds sent to an app from here: { "/api/feeds/<id>": { app, name, at } }
+// feeds sent to an app from here: { "/api/feeds/<id>": { app, name } }
 const SENT_KEY = "kringkasting:sent";
 const CHANGE_EVENT = "kringkasting:podcast-app-changed";
 const DEBOUNCE_MS = 300;
@@ -57,7 +57,7 @@ function readSent() {
 /** remember that this feed was sent to an app, in this browser only */
 function recordSent(feedUrl, app) {
   const sent = readSent();
-  sent[new URL(feedUrl, location.href).pathname] = { app: app.dataset.app, name: app.dataset.appName, at: Date.now() };
+  sent[new URL(feedUrl, location.href).pathname] = { app: app.dataset.app, name: app.dataset.appName };
   try {
     localStorage.setItem(SENT_KEY, JSON.stringify(sent));
   } catch {
@@ -65,9 +65,7 @@ function recordSent(feedUrl, app) {
   }
 }
 
-const SENT_DATE = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short" });
-
-/** "Sendt til Overcast 16. okt." under a card whose feed went to an app */
+/** "Sendt til Overcast" under a card whose feed went to an app */
 function renderSent(control) {
   const line = control.closest("article")?.querySelector("[data-subscribed]");
   if (!line) return;
@@ -75,7 +73,7 @@ function renderSent(control) {
   line.hidden = !entry;
   if (!entry) return;
   line.innerHTML = ICONS.check;
-  line.append(` Sendt til ${entry.name} ${SENT_DATE.format(entry.at)}`);
+  line.append(` Sendt til ${entry.name}`);
 }
 
 // ---------------------------------------------------------------- subscribe
