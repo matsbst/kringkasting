@@ -16,6 +16,7 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 <article class="flex gap-5">
 {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" width="128" height="128" loading="lazy" class="size-24 sm:size-32 shrink-0 rounded-xl object-cover"/>{{end}}
 <div class="min-w-0 flex flex-col">
+{{if .Label}}<p class="text-sm text-ink-3 dark:text-ink-3-dark">{{.Label}}</p>{{end}}
 <h3 class="text-xl font-semibold leading-snug tracking-tight">{{.Title}}</h3>
 {{if .Description}}<p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark line-clamp-2">{{.Description}}</p>{{end}}
 <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -54,11 +55,17 @@ loads and no-JS clients, and returned alone by /api/search/fragment. */}}
 <div data-search-results>
 {{if .Failed}}
 <section class="mt-14 space-y-1"><h2 class="text-xl font-medium">Søket feilet</h2><p class="text-ink-2 dark:text-ink-2-dark">Prøv igjen om et lite øyeblikk.</p></section>
+{{else if .UnsupportedLink}}
+<section class="mt-14 space-y-1"><h2 class="text-xl font-medium">Lenken støttes ikke</h2><p class="text-ink-2 dark:text-ink-2-dark">Lim inn en lenke til en podkast, sesong eller episode fra radio.nrk.no, eller søk på navnet.</p></section>
+{{else if .LinkNotFound}}
+<section class="mt-14 space-y-1"><h2 class="text-xl font-medium">Fant ikke podkasten i lenken</h2><p class="text-ink-2 dark:text-ink-2-dark">Sjekk at lenken er riktig, eller søk på navnet.</p></section>
 {{else if .HasResults}}
 {{if .Cards}}
 <section class="mt-10">
 <h2 class="sr-only">Søkeresultat</h2>
-<p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">{{len .Cards}} treff for «{{.Query}}»</p>
+{{if .Link}}<p class="text-sm text-ink-2 dark:text-ink-2-dark {{if .Notice}}mb-2{{else}}mb-8{{end}}">Fra NRK-lenken</p>
+{{if .Notice}}<p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">{{.Notice}}</p>{{end}}
+{{else}}<p class="text-sm text-ink-2 dark:text-ink-2-dark mb-8">{{len .Cards}} treff for «{{.Query}}»</p>{{end}}
 <div class="space-y-10">
 {{range .Cards}}{{template "card" .}}{{end}}
 </div>

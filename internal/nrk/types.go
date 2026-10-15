@@ -57,6 +57,7 @@ type seriesResponse struct {
 		ID          string  `json:"id"`
 		Titles      titles  `json:"titles"`
 		SquareImage []image `json:"squareImage"`
+		Image       []image `json:"image"`
 	} `json:"series"`
 	Links struct {
 		Seasons []link `json:"seasons"`
@@ -67,6 +68,7 @@ type seriesResponse struct {
 type seasonResponse struct {
 	Titles      titles  `json:"titles"`
 	SquareImage []image `json:"squareImage"`
+	Image       []image `json:"image"`
 	Embedded    struct {
 		Episodes *struct {
 			Embedded struct {
@@ -98,6 +100,9 @@ type IndexPoint struct {
 // EpisodeDetail is /radio/catalog/{kind}/{id}/episodes/{episodeId}.
 type EpisodeDetail struct {
 	IndexPoints []IndexPoint `json:"indexPoints"`
+	Links       struct {
+		Season *link `json:"season"`
+	} `json:"_links"`
 }
 
 // SearchImage is an artwork variant of a search hit.
