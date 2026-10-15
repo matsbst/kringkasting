@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
+# search results, QR codes and admin hold nothing to index
+Disallow: /admin
+Disallow: /api/search
+Disallow: /api/qr
 
 Sitemap: https://kringkast.ing/sitemap.xml
-
-Disallow: /admin

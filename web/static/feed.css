@@ -1,0 +1,119 @@
+/* Shown when a browser opens a feed (linked from the feed's
+   xml-stylesheet instruction); podcast apps never load it. Styles the RSS
+   elements directly: no markup or script of our own exists on this page. */
+@namespace itunes url(http://www.itunes.com/dtds/podcast-1.0.dtd);
+@namespace atom url(http://www.w3.org/2005/Atom);
+@namespace podcast url(https://podcastindex.org/namespace/1.0);
+@namespace content url(http://purl.org/rss/1.0/modules/content/);
+
+@font-face {
+  font-family: "Hanken Grotesk";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/hanken-grotesk-latin.woff2") format("woff2");
+}
+
+:root {
+  --canvas: #ffffff;
+  --ink: #000000;
+  --ink-2: rgb(0 0 0 / 64%);
+  --line: rgb(0 0 0 / 10%);
+  --panel: rgb(0 0 0 / 5%);
+  display: block;
+  min-height: 100vh;
+  margin: 0;
+  padding: 3rem 1.5rem;
+  background: var(--canvas);
+  color: var(--ink);
+  font: 16px/1.5 "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0a0a0a;
+    --ink: #ffffff;
+    --ink-2: rgb(255 255 255 / 56%);
+    --line: rgb(255 255 255 / 11%);
+    --panel: rgb(255 255 255 / 8%);
+  }
+}
+
+channel {
+  display: flex;
+  flex-direction: column;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+/* everything is hidden unless shown below */
+channel *,
+item * {
+  display: none;
+}
+
+/* the notice: ::before and ::after come first, since every element shown
+   has a later order */
+channel::before,
+channel::after {
+  order: 0;
+  display: block;
+  padding: 0 1.25rem;
+  background: var(--panel);
+}
+
+channel::before {
+  padding-top: 1rem;
+  border-radius: 0.75rem 0.75rem 0 0;
+  font-weight: 600;
+  content: "Dette er en podkast-strøm (RSS)";
+}
+
+channel::after {
+  margin-bottom: 2.5rem;
+  padding-bottom: 1rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+  color: var(--ink-2);
+  content: "Kopier adressen fra adresselinjen og lim den inn i podkast-appen din, under «Legg til via URL» eller lignende. Eller søk opp podkasten på forsiden for å abonnere med ett trykk.";
+}
+
+channel > title {
+  order: 1;
+  display: block;
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+channel > description {
+  order: 2;
+  display: block;
+  margin-top: 0.75rem;
+  color: var(--ink-2);
+  font-size: 1.125rem;
+}
+
+item {
+  order: 3;
+  display: block;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+channel > item:first-of-type {
+  margin-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+item > title {
+  display: block;
+  font-weight: 600;
+}
+
+item > pubDate {
+  display: block;
+  margin-top: 0.125rem;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}

@@ -240,6 +240,9 @@ type appLink struct {
 	ID, Name string
 	Href     template.URL
 	Icon     template.HTML
+	// Platforms the app exists on, space-separated ("ios android"). On a
+	// phone, app.js hides the others; computers list every app.
+	Platforms string
 }
 
 type card struct {
@@ -262,16 +265,19 @@ func withoutScheme(u string) string {
 func apps(feedURL string) []appLink {
 	encoded := nrk.EncodeURIComponent(feedURL)
 	links := []appLink{
-		{ID: "apple", Name: "Apple Podcasts", Href: template.URL("podcast://" + withoutScheme(feedURL))},
-		{ID: "overcast", Name: "Overcast", Href: template.URL("overcast://x-callback-url/add?url=" + encoded)},
-		{ID: "pocketcasts", Name: "Pocket Casts", Href: template.URL("pktc://subscribe/" + withoutScheme(feedURL))},
-		{ID: "castro", Name: "Castro", Href: template.URL("castro://subscribe/" + withoutScheme(feedURL))},
-		{ID: "downcast", Name: "Downcast", Href: template.URL("downcast://" + withoutScheme(feedURL))},
-		{ID: "podcastaddict", Name: "Podcast Addict", Href: template.URL("podcastaddict://" + withoutScheme(feedURL))},
-		{ID: "antennapod", Name: "AntennaPod", Href: template.URL("https://antennapod.org/deeplink/subscribe?url=" + encoded)},
+		{ID: "apple", Name: "Apple Podcasts", Href: template.URL("podcast://" + withoutScheme(feedURL)), Platforms: "ios"},
+		{ID: "overcast", Name: "Overcast", Href: template.URL("overcast://x-callback-url/add?url=" + encoded), Platforms: "ios"},
+		{ID: "pocketcasts", Name: "Pocket Casts", Href: template.URL("pktc://subscribe/" + withoutScheme(feedURL)), Platforms: "ios android"},
+		{ID: "castro", Name: "Castro", Href: template.URL("castro://subscribe/" + withoutScheme(feedURL)), Platforms: "ios"},
+		{ID: "downcast", Name: "Downcast", Href: template.URL("downcast://" + withoutScheme(feedURL)), Platforms: "ios"},
+		{ID: "podcastaddict", Name: "Podcast Addict", Href: template.URL("podcastaddict://" + withoutScheme(feedURL)), Platforms: "android"},
+		{ID: "antennapod", Name: "AntennaPod", Href: template.URL("https://antennapod.org/deeplink/subscribe?url=" + encoded), Platforms: "android"},
+		// open source, with chapters and video; its page opens the app or
+		// offers the stores
+		{ID: "anytime", Name: "Anytime Player", Href: template.URL("https://anytimeplayer.app/subscribe?url=" + feedURL), Platforms: "ios android"},
 		// RFC 4648 §5 base64url, the encoding YouTube Music expects
 		{ID: "youtubemusic", Name: "YouTube Music", Href: template.URL("https://music.youtube.com/library/podcasts?addrssfeed=" +
-			base64.RawURLEncoding.EncodeToString([]byte(feedURL)))},
+			base64.RawURLEncoding.EncodeToString([]byte(feedURL))), Platforms: "ios android"},
 	}
 	for i := range links {
 		links[i].Icon = appIcons[links[i].ID]
@@ -286,11 +292,12 @@ func (s *Server) cards(origin string, summaries []SeriesSummary) []card {
 		c := card{
 			SeriesSummary: summary,
 			FeedURL:       feedURL,
-			ShareURL:      origin + "/?query=" + nrk.EncodeURIComponent(summary.Title),
-			NrkURL:        "https://radio.nrk.no/podkast/" + summary.FeedID(),
-			DialogID:      dialogID(summary.FeedID()),
-			Apps:          apps(feedURL),
-			SpotifyIcon:   appIcons["spotify"],
+			// the QR code's address: finds exactly this feed, dialog open
+			ShareURL:    handoffURL(origin, summary.FeedID()),
+			NrkURL:      "https://radio.nrk.no/podkast/" + summary.FeedID(),
+			DialogID:    dialogID(summary.FeedID()),
+			Apps:        apps(feedURL),
+			SpotifyIcon: appIcons["spotify"],
 		}
 		if summary.ImageURL != nil {
 			c.ImageURL = *summary.ImageURL
@@ -381,19 +388,41 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "home", data)
 }
 
-// jsonLD is the WebSite structured data for the front page.
+// jsonLD is the front page's structured data: the site with its search,
+// and the service itself (free, open source, what it does), for search
+// engines and AI answers.
 func jsonLD(origin string) template.HTML {
+	description := "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i den podkast-appen du selv vil."
 	encoded, _ := store.MarshalJSON(map[string]any{
-		"@context":    "https://schema.org",
-		"@type":       "WebSite",
-		"name":        "Kringkasting",
-		"url":         origin,
-		"description": "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i den podkast-appen du selv vil.",
-		"inLanguage":  "nb",
-		"potentialAction": map[string]any{
-			"@type":       "SearchAction",
-			"target":      map[string]any{"@type": "EntryPoint", "urlTemplate": origin + "/?query={search_term_string}"},
-			"query-input": "required name=search_term_string",
+		"@context": "https://schema.org",
+		"@graph": []any{
+			map[string]any{
+				"@type":       "WebSite",
+				"@id":         origin + "/#website",
+				"name":        "Kringkasting",
+				"url":         origin,
+				"description": description,
+				"inLanguage":  "nb",
+				"potentialAction": map[string]any{
+					"@type":       "SearchAction",
+					"target":      map[string]any{"@type": "EntryPoint", "urlTemplate": origin + "/?query={search_term_string}"},
+					"query-input": "required name=search_term_string",
+				},
+			},
+			map[string]any{
+				"@type":               "WebApplication",
+				"name":                "Kringkasting",
+				"url":                 origin,
+				"description":         description,
+				"inLanguage":          "nb",
+				"applicationCategory": "MultimediaApplication",
+				"operatingSystem":     "Alle",
+				"isAccessibleForFree": true,
+				"offers":              map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "NOK"},
+				"license":             "https://www.gnu.org/licenses/agpl-3.0.html",
+				"codeRepository":      "https://github.com/matsbst/kringkasting",
+				"isPartOf":            map[string]any{"@id": origin + "/#website"},
+			},
 		},
 	})
 	// "<" can't end the script element early when escaped

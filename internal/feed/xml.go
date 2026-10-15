@@ -63,12 +63,19 @@ func writeTag(b *strings.Builder, t tag) {
 	b.WriteString(">")
 }
 
-func serialize(declaration []attr, root tag, sizeHint int) string {
+// serialize writes the XML declaration, an optional stylesheet processing
+// instruction and the root element.
+func serialize(declaration []attr, stylesheet []attr, root tag, sizeHint int) string {
 	var b strings.Builder
 	b.Grow(sizeHint)
 	b.WriteString("<?xml")
 	writeAttrs(&b, declaration)
 	b.WriteString("?>")
+	if stylesheet != nil {
+		b.WriteString("<?xml-stylesheet")
+		writeAttrs(&b, stylesheet)
+		b.WriteString("?>")
+	}
 	writeTag(&b, root)
 	return b.String()
 }

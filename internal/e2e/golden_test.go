@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matsbst/kringkasting/internal/feed"
 	_ "modernc.org/sqlite"
 )
 
@@ -45,6 +46,13 @@ func TestFeeds(t *testing.T) {
 		compare(t, "feed_"+slug+"_etag_precedence", app.do(request{path: path,
 			headers: map[string]string{"If-None-Match": `"stale"`, "If-Modified-Since": lastModified}}), headersOnly)
 	}
+	// browsers opening a feed get its stylesheet
+	css := app.do(request{path: feed.Stylesheet})
+	if css.StatusCode != http.StatusOK || !strings.HasPrefix(css.Header.Get("Content-Type"), "text/css") ||
+		!strings.Contains(body(css), "podkast-strøm") {
+		t.Errorf("feed stylesheet: status %d, %s", css.StatusCode, css.Header.Get("Content-Type"))
+	}
+
 	// Deno answered HEAD with content-length 0; Go sends the real length
 	// (excluded from comparison). Everything else matches.
 	compare(t, "feed_head", app.do(request{method: http.MethodHead, path: "/api/feeds/supertroett"}), headersOnly)
@@ -91,7 +99,8 @@ func TestSearchAndPages(t *testing.T) {
 		t.Errorf("page_home_search: %d cards, want 10", got)
 	}
 	none := compare(t, "page_home_search_none", app.do(request{path: "/?query=zzqqxxnotfound"}), statusOnly)
-	mustContain(t, "page_home_search_none", none, "Ingen treff for «zzqqxxnotfound»")
+	// and points to pasting a link from NRK instead
+	mustContain(t, "page_home_search_none", none, "Ingen treff for «zzqqxxnotfound»", "Kopier lenke")
 
 	personvern := compare(t, "page_personvern", app.do(request{path: "/personvern"}), statusOnly)
 	mustContain(t, "page_personvern", personvern, "<title>Personvern – Kringkasting</title>", `aria-current="page"`)
@@ -115,6 +124,27 @@ func TestStaticFiles(t *testing.T) {
 			path = "/fonts/" + strings.TrimPrefix(path, "/fonts_")
 		}
 		compare(t, name, app.do(request{path: path}), headersOnly)
+	}
+}
+
+// robots.txt and llms.txt name the instance's own address, not the public
+// instance's (they replaced their Deno baselines when that changed).
+func TestOriginTextFiles(t *testing.T) {
+	app := start(t, options{env: adminEnv()})
+	for path, want := range map[string]string{
+		"/robots.txt": "Sitemap: " + origin + "/sitemap.xml",
+		"/llms.txt":   "[Search for a podcast](" + origin + "/)",
+	} {
+		resp := app.do(request{path: path})
+		text := body(resp)
+		if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") ||
+			!strings.Contains(text, want) || strings.Contains(text, "https://kringkast.ing") {
+			t.Errorf("%s: status %d, missing %q or names kringkast.ing:\n%s", path, resp.StatusCode, want, text)
+		}
+		etag := resp.Header.Get("ETag")
+		if again := app.do(request{path: path, headers: map[string]string{"If-None-Match": etag}}); again.StatusCode != http.StatusNotModified {
+			t.Errorf("%s: revalidation with its ETag: status %d", path, again.StatusCode)
+		}
 	}
 }
 
