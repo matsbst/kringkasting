@@ -115,6 +115,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		s.searchAPI(w, r)
 	case path == "/api/search/fragment" && readMethod(r):
 		s.searchFragment(w, r)
+	case path == "/api/qr" && readMethod(r):
+		s.qrCode(w, r)
 	case strings.HasPrefix(path, "/api/feeds/") && readMethod(r):
 		s.feedRoutes(w, r, strings.Split(strings.TrimPrefix(path, "/api/feeds/"), "/"))
 	case readMethod(r) && s.static.serve(w, r, path):

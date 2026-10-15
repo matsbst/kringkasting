@@ -102,6 +102,11 @@ dialog.sheet::backdrop {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+/* a sheet opened from a scanned QR code holds focus itself; Tab moves on
+   to the apps, which show the ring */
+dialog.sheet:focus-visible {
+  outline: none;
+}
 
 /* skip link: hidden until keyboard-focused */
 .skip-link {

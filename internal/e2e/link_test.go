@@ -199,3 +199,37 @@ func TestLinkSearchEntryPoints(t *testing.T) {
 		t.Error("links must count against the search rate limit")
 	}
 }
+
+// The subscribe dialog's QR code: only for valid feed ids, and the address
+// it carries renders the very dialog it opens on the phone.
+func TestQRHandoff(t *testing.T) {
+	a, _ := linkApp(t)
+	for _, c := range []struct{ feedID, dialogID string }{
+		{"sentralbordet", "subscribe-sentralbordet"},
+		{"musikkhistorier/sesong/miles-davis--bak-mytene", "subscribe-musikkhistorier-sesong-miles-davis--bak-mytene"},
+	} {
+		resp, svg := fetch(t, a, "/api/qr?feed="+url.QueryEscape(c.feedID), "qr")
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "image/svg+xml" ||
+			!strings.HasPrefix(svg, "<svg") || !strings.Contains(resp.Header.Get("Cache-Control"), "max-age=86400") {
+			t.Errorf("%s: status %d, %s", c.feedID, resp.StatusCode, resp.Header)
+		}
+
+		// the scanned address, as the phone requests it (no fragment)
+		resp, html := fetch(t, a, "/?query=radio.nrk.no/podkast/"+c.feedID, "phone")
+		if resp.StatusCode != http.StatusOK || !strings.Contains(html, `<dialog id="`+c.dialogID+`"`) {
+			t.Errorf("%s: the handoff page lacks dialog %s", c.feedID, c.dialogID)
+		}
+		// the dialog's QR code, followed as the browser would
+		dialog := html[strings.Index(html, `<dialog id="`+c.dialogID+`"`):]
+		src := dialog[strings.Index(dialog, `data-qr-src="`)+len(`data-qr-src="`):]
+		src = strings.ReplaceAll(src[:strings.Index(src, `"`)], "&amp;", "&")
+		if resp, _ := fetch(t, a, src, "qr"); resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: the dialog's QR code %s: status %d", c.feedID, src, resp.StatusCode)
+		}
+	}
+	for _, bad := range []string{"", "a b", "../admin", "a/b", "https://example.com"} {
+		if resp, _ := fetch(t, a, "/api/qr?feed="+url.QueryEscape(bad), "qr"); resp.StatusCode != http.StatusNotFound {
+			t.Errorf("%q: status %d, want 404", bad, resp.StatusCode)
+		}
+	}
+}
