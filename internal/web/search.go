@@ -367,6 +367,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		// renders without results rather than querying NRK
 		if s.limiter.allowScoped("search", clientKey(r), 30, 0.5, 120, 2) {
 			view.Query = trimmed
+			s.Stats.RecordSearchServed()
 			f := s.find(trimmed)
 			if f.failed && !f.link {
 				// as before: a failed name search renders as no matches

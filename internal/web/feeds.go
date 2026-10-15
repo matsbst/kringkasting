@@ -51,7 +51,7 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, feedID string
 	// episode read, no rendering and no hashing; most polls land here
 	version := s.Store.DataVersion(feedID)
 	if memoized := s.Cache.Peek(feedID, origin, version); memoized != nil && s.Feeds.MetaIsFresh(feedID) {
-		s.respondFeed(w, r, *memoized)
+		s.respondFeed(w, r, feedID, *memoized)
 		return
 	}
 
@@ -65,10 +65,10 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, feedID string
 		writeJSON(w, http.StatusNotFound, message{"Series not found"})
 		return
 	}
-	s.respondFeed(w, r, s.Cache.Render(series, origin, version))
+	s.respondFeed(w, r, feedID, s.Cache.Render(series, origin, version))
 }
 
-func (s *Server) respondFeed(w http.ResponseWriter, r *http.Request, rendered feed.Rendered) {
+func (s *Server) respondFeed(w http.ResponseWriter, r *http.Request, feedID string, rendered feed.Rendered) {
 	// podcast clients poll constantly; answer unchanged feeds with 304.
 	// If-None-Match takes precedence over If-Modified-Since (RFC 9110).
 	var notModified bool
@@ -78,6 +78,8 @@ func (s *Server) respondFeed(w http.ResponseWriter, r *http.Request, rendered fe
 		notModified = notModifiedSince(r.Header.Get("If-Modified-Since"), rendered.LastModified)
 	}
 	s.Stats.RecordFeedServed(notModified)
+	// for the dashboard: when, and by which app (only its name is kept)
+	s.Stats.RecordFeedRequest(feedID, r.UserAgent())
 
 	w.Header().Set("ETag", rendered.ETag)
 	w.Header().Set("Last-Modified", rendered.LastModified.UTC().Format(http.TimeFormat))
