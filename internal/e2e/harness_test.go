@@ -264,6 +264,11 @@ const (
 func compare(t *testing.T, name string, resp *http.Response, mode check) string {
 	t.Helper()
 	g := readGolden(t, name)
+	// Intentional correction to the Deno baseline: successful chapter documents
+	// use the media type advertised by the RSS tag. Error responses stay JSON.
+	if strings.HasPrefix(name, "chapters_") && g.status == http.StatusOK {
+		g.headers["content-type"] = "application/json+chapters"
+	}
 	got := body(resp)
 	if resp.StatusCode != g.status {
 		t.Errorf("%s: status %d, want %d", name, resp.StatusCode, g.status)
