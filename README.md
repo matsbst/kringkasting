@@ -1,14 +1,22 @@
-# 📻 Kringkasting
+# Kringkasting
 
 **NRK podcasts in the podcast app you choose.**
 
-Kringkasting turns NRK's podcast catalog into open RSS feeds. Find a podcast, choose your app and subscribe—no Kringkasting account needed.
+Kringkasting turns NRK's podcast catalog into open RSS feeds and enables you to use any podcast app that supports feeds to listen to their podcasts. Find a podcast, choose your favorite podcasting app, and subscribe. Simple as that.
 
-**[Find a podcast at kringkast.ing →](https://kringkast.ing)**
+**[See a demo at kringkast.ing →](https://kringkast.ing)**
+
+
+## 💡 Why is this needed?
+
+NRK makes its podcasts only available through its own closed app and web. They really, really don't want to support the podcasting standard. As a tax-funded public broadcaster, that's a pretty crazy thing to do and it even contradicts §31 in their own articles of association which states that NRK should, insofar as possible, use *open standards* if not hindered by financial or qualitative considerations. There is an open podcast standard and it is called RSS. 
+
+Kringkasting is the solution to this problem. It is an open-source app independent of NRK and it uses [NRK's public API](https://psapi.nrk.no/documentation/) to create a open standard compliant podcast feed of their feeds. It does not select or rewrite the editorial content. It just opens the closed tax-financed podcasts up to everyone. You can use the [kringkast.ing](https://kringkast.ing) demo, install this on your own server, NAS or self-host it in the cloud. 
+
 
 ## 🎧 How it works
 
-1. **Find your podcast.** Search for its name.
+1. **Find your podcast.** Search for its name or paste the NRK-URL
 2. **Choose your app.** Use the subscribe button, or copy the RSS link into your preferred podcast player.
 3. **Listen.** Your app follows the feed and picks up new episodes.
 
@@ -22,12 +30,7 @@ The subscribe chooser includes Apple Podcasts, Overcast, Pocket Casts, Castro, D
 - **Your choice of app:** the website remembers your selection in your browser. Search and subscription links also work without JavaScript.
 - **No media hosting:** audio and artwork come directly from NRK. Kringkasting provides the feeds and stores podcast metadata.
 - **Your own instance, if you want one:** a small Go app in one container, with SQLite and no required external services.
-
-## 💡 Why Kringkasting?
-
-NRK makes its podcasts available through its own app. Kringkasting makes them accessible as RSS subscriptions, so you can listen in the app you prefer.
-
-Kringkasting is independent of NRK. It uses [NRK's public API](https://psapi.nrk.no/documentation/) and does not select or rewrite the editorial content.
+ 
 
 ## 🏠 Run your own
 
@@ -49,15 +52,15 @@ Open <http://localhost:8000>. The supplied Compose file retains the database in 
 ## ℹ️ Good to know
 
 - **Archives build in the background.** A new feed may initially contain only the latest episodes while older ones are fetched.
-- **Availability comes from NRK.** Kringkasting cannot restore media that NRK no longer serves.
+- **Availability comes from NRK.** Kringkasting cannot restore media that NRK no longer serves. Kringkasting stores nothing.
 - **Some shows are stream-only.** These use HLS, which not every podcast app supports. The subscribe dialog flags stream-only shows.
 - **Requests are cached and limited.** The service reuses metadata and adapts refresh frequency to avoid unnecessary requests to NRK. [How the API is used](docs/nrk-api-usage.md).
 
 ## 🤝 Questions and feedback
 
-Found a problem or have an idea that helps get NRK podcasts into your app? [Open an issue](https://github.com/matsbst/kringkasting/issues).
+Found a problem or have an idea? [Open an issue](https://github.com/matsbst/kringkasting/issues).
 
-Kringkasting began as a fork of [NRSS](https://github.com/olaven/nrss), created by [Olav Sundfør](https://github.com/olaven).
+Kringkasting began as a fork of [NRSS](https://github.com/olaven/nrss), created by [Olav Sundfør](https://github.com/olaven). It has since been more or less completely rewritten.
 
 ## 📄 License
 
