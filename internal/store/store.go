@@ -104,7 +104,7 @@ func Open(path string) (*Store, error) {
 		write.Close()
 		return nil, fmt.Errorf("enable WAL: journal mode is %q", mode)
 	}
-	if _, err := write.Exec(schema); err != nil {
+	if _, err := write.Exec(schema + activitySchema); err != nil {
 		write.Close()
 		return nil, fmt.Errorf("create schema: %w", err)
 	}

@@ -6,10 +6,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/matsbst/kringkasting/internal/catalog"
+	"github.com/matsbst/kringkasting/internal/clock"
 	"github.com/matsbst/kringkasting/internal/config"
 	"github.com/matsbst/kringkasting/internal/crawl"
 	"github.com/matsbst/kringkasting/internal/feed"
@@ -36,7 +39,17 @@ type App struct {
 	Crawler *crawl.Crawler
 	Videos  *video.Worker
 	Stats   *stats.Stats
+
+	flushMu sync.Mutex
+	flushed chan struct{} // closed when the flush loop has stopped
 }
+
+const (
+	// flushInterval is how often dashboard counters reach the database.
+	flushInterval = time.Minute
+	// historyDays is how long daily totals are kept.
+	historyDays = 400
+)
 
 // New opens the database and builds the application. Background work
 // (archive crawls) stops when ctx is cancelled.
@@ -74,7 +87,42 @@ func New(ctx context.Context, cfg config.Config, opts Options) (*App, error) {
 		db.Close()
 		return nil, err
 	}
-	return &App{Handler: handler, Store: db, Crawler: crawler, Videos: videos, Stats: counters}, nil
+	a := &App{Handler: handler, Store: db, Crawler: crawler, Videos: videos, Stats: counters, flushed: make(chan struct{})}
+	go a.flushLoop(ctx)
+	return a, nil
+}
+
+// flushLoop writes the dashboard counters once a minute until ctx ends,
+// and prunes old daily totals at start and once a day.
+func (a *App) flushLoop(ctx context.Context) {
+	defer close(a.flushed)
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
+	pruned := ""
+	for {
+		if today := stats.Day(clock.Now()); today != pruned {
+			a.Store.PruneDailyStats(stats.Day(clock.Now().AddDate(0, 0, -historyDays)))
+			pruned = today
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			a.Flush()
+		}
+	}
+}
+
+// Flush writes the counters recorded since the last flush. A failed
+// write keeps them for the next try; it never blocks a request.
+func (a *App) Flush() {
+	a.flushMu.Lock()
+	defer a.flushMu.Unlock()
+	batch := a.Stats.TakeBatch()
+	if err := a.Store.FlushActivity(batch); err != nil {
+		log.Printf("flush dashboard counters: %v", err)
+		a.Stats.ReturnBatch(batch)
+	}
 }
 
 // Close waits (bounded by ctx) for the crawler to stop, then closes the
@@ -84,6 +132,12 @@ func (a *App) Close(ctx context.Context) error {
 	if err := a.Videos.WaitIdle(ctx); err != nil && waitErr == nil {
 		waitErr = err
 	}
+	// the last counters: a deploy loses nothing
+	select {
+	case <-a.flushed:
+	case <-ctx.Done():
+	}
+	a.Flush()
 	if err := a.Store.Close(); err != nil {
 		return err
 	}

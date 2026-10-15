@@ -42,6 +42,10 @@ type Status struct {
 	QueueLength int
 	Running     bool
 	Events      []Event // newest first
+	// Current is the feed being crawled now ("" when none)
+	Current string
+	// Queue is the feeds waiting, next first
+	Queue []string
 }
 
 type Crawler struct {
@@ -59,6 +63,7 @@ type Crawler struct {
 	queue   []string
 	queued  map[string]bool
 	running bool
+	current string
 	idle    chan struct{} // closed when the queue drains
 	events  []Event
 }
@@ -87,7 +92,8 @@ func (c *Crawler) Status() Status {
 	for i, e := range c.events {
 		events[len(c.events)-1-i] = e
 	}
-	return Status{QueueLength: len(c.queue), Running: c.running, Events: events}
+	return Status{QueueLength: len(c.queue), Running: c.running, Events: events,
+		Current: c.current, Queue: append([]string(nil), c.queue...)}
 }
 
 // Enqueue admits a feed for crawling unless it is queued already or
@@ -136,12 +142,14 @@ func (c *Crawler) processQueue(idle chan struct{}) {
 		}
 		feedID := c.queue[0]
 		c.queue = c.queue[1:]
+		c.current = feedID
 		c.mu.Unlock()
 
 		c.crawlSafely(feedID)
 
 		c.mu.Lock()
 		delete(c.queued, feedID)
+		c.current = ""
 		c.mu.Unlock()
 	}
 }

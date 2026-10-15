@@ -373,8 +373,10 @@ func (s *Store) DeleteStaleSeries(maxAge time.Duration) int {
 // ListSeriesOverview returns everything the admin series table needs.
 func (s *Store) ListSeriesOverview() ([]SeriesOverview, error) {
 	rows, err := s.read.Query(`
-    SELECT s.id, s.title, s.backlog_complete, s.last_fetched_at, s.catalog_kind,
-           (SELECT COUNT(*) FROM episodes e WHERE e.series_id = s.id) AS episode_count
+    SELECT s.id, s.title, s.backlog_complete, s.last_fetched_at, s.catalog_kind, s.backlog_cursor,
+           (SELECT COUNT(*) FROM episodes e WHERE e.series_id = s.id) AS episode_count,
+           (SELECT MIN(e.date) FROM episodes e WHERE e.series_id = s.id) AS oldest,
+           (SELECT COUNT(*) FROM episodes e WHERE e.series_id = s.id AND e.video_url IS NOT NULL) AS videos
     FROM series s
     ORDER BY s.last_fetched_at DESC`)
 	if err != nil {
@@ -386,14 +388,21 @@ func (s *Store) ListSeriesOverview() ([]SeriesOverview, error) {
 		var (
 			o                     SeriesOverview
 			complete, lastFetched int64
-			kind                  sql.NullString
+			kind, cursor          sql.NullString
+			oldest                sql.NullInt64
 		)
-		if err := rows.Scan(&o.ID, &o.Title, &complete, &lastFetched, &kind, &o.EpisodeCount); err != nil {
+		if err := rows.Scan(&o.ID, &o.Title, &complete, &lastFetched, &kind, &cursor,
+			&o.EpisodeCount, &oldest, &o.VideoCount); err != nil {
 			return nil, err
 		}
 		o.BacklogComplete = complete == 1
 		o.LastFetchedAt = fromMs(lastFetched)
 		o.CatalogKind = nullString(kind)
+		o.BacklogCursor = nullString(cursor)
+		if oldest.Valid {
+			t := fromMs(oldest.Int64)
+			o.OldestEpisode = &t
+		}
 		list = append(list, o)
 	}
 	return list, rows.Err()
@@ -444,6 +453,8 @@ func (s *Store) DeleteSeriesByID(seriesID string) {
 			"DELETE FROM episodes WHERE series_id = ?",
 			"DELETE FROM failed_episodes WHERE series_id = ?",
 			"DELETE FROM series WHERE id = ?",
+			"DELETE FROM feed_activity WHERE feed_id = ?",
+			"DELETE FROM feed_clients WHERE feed_id = ?",
 		} {
 			if _, err := tx.Exec(q, seriesID); err != nil {
 				return err

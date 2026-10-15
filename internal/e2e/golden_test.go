@@ -163,7 +163,7 @@ func TestAdmin(t *testing.T) {
 		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-Proto": "https"},
 		body:    "token=" + adminToken}), headersOnly)
 	dashboard := compare(t, "admin_dashboard", app.do(request{path: "/admin", headers: map[string]string{"Cookie": cookie}}), statusOnly)
-	mustContain(t, "admin_dashboard", dashboard, "NRK-trafikk", "Serier (")
+	mustContain(t, "admin_dashboard", dashboard, "Siste 30 dager", "Strømmer (", "Rydd opp")
 	compare(t, "admin_action_unauthenticated", app.do(request{method: "POST", path: "/admin", headers: form,
 		body: "action=refresh&seriesId=supertroett"}), statusOnly)
 	compare(t, "admin_action_unknown", app.do(request{method: "POST", path: "/admin", headers: withCookie,
@@ -261,7 +261,9 @@ func compareState(t *testing.T, dbPath, name string) {
 		"SELECT series_id, id, url, date, duration_seconds, bytes FROM episodes ORDER BY series_id, id", 6)
 	dump("# failed_episodes: series_id | id | attempts",
 		"SELECT series_id, id, attempts FROM failed_episodes ORDER BY series_id, id", 3)
-	dump("# app_state keys", "SELECT key FROM app_state ORDER BY key", 1)
+	// activity-since (when dashboard activity was first recorded) came
+	// after the Deno baseline
+	dump("# app_state keys", "SELECT key FROM app_state WHERE key <> 'activity-since' ORDER BY key", 1)
 	got := strings.Join(lines, "\n") + "\n"
 	want, err := os.ReadFile(filepath.Join(goldenDir, name+".txt"))
 	if err != nil {
