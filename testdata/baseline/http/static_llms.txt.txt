@@ -1,0 +1,12 @@
+GET /llms.txt
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 1623
+content-type: text/plain; charset=UTF-8
+date: <dynamic>
+etag: W/"6eb5964477c52dc9e625b605d25be2ba71547fb6fae5b0f49e5d754dc4770f4b"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

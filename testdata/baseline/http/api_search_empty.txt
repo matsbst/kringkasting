@@ -1,0 +1,11 @@
+GET /api/search?q=
+
+HTTP 200
+content-length: 14
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"results":[]}

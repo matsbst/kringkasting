@@ -1,0 +1,12 @@
+GET /favicon-32.png
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 1200
+content-type: image/png
+date: <dynamic>
+etag: W/"36efafdd17e7271408b2f6756b641a4936f6a25f36b4201f1ce8e564afaeb10d"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

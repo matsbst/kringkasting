@@ -1,0 +1,12 @@
+GET /favicon.ico
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 1222
+content-type: image/vnd.microsoft.icon
+date: <dynamic>
+etag: W/"8382d0178d8c06042581e10f628f96784ebd1ab779a43fd72c1bee756df4a718"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

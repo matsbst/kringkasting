@@ -1,0 +1,10 @@
+{
+  "method": "HEAD",
+  "url": "https://podkast.nrk.no/fil/supertroett/56b8f270-244c-4480-b8f2-70244c8480e2_1_ID192MP3.mp3",
+  "status": 200,
+  "headers": {
+    "content-type": "audio/mpeg",
+    "content-length": "22055084"
+  },
+  "body": ""
+}

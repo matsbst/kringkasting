@@ -1,0 +1,15 @@
+GET /api/feeds/musikkhistorier
+If-None-Match: "stale"
+If-Modified-Since: Thu, 15 Oct 2026 12:00:16 GMT
+
+HTTP 200
+cache-control: public, max-age=1800, s-maxage=3600
+content-length: 11140
+content-type: application/xml
+date: <dynamic>
+etag: "1caf968edd0eea72859469dd2d6b7c87bce5947a"
+expires: <dynamic>
+last-modified: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY

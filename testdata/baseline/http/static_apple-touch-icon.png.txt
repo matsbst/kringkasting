@@ -1,0 +1,12 @@
+GET /apple-touch-icon.png
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 6342
+content-type: image/png
+date: <dynamic>
+etag: W/"f28bd768a06fb1632958e2d9fae5fd549cd398d1c830250bce6275e5271ad71b"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

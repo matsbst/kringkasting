@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/podcast/radioteatret-nrk-p1pluss",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "52"
+  },
+  "body": "\"Could not find podcast radioteatret-nrk-p1pluss\""
+}

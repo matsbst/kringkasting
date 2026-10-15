@@ -1,0 +1,13 @@
+GET /api/feeds/radioteatret-nrk-p1pluss
+If-None-Match: "54ba29c738c60b539a1979562ae4fc130042399b"
+
+HTTP 304
+cache-control: public, max-age=1800, s-maxage=3600
+date: <dynamic>
+etag: "54ba29c738c60b539a1979562ae4fc130042399b"
+expires: <dynamic>
+last-modified: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+

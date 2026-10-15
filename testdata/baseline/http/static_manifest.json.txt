@@ -1,0 +1,12 @@
+GET /manifest.json
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 414
+content-type: application/json; charset=UTF-8
+date: <dynamic>
+etag: W/"c849d72497da57fdc9758d8227876fba66cac94b49aa56b8087c6151768a5d6d"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

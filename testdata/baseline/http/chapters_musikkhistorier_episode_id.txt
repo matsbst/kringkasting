@@ -1,0 +1,12 @@
+GET /api/feeds/musikkhistorier/l_6f0c81a3-4e1c-4cee-8c81-a34e1c0cee7c/chapters
+
+HTTP 200
+cache-control: public, max-age=86400, s-maxage=86400
+content-length: 643
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"version":"1.2.0","chapters":[{"title":"\"Det peaker inni huggua mine\"","startTime":13},{"title":"Noen av de eldste opptakene vi har i landet?","startTime":249},{"title":"Er det noe lyd på disse, da? John Ole ser rullene for første gang","startTime":387},{"title":"John Oles \"point of no return\"","startTime":692},{"title":"Skulle på dynga, havna på UNESCOs liste","startTime":798},{"title":"Hvordan funker en fonograf?","startTime":1140},{"title":"John Ole og Aaste drar til Nasjonalbiblioteket i Mo i Rana","startTime":1268},{"title":"Første rull spilles av ...","startTime":1844},{"title":"Hvem er Nils Miland?","startTime":2114}]}

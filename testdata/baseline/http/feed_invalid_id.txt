@@ -1,0 +1,11 @@
+GET /api/feeds/..%2Fetc
+
+HTTP 400
+content-length: 31
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"message":"Invalid series id"}

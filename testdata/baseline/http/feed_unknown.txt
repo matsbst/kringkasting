@@ -1,0 +1,11 @@
+GET /api/feeds/finnes-ikke-baseline
+
+HTTP 404
+content-length: 30
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"message":"Series not found"}

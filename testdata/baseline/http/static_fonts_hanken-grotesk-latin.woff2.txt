@@ -1,0 +1,12 @@
+GET /fonts/hanken-grotesk-latin.woff2
+
+HTTP 200
+cache-control: public, max-age=31536000, immutable
+content-length: 34664
+content-type: font/woff2
+date: <dynamic>
+etag: W/"1f21c6eaa0000f3329cfcfac966b43d5bebf5aa610303e33294ac31bc6f4bb59"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

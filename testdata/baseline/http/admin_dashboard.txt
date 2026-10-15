@@ -1,0 +1,12 @@
+GET /admin
+Cookie: kringkasting_admin=baseline-admin-token
+
+HTTP 200
+cache-control: no-store
+content-length: 19651
+content-type: text/html; charset=utf-8
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-robots-tag: noindex

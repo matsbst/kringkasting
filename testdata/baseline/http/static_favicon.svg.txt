@@ -1,0 +1,12 @@
+GET /favicon.svg
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 431
+content-type: image/svg+xml
+date: <dynamic>
+etag: W/"e83701c85f7eede3bcad09945646e53a0da1bef4b05472a5eaf9dc8f00510af1"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

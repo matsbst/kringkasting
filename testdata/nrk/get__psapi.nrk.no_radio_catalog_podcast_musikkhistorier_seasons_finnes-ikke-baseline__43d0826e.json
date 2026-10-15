@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/podcast/musikkhistorier/seasons/finnes-ikke-baseline",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "61"
+  },
+  "body": "\"Could not find season finnes-ikke-baseline for series musikkhistorier\""
+}

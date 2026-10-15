@@ -1,0 +1,13 @@
+GET /api/feeds/musikkhistorier/sesong/nick-cave--moerkets-lysmester
+If-None-Match: "452cfc51a997c8c50a0231de02a2edc7e3812ee3"
+
+HTTP 304
+cache-control: public, max-age=1800, s-maxage=3600
+date: <dynamic>
+etag: "452cfc51a997c8c50a0231de02a2edc7e3812ee3"
+expires: <dynamic>
+last-modified: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+

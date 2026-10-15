@@ -1,0 +1,12 @@
+GET /icon-512.png
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 19345
+content-type: image/png
+date: <dynamic>
+etag: W/"a068ca7b68199dbe0a240cfd820921bca28fc7ec14b8c4540bb2e4a453940ba8"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY
