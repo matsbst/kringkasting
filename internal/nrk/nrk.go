@@ -40,6 +40,8 @@ type Client struct {
 	searchMu    sync.Mutex
 	searchCache map[string]searchEntry
 	searchOrder []string // insertion order, for oldest-first eviction
+
+	resolved resolveCache
 }
 
 type searchEntry struct {
