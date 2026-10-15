@@ -83,7 +83,7 @@ export const handler = define.handlers({
     }
 
     if (!(await isAuthenticated(ctx.req))) {
-      return page({ view: "login", failed: false } satisfies Data);
+      return page({ view: "login", failed: false } satisfies Data, { headers: NO_STORE_HEADERS });
     }
 
     // admin actions (POST + SameSite=Strict cookie keeps this same-origin)

@@ -1,6 +1,7 @@
 import { App, HttpError, staticFiles } from "fresh";
 import { type State } from "./utils.ts";
 import { captureException, errorReportingEnabled } from "./lib/errors.ts";
+import { SECURITY_HEADERS } from "./lib/security-headers.ts";
 
 export const app = new App<State>();
 
@@ -20,12 +21,6 @@ if (errorReportingEnabled()) {
     captureException(event.error ?? event.message, { tags: { kind: "uncaught" } });
   });
 }
-
-const SECURITY_HEADERS: Record<string, string> = {
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "same-origin",
-  "X-Frame-Options": "DENY",
-};
 
 // report handler exceptions, then rethrow so Fresh still renders _error.
 // Only the path/method are attached — never query strings or client IP.

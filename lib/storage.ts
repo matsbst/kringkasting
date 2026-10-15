@@ -319,6 +319,23 @@ function readEpisodeIds(seriesId: string): Set<string> {
   return new Set(rows.map((row) => row.id));
 }
 
+/**
+ * NRK's own episode id (`episodeId`, e.g. "l_…" or "DMPO…") for a stored
+ * episode. Feeds identify episodes by NRK's hash `id`, but NRK's episode
+ * endpoint only answers to `episodeId` — which every share link ends with.
+ * Season episodes are stored under "{seriesId}/sesong/{seasonId}", so the
+ * parent series id matches them too. Null when the episode isn't stored.
+ */
+function readNrkEpisodeId(seriesId: string, id: string): string | null {
+  const row = getDb()
+    .prepare(
+      "SELECT share_link FROM episodes WHERE id = ? AND (series_id = ? OR series_id LIKE ? || '/sesong/%') LIMIT 1",
+    )
+    .get(id, seriesId, seriesId) as { share_link: string } | undefined;
+  const episodeId = row?.share_link.split("/").at(-1);
+  return episodeId ? episodeId : null;
+}
+
 /** renew the freshness timestamp without touching metadata (episodes-only refresh) */
 function touchLastFetched(seriesId: string): void {
   getDb()
@@ -547,6 +564,7 @@ export const storage = {
   writeSeries,
   addEpisodes,
   readEpisodeIds,
+  readNrkEpisodeId,
   touchLastFetched,
   setBacklogState,
   streamOnlySeriesIds,

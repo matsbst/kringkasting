@@ -1,5 +1,10 @@
-import { HttpError } from "fresh";
+import { HttpError, page } from "fresh";
 import { define } from "../utils.ts";
+import { SECURITY_HEADERS } from "../lib/security-headers.ts";
+
+// error pages are rendered outside main.ts's middleware, so they set the
+// security headers themselves (for every method)
+export const handler = define.handlers(() => page(undefined, { headers: SECURITY_HEADERS }));
 
 export default define.page(function ErrorPage(ctx) {
   const notFound = ctx.error instanceof HttpError && ctx.error.status === 404;
