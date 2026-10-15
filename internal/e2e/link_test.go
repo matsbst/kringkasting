@@ -74,7 +74,7 @@ func fetch(t *testing.T, a *app.App, path string, client string) (*http.Response
 
 func fragment(t *testing.T, a *app.App, query string) (int, string) {
 	t.Helper()
-	resp, body := fetch(t, a, "/api/search/fragment?q="+url.QueryEscape(query), "link-test")
+	resp, body := fetch(t, a, "/api/search/fragment?q="+url.QueryEscape(query), "192.0.2.10")
 	return resp.StatusCode, body
 }
 
@@ -174,7 +174,7 @@ func TestLinkSearchEntryPoints(t *testing.T) {
 	if _, html := fragment(t, a, "sentralbordet"); !strings.Contains(html, "1 treff for «sentralbordet»") {
 		t.Error("name search changed")
 	}
-	_, body := fetch(t, a, "/api/search?q="+url.QueryEscape("https://radio.nrk.no/podkast/musikkhistorier/sesong/miles-davis--bak-mytene"), "api")
+	_, body := fetch(t, a, "/api/search?q="+url.QueryEscape("https://radio.nrk.no/podkast/musikkhistorier/sesong/miles-davis--bak-mytene"), "192.0.2.11")
 	var api struct {
 		Results []struct {
 			SeriesID, SeasonID, Title string
@@ -183,14 +183,14 @@ func TestLinkSearchEntryPoints(t *testing.T) {
 	if err := json.Unmarshal([]byte(body), &api); err != nil || len(api.Results) != 2 || api.Results[0].SeasonID != "miles-davis--bak-mytene" {
 		t.Errorf("JSON API for a link: %s", body)
 	}
-	resp, html := fetch(t, a, "/?query="+url.QueryEscape("https://radio.nrk.no/podkast/sentralbordet"), "page")
+	resp, html := fetch(t, a, "/?query="+url.QueryEscape("https://radio.nrk.no/podkast/sentralbordet"), "192.0.2.12")
 	if resp.StatusCode != 200 || !strings.Contains(html, `data-feed-url="`+origin+`/api/feeds/sentralbordet"`) {
 		t.Error("the no-JS page should render link results")
 	}
 
 	limited := 0
 	for range 40 {
-		resp, _ := fetch(t, a, "/api/search/fragment?q="+url.QueryEscape("https://radio.nrk.no/podkast/sentralbordet"), "one-client")
+		resp, _ := fetch(t, a, "/api/search/fragment?q="+url.QueryEscape("https://radio.nrk.no/podkast/sentralbordet"), "192.0.2.13")
 		if resp.StatusCode == http.StatusTooManyRequests {
 			limited++
 		}

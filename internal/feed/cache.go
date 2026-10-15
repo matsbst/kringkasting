@@ -21,13 +21,16 @@ type Rendered struct {
 
 type cacheEntry struct {
 	Rendered
+	origin  string
 	version int64
 }
 
-// Cache memoizes rendered feed XML (and its ETag) per feed and origin,
-// invalidated through the store's data version whenever the feed's
-// content changes. Serving a poll, 200 or 304, then costs no rendering or
-// hashing.
+// Cache memoizes rendered feed XML (and its ETag) per feed, invalidated
+// through the store's data version whenever the feed's content changes.
+// Serving a poll, 200 or 304, then costs no rendering or hashing. Each feed
+// has one entry, for the origin it was last rendered for: without
+// APP_ORIGIN the origin comes from the request Host, and keying on it would
+// let arbitrary Host values multiply full copies of a feed in memory.
 type Cache struct {
 	mu      sync.Mutex
 	entries map[string]*cacheEntry
@@ -36,13 +39,11 @@ type Cache struct {
 
 func NewCache() *Cache { return &Cache{entries: map[string]*cacheEntry{}} }
 
-func cacheKey(feedID, origin string) string { return feedID + "|" + origin }
-
 // Peek returns the cached feed if its version snapshot is still current.
 func (c *Cache) Peek(feedID, origin string, version int64) *Rendered {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if e := c.entries[cacheKey(feedID, origin)]; e != nil && e.version == version {
+	if e := c.entries[feedID]; e != nil && e.origin == origin && e.version == version {
 		r := e.Rendered
 		return &r
 	}
@@ -61,11 +62,11 @@ func ETagFor(content string) string {
 // heals on the next request, instead of stale XML being cached under the
 // newest version and served indefinitely.
 func (c *Cache) Render(series *store.Series, origin string, version int64) Rendered {
-	key := cacheKey(series.ID, origin)
+	key := series.ID
 	c.mu.Lock()
 	cached := c.entries[key]
 	c.mu.Unlock()
-	if cached != nil && cached.version == version {
+	if cached != nil && cached.origin == origin && cached.version == version {
 		return cached.Rendered
 	}
 
@@ -77,7 +78,8 @@ func (c *Cache) Render(series *store.Series, origin string, version int64) Rende
 	if cached != nil && cached.XML == xml {
 		lastModified = cached.LastModified
 	}
-	entry := &cacheEntry{Rendered: Rendered{XML: xml, ETag: ETagFor(xml), LastModified: lastModified}, version: version}
+	entry := &cacheEntry{Rendered: Rendered{XML: xml, ETag: ETagFor(xml), LastModified: lastModified},
+		origin: origin, version: version}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

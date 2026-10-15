@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -59,23 +60,61 @@ func (l *limiter) allow(key string, capacity, refill float64) bool {
 	return true
 }
 
+// refund returns a token taken by allow.
+func (l *limiter) refund(key string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if b := l.buckets[key]; b != nil {
+		b.tokens++
+	}
+}
+
 // allowScoped applies a per-client limit plus a global backstop for the
 // scope. Client identity comes from forwarding headers, which a
 // direct-to-origin attacker can forge; the global bucket bounds the damage.
+// The client bucket is checked first, so a client over its own limit
+// cannot drain the shared budget.
 func (l *limiter) allowScoped(scope, client string, clientCapacity, clientRefill, globalCapacity, globalRefill float64) bool {
-	if !l.allow("global:"+scope, globalCapacity, globalRefill) {
+	clientKey := scope + ":" + client
+	if !l.allow(clientKey, clientCapacity, clientRefill) {
 		return false
 	}
-	return l.allow(scope+":"+client, clientCapacity, clientRefill)
+	if !l.allow("global:"+scope, globalCapacity, globalRefill) {
+		l.refund(clientKey)
+		return false
+	}
+	return true
 }
 
-// clientKey is the best client identity available behind Cloudflare/nginx.
+// clientKey is the best client identity available behind Cloudflare or a
+// reverse proxy: CF-Connecting-IP, else the X-Forwarded-For entry the
+// nearest proxy appended (the last one), else the connection's address.
+// Only well-formed IPs are used, so header values cannot bloat the
+// limiter's keys.
 func clientKey(r *http.Request) string {
-	if ip := r.Header.Get("cf-connecting-ip"); ip != "" {
+	if ip := parseIP(r.Header.Get("cf-connecting-ip")); ip != "" {
 		return ip
 	}
 	if forwarded := r.Header.Values("x-forwarded-for"); len(forwarded) > 0 {
-		return strings.TrimSpace(strings.Split(forwarded[0], ",")[0])
+		entries := strings.Split(forwarded[len(forwarded)-1], ",")
+		if ip := parseIP(entries[len(entries)-1]); ip != "" {
+			return ip
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if ip := parseIP(host); ip != "" {
+		return ip
 	}
 	return "unknown"
+}
+
+// parseIP returns the canonical form of an IP address, "" when value is not one.
+func parseIP(value string) string {
+	if ip := net.ParseIP(strings.TrimSpace(value)); ip != nil {
+		return ip.String()
+	}
+	return ""
 }

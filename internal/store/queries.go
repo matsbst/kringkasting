@@ -500,6 +500,22 @@ func (s *Store) WriteState(key string, value any) {
 	}
 }
 
+// DeleteExpiredState removes the keys under prefix whose JSON expiresAt
+// (Unix ms) has passed and whose status is status.
+func (s *Store) DeleteExpiredState(prefix string, status int) int {
+	// a key range rather than LIKE, so the primary key index is used
+	end := prefix[:len(prefix)-1] + string(prefix[len(prefix)-1]+1)
+	result, err := s.write.Exec(`DELETE FROM app_state WHERE key >= ? AND key < ?
+		AND json_extract(value, '$.status') = ? AND json_extract(value, '$.expiresAt') < ?`,
+		prefix, end, status, clock.NowMs())
+	if err != nil {
+		log.Printf("delete expired %s state: %v", prefix, err)
+		return 0
+	}
+	deleted, _ := result.RowsAffected()
+	return int(deleted)
+}
+
 // DeleteState removes a durable state key.
 func (s *Store) DeleteState(key string) {
 	if _, err := s.write.Exec("DELETE FROM app_state WHERE key = ?", key); err != nil {

@@ -73,6 +73,20 @@ func TestCacheSelfHeals(t *testing.T) {
 	}
 }
 
+// Request-derived origins must not multiply cached copies of a feed.
+func TestCacheKeepsOneOriginPerFeed(t *testing.T) {
+	c := feed.NewCache()
+	s := &store.Series{ID: "c", Title: "Serie", Episodes: []store.Episode{}}
+	c.Render(s, "https://a.example", 1)
+	second := c.Render(s, "https://b.example", 1)
+	if !strings.Contains(second.XML, "https://b.example") {
+		t.Error("each origin renders its own URLs")
+	}
+	if c.Peek("c", "https://a.example", 1) != nil || c.Peek("c", "https://b.example", 1) == nil {
+		t.Error("a feed keeps only its most recent origin")
+	}
+}
+
 func TestPollingTiers(t *testing.T) {
 	defer clock.Unpin()
 	now := time.Now()

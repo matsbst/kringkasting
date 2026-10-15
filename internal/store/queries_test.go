@@ -214,3 +214,27 @@ func TestStateSurvivesReopen(t *testing.T) {
 		t.Errorf("state after reopen: %v", got)
 	}
 }
+
+func TestDeleteExpiredState(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	now := clock.NowMs()
+	type result struct {
+		Status  int   `json:"status"`
+		Expires int64 `json:"expiresAt"`
+	}
+	s.WriteState("chapters:a:expired404", result{404, now - 1})
+	s.WriteState("chapters:a:fresh404", result{404, now + 60_000})
+	s.WriteState("chapters:a:expired200", result{200, now - 1})
+	s.WriteState("chaptersX:expired404", result{404, now - 1})
+	if deleted := s.DeleteExpiredState("chapters:", 404); deleted != 1 {
+		t.Errorf("deleted %d rows, want 1", deleted)
+	}
+	if s.HasState("chapters:a:expired404") {
+		t.Error("expired 404 must be deleted")
+	}
+	for _, kept := range []string{"chapters:a:fresh404", "chapters:a:expired200", "chaptersX:expired404"} {
+		if !s.HasState(kept) {
+			t.Errorf("%s must be kept", kept)
+		}
+	}
+}
