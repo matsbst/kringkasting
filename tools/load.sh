@@ -1,5 +1,5 @@
 #!/bin/bash
-# Load test used for docs/go-migration.md: every feed once, then 3 rounds of all
+# Memory/latency load test (docs/go-migration.md): every feed once, then 3 rounds of all
 # feeds in parallel, sampling container memory. Usage: load.sh CONTAINER PORT LOGFILE
 # Feed ids come from the production copy at ~/Prosjekter/kringkasting-data/.
 set -u

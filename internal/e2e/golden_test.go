@@ -104,14 +104,18 @@ func TestSearchAndPages(t *testing.T) {
 
 func TestStaticFiles(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
-	entries, _ := os.ReadDir("../../static")
-	for _, entry := range entries {
-		if entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
-			continue
-		}
-		compare(t, "static_"+entry.Name(), app.do(request{path: "/" + entry.Name()}), headersOnly)
+	goldens, _ := filepath.Glob(filepath.Join(goldenDir, "static_*.txt"))
+	if len(goldens) == 0 {
+		t.Fatal("no static golden files")
 	}
-	compare(t, "static_fonts_hanken-grotesk-latin.woff2", app.do(request{path: "/fonts/hanken-grotesk-latin.woff2"}), headersOnly)
+	for _, golden := range goldens {
+		name := strings.TrimSuffix(filepath.Base(golden), ".txt")
+		path := "/" + strings.TrimPrefix(name, "static_")
+		if strings.HasPrefix(path, "/fonts_") {
+			path = "/fonts/" + strings.TrimPrefix(path, "/fonts_")
+		}
+		compare(t, name, app.do(request{path: path}), headersOnly)
+	}
 }
 
 func TestAdmin(t *testing.T) {
@@ -182,7 +186,7 @@ func mustContain(t *testing.T, name, html string, parts ...string) {
 	}
 }
 
-// compareState ports tools/baseline/capture.ts's dumpState.
+// compareState dumps durable state the way the capture tool did.
 func compareState(t *testing.T, dbPath, name string) {
 	t.Helper()
 	db, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")

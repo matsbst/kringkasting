@@ -6,14 +6,13 @@ Kringkasting started as a fork of [olaven/nrss](https://github.com/olaven/nrss).
 
 - **Full episode archives**: a background crawler pages through each series' complete backlog, so feeds aren't limited to the latest ~20 episodes (fixes upstream [issue #8](https://github.com/olaven/NRSS/issues/8))
 - **Per-season feeds**: NRK publishes many standalone shows as seasons of umbrella podcasts (e.g. Radiodokumentaren's titles); each gets its own feed at `/api/feeds/{serie}/sesong/{sesong}` with its own title and artwork, mirroring NRK's structure
-- Storage on plain **SQLite** — a single embedded file, no external database
+- **Chapters** for episodes that have them, as [Podcasting 2.0 chapters](https://github.com/Podcastindex-org/podcast-namespace/blob/main/chapters/jsonChapters.md)
 - **Conditional GETs**: feeds answer `304 Not Modified` to polling clients, and send CDN-friendly caching headers
 - Feeds carry real enclosure byte sizes, `atom:link rel=self`, `language`, and the registered `audio/mpeg` MIME type; stream-only shows are handled honestly
-- Written in **Go**: one static binary with templates and assets embedded, a ~15 MB container image, and only one third-party dependency (the pure-Go SQLite driver). The interface is server-rendered HTML with Tailwind CSS 4, enhanced by a small script; everything works without JavaScript
-- Redesigned UI with instant search and one-tap subscribe (Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, YouTube Music — your choice is remembered)
+- One-tap subscribe (Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, YouTube Music — your choice is remembered) and instant search; everything also works without JavaScript
+- **Small and self-contained**: one static Go binary with templates and assets embedded, a ~15 MB container image, plain SQLite, and a single third-party dependency (a pure-Go SQLite driver)
 - Per-client rate limiting, a global upstream concurrency cap, and security headers
 - Optional admin dashboard (`/admin`) and optional server-side error reporting (Sentry protocol / self-hosted [Bugsink](https://www.bugsink.com/))
-- Dockerized, image built and published by GitHub Actions
 
 ## Why?
 
@@ -21,13 +20,13 @@ NRK, Norway's government-funded public broadcaster, locks its podcasts into its 
 
 ## Self-hosting
 
-Kringkasting is a single long-running container with an embedded SQLite database — **no external database or services required.**
+Kringkasting is a single long-running container with an embedded SQLite database — **no external database or services required.** Images are published for `linux/amd64` and `linux/arm64`.
 
 ### Requirements
 
 - A container runtime (Docker, Podman, or a platform that runs OCI images)
 - A **persistent volume** mounted at `/app/data` (holds the podcast metadata and crawled archives)
-- ~384 MB RAM, one HTTP port (the app listens on `8000`)
+- Modest memory: about 50 MB idle and around 150 MB under load with a few dozen large archives (the image sets a 256 MiB soft limit); one HTTP port (the app listens on `8000`)
 - Outbound HTTPS to `psapi.nrk.no` and NRK's media CDNs
 
 The database is a _rebuildable cache_ — if you lose the volume the app simply re-crawls from NRK — but keep it so archives persist and you stay a light consumer of NRK's API.
@@ -40,7 +39,7 @@ curl -O https://raw.githubusercontent.com/matsbst/kringkasting/main/compose.yaml
 docker compose up -d
 ```
 
-Then open <http://localhost:8000>. The [`compose.yaml`](./compose.yaml) uses the prebuilt image, a named volume, a healthcheck, and `restart: unless-stopped`.
+Then open <http://localhost:8000>. The [`compose.yaml`](./compose.yaml) uses the prebuilt image, a named volume and `restart: unless-stopped`; the image has its own healthcheck.
 
 ### Quick start (plain Docker)
 
@@ -60,11 +59,12 @@ All configuration is via environment variables (see [`.env.example`](./.env.exam
 | Env var                          | Purpose                                                                                                                                                                                        |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `APP_ORIGIN`                     | **Recommended.** Public origin (scheme + host) of your instance, used for absolute URLs in feeds and page metadata. Set it behind a proxy so URLs aren't built from the internal request Host. |
-| `ADMIN_TOKEN`                    | Enables the admin dashboard at `/admin` (stats, NRK-traffic counters, archive health, per-series actions). Unset = disabled. Use a long random string.                                         |
+| `ADMIN_TOKEN`                    | Enables the admin dashboard at `/admin` (stats, NRK-traffic counters, archive health, per-series actions). Unset = disabled. Use a long random string (at least 8 characters).                 |
 | `SENTRY_DSN`                     | Optional. Sentry-protocol DSN (works with self-hosted Bugsink) for server-side error reporting, scrubbed of IP/query/body. Unset = disabled.                                                   |
 | `UMAMI_SRC` / `UMAMI_WEBSITE_ID` | Optional. Load a cookieless [Umami](https://umami.is) analytics script (script URL + website id). Both must be set to enable; point them at your own Umami instance.                           |
 | `KRINGKASTING_DB_PATH`           | SQLite database path. Defaults to `/app/data/kringkasting.sqlite3`; change only if you mount the volume elsewhere.                                                                             |
 | `CLOUDRON_APP_ORIGIN`            | Set automatically on Cloudron; used as `APP_ORIGIN` if the latter is unset.                                                                                                                    |
+| `GOMEMLIMIT`                     | Optional. Soft memory limit for the Go runtime; the image defaults to `256MiB`. Raise it if you give the container more memory and follow very many large archives.                           |
 
 ### Behind a reverse proxy
 
@@ -88,7 +88,13 @@ docker pull ghcr.io/matsbst/kringkasting:latest && docker restart kringkasting
 
 ### Backups
 
-Back up the `/app/data` volume to preserve crawled archives. It's not critical — losing it triggers a re-crawl from NRK — but a backup avoids re-fetching and keeps you a light API consumer. Pin a specific image (`ghcr.io/matsbst/kringkasting:<git-sha>`) instead of `:latest` if you want reproducible deploys.
+Back up the `/app/data` volume to preserve crawled archives. It's not critical — losing it triggers a re-crawl from NRK — but a backup avoids re-fetching and keeps you a light API consumer. The image includes `sqlite3`, so you can take a consistent copy while the app runs:
+
+```sh
+docker exec kringkasting sqlite3 /app/data/kringkasting.sqlite3 ".backup /app/data/backup.sqlite3"
+```
+
+Pin a specific image (`ghcr.io/matsbst/kringkasting:<git-sha>`) instead of `:latest` if you want reproducible deploys.
 
 ### Install on Cloudron
 
@@ -106,14 +112,38 @@ Cloudron provides the persistent `/app/data` and sets `CLOUDRON_APP_ORIGIN` auto
 
 The service is a deliberately light, adaptive consumer of NRK's open API — subscriber polling never reaches NRK, refresh cadence scales with how actively a show publishes, and audio/artwork is served directly from NRK's CDNs. [docs/nrk-api-usage.md](./docs/nrk-api-usage.md) documents every endpoint used and the load-limiting measures.
 
-## Local development
+## Development
 
 1. [Install Go](https://go.dev/doc/install) (the version in `go.mod`)
-2. `./tools/build-css.sh` — builds the stylesheet with Tailwind's standalone CLI (downloaded once into `.cache/`, no Node needed); rerun after changing templates
-3. `go run ./cmd/kringkasting`
+2. `./tools/build-css.sh` — builds the stylesheet with Tailwind's standalone CLI (downloaded once into `.cache/` and checksum-verified, no Node needed); rerun after changing templates or `web/static/app.js`
+3. `go run ./cmd/kringkasting` (set `KRINGKASTING_DB_PATH` to keep the database out of the repo)
 4. Open [localhost:8000](http://localhost:8000)
 
-Tests: `go test -race ./...` runs everything offline (NRK is replayed from recorded responses in `testdata/`); `go test -tags live ./internal/nrk/` checks NRK's live API. Lint: `go vet ./...` and `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...`. To build the container image yourself: `docker build -t kringkasting .`
+Checks (CI runs the same):
+
+```sh
+gofmt -l .                                              # formatting
+go vet ./...
+go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+go test -race ./...                                     # offline: NRK is replayed from testdata/
+go test -tags live ./internal/nrk/                      # optional: NRK's live API
+```
+
+To build the container image yourself: `docker build -t kringkasting .`
+
+### Project layout
+
+| Path | What |
+| --- | --- |
+| `cmd/kringkasting/` | entry point; `kringkasting healthcheck` for the container healthcheck |
+| `internal/store/` | SQLite: schema, migrations, all queries |
+| `internal/nrk/` | NRK API client, with the global concurrency cap and retry deadlines |
+| `internal/feed/` | RSS rendering, the feed cache, refresh policy, chapters |
+| `internal/crawl/` | background archive crawler |
+| `internal/web/` | routes, pages, search, admin, rate limiting, static files |
+| `web/templates/`, `web/static/` | HTML templates and static files, embedded in the binary |
+| `web/static/app.js` | the client-side enhancements (search, subscribe, share) |
+| `internal/e2e/` | end-to-end tests against recorded behaviour (`testdata/`) |
 
 ## Known problems
 

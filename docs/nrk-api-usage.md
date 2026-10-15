@@ -8,7 +8,7 @@ There is no timer polling every saved show. A feed request reaching the applicat
 
 | Age of newest episode | Base refresh interval |
 | --------------------- | --------------------- |
-| Under 2 days          | 3 hours               |
+| Under 2 days          | 1 hour                |
 | 2–30 days             | 12 hours              |
 | 30–180 days           | 3 days                |
 | 180 days or more      | 7 days                |
@@ -47,6 +47,6 @@ The global limit remains 12 active upstream requests and 64 queued requests. Int
 
 ## Expected reduction and measurement
 
-Changing a continuously requested dormant show's base interval from daily to weekly reduces its routine checks by about 86%. Moving active shows from hourly to every three hours reduces those checks by about 67%. These figures exclude new-episode manifests, HEAD requests, metadata refreshes, failures, searches, and chapters.
+Changing a continuously requested dormant show's base interval from daily to weekly reduces its routine checks by about 86%. Active shows (a new episode in the last two days) are deliberately kept on an hourly check, so new daily episodes appear promptly. These figures exclude new-episode manifests, HEAD requests, metadata refreshes, failures, searches, and chapters.
 
 Chapter reuse, persistent catalog caching, retained archives, and checkpoint recovery remove redundant requests without changing the episode archive's intended completeness. Actual totals depend on usage and archive sizes; use the admin dashboard's upstream category counters to measure them. Counters reset on application restart, while caches and retry deadlines persist.
