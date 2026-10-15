@@ -288,10 +288,9 @@ func (s *Server) cards(origin string, summaries []SeriesSummary) []card {
 			FeedURL:       feedURL,
 			ShareURL:      origin + "/?query=" + nrk.EncodeURIComponent(summary.Title),
 			NrkURL:        "https://radio.nrk.no/podkast/" + summary.FeedID(),
-			// unique per page: feed ids are unique within a result list
-			DialogID:    "subscribe-" + notIDChars.ReplaceAllString(summary.FeedID(), "-"),
-			Apps:        apps(feedURL),
-			SpotifyIcon: appIcons["spotify"],
+			DialogID:      dialogID(summary.FeedID()),
+			Apps:          apps(feedURL),
+			SpotifyIcon:   appIcons["spotify"],
 		}
 		if summary.ImageURL != nil {
 			c.ImageURL = *summary.ImageURL

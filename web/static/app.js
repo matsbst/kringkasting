@@ -1,7 +1,7 @@
 // Progressive enhancement for Kringkasting. Every page works without this
 // script: the server renders search results and all subscribe links. This
-// adds search-as-you-type, the subscribe dialog with a remembered app, and
-// share/copy buttons. Event delegation keeps it working for results
+// adds search-as-you-type, the subscribe dialog with a remembered app, a
+// QR code to continue on the phone, and share/copy buttons. Event delegation keeps it working for results
 // inserted later.
 
 const STORAGE_KEY = "kringkasting:podcast-app";
@@ -135,6 +135,26 @@ function activate(appId, href, feedUrl, event) {
   });
 }
 
+// a computer: the QR code hands the subscription over to the phone
+const POINTER_DEVICE = matchMedia("(hover: hover) and (pointer: fine)");
+
+/** show the app list (or the QR code) in a subscribe dialog */
+function showQr(dialog, show) {
+  dialog.querySelector("[data-dialog-main]").hidden = show;
+  dialog.querySelector("[data-qr-panel]").hidden = !show;
+  dialog.setAttribute("aria-labelledby", `${dialog.id}${show ? "-qr" : ""}-title`);
+  if (!show) return;
+  const image = dialog.querySelector("[data-qr-src]");
+  if (!image.getAttribute("src")) image.src = image.dataset.qrSrc;
+}
+
+function openDialog(dialog) {
+  resetCopy(dialog);
+  showQr(dialog, false);
+  dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
+  dialog.showModal();
+}
+
 function resetCopy(dialog) {
   const button = dialog.querySelector("[data-copy]");
   if (!button) return;
@@ -202,9 +222,7 @@ document.addEventListener("click", (event) => {
   const opener = target.closest("[data-open-dialog]");
   if (opener) {
     if (opener.hasAttribute("data-pulse")) pulse(opener);
-    const dialog = document.getElementById(opener.dataset.openDialog);
-    resetCopy(dialog);
-    dialog.showModal();
+    openDialog(document.getElementById(opener.dataset.openDialog));
     return;
   }
 
@@ -231,6 +249,18 @@ document.addEventListener("click", (event) => {
 
   if (target.closest("[data-close-dialog]")) {
     target.closest("dialog").close();
+    return;
+  }
+  if (target.closest("[data-qr-open]")) {
+    const dialog = target.closest("dialog");
+    showQr(dialog, true);
+    dialog.querySelector("[data-qr-back]").focus();
+    return;
+  }
+  if (target.closest("[data-qr-back]")) {
+    const dialog = target.closest("dialog");
+    showQr(dialog, false);
+    dialog.querySelector("[data-qr-open]").focus();
     return;
   }
   const copy = target.closest("[data-copy]");
@@ -352,3 +382,14 @@ function setupSearch(root) {
 
 renderControls();
 document.querySelectorAll("[data-search]").forEach(setupSearch);
+
+// arriving from a scanned QR code: open that feed's subscribe dialog, once
+const handoff = location.hash.startsWith("#subscribe-") && document.getElementById(location.hash.slice(1));
+if (handoff instanceof HTMLDialogElement) {
+  history.replaceState(null, "", location.pathname + location.search);
+  openDialog(handoff);
+  // focus the sheet, not its first app: opened without a click, the first
+  // app would show a focus ring and look preselected
+  handoff.tabIndex = -1;
+  handoff.focus();
+}

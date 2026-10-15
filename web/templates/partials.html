@@ -8,6 +8,12 @@ hooks for web/static/app.js. */}}
 
 {{define "icon-copy"}}<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"></path><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1"></path></svg>{{end}}
 
+{{define "icon-qr"}}<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M7 17l0 .01"></path><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M7 7l0 .01"></path><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"></path><path d="M17 7l0 .01"></path><path d="M14 14l3 0"></path><path d="M20 14l0 .01"></path><path d="M14 14l0 3"></path><path d="M14 20l3 0"></path><path d="M17 17l3 0"></path><path d="M20 17l0 3"></path></svg>{{end}}
+
+{{define "icon-chevron-right"}}<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"></path></svg>{{end}}
+
+{{define "icon-chevron-left"}}<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6"></path></svg>{{end}}
+
 {{define "icon-share"}}<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M18 6m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path><path d="M8.7 10.7l6.6 -3.4"></path><path d="M8.7 13.3l6.6 3.4"></path></svg>{{end}}
 
 {{/* One search hit. The subscribe control starts as "Abonner i app";
@@ -24,7 +30,7 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 <button type="button" data-open-dialog="{{.DialogID}}" class="relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer px-3 py-2">{{template "icon-podcast"}} Abonner i app</button>
 </span>
 <dialog id="{{.DialogID}}" aria-labelledby="{{.DialogID}}-title" class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark">
-<div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+<div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]" data-dialog-main>
 <h2 id="{{.DialogID}}-title" class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Velg podkast-app</h2>
 {{if .StreamOnly}}<p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de fleste andre apper.</p>{{end}}
 <ul>
@@ -38,8 +44,19 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 <input readonly value="{{.FeedURL}}" aria-label="RSS-lenke" class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"/>
 </div>
 </li>
+{{/* computers only: app.js shows it where the pointer is a mouse */}}
+<li data-qr-row hidden><button type="button" data-qr-open data-umami-event="qr-mobil" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-qr"}}Åpne på mobilen<span class="ml-auto text-ink-3 dark:text-ink-3-dark">{{template "icon-chevron-right"}}</span></button></li>
 </ul>
 <button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Avbryt</button>
+</div>
+<div class="p-2" data-qr-panel hidden>
+<div class="flex items-center gap-1 px-1 pt-1 pb-2">
+<button type="button" data-qr-back aria-label="Tilbake til appene" class="grid place-items-center size-9 rounded-lg text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-chevron-left"}}</button>
+<h2 id="{{.DialogID}}-qr-title" class="text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Åpne på mobilen</h2>
+</div>
+<img data-qr-src="/api/qr?feed={{.FeedID}}" alt="QR-kode til «{{.Title}}» på Kringkasting" width="208" height="208" class="mx-auto mt-2 size-52 rounded-lg"/>
+<p class="mx-auto mt-4 max-w-64 text-center text-sm text-ink-2 dark:text-ink-2-dark text-pretty">Skann koden med kameraet på mobilen for å velge app og abonnere på «{{.Title}}» der.</p>
+<button type="button" data-close-dialog class="mt-4 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Avbryt</button>
 </div>
 </dialog>
 <button type="button" data-share data-title="{{.Title}}" data-url="{{.ShareURL}}" class="inline-flex items-center gap-1.5 px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark transition-colors cursor-pointer">{{template "icon-share"}}<span data-share-label>Del</span></button>
