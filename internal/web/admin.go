@@ -11,58 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matsbst/kringkasting/internal/clock"
 	"github.com/matsbst/kringkasting/internal/feedid"
 	"github.com/matsbst/kringkasting/internal/nrk"
-	"github.com/matsbst/kringkasting/internal/stats"
 )
 
 // Cookie auth for /admin, driven by ADMIN_TOKEN. No token = admin disabled.
 const adminCookie = "kringkasting_admin"
-
-type tile struct{ Value, Label string }
-
-type upstreamRow struct {
-	Category         string
-	Requests, Errors int
-}
-
-type eventRow struct{ At, Message string }
-
-type failedRow struct {
-	SeriesID, EpisodeID, NextRetryAt string
-	Attempts                         int
-}
-
-type seriesRow struct {
-	ID, Title, LastFetchedAt string
-	EpisodeCount             int
-	Complete                 bool
-}
-
-type gcRow struct {
-	At      string
-	Deleted int
-}
-
-type action struct{ Action, Label string }
-
-type dashboard struct {
-	Version, StartedAt, Notice string
-	Tiles, TrafficTiles        []tile
-	Upstream                   []upstreamRow
-	QueueLength                int
-	Running                    bool
-	LastGc                     *gcRow
-	Events                     []eventRow
-	Failed                     []failedRow
-	Series                     []seriesRow
-	Actions                    []action
-}
-
-type adminView struct {
-	Login, Failed bool
-	Dashboard     *dashboard
-}
 
 // formatTime matches the Deno version's nb-NO toLocaleString with
 // day/month/hour/minute ("5.3., 07:09") in the server's time zone.
@@ -162,7 +117,8 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			s.adminPage(w, r, adminView{Login: true})
 			return
 		}
-		s.adminPage(w, r, adminView{Dashboard: s.dashboard(r.URL.Query().Get("m"))})
+		query := r.URL.Query()
+		s.adminPage(w, r, adminView{Dashboard: s.dashboard(query.Get("m"), query)})
 		return
 	}
 
@@ -197,6 +153,15 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 	// admin actions (POST + the SameSite=Strict cookie + sameOrigin)
 	seriesID := r.PostForm.Get("seriesId")
 	notice := "Ukjent handling"
+	// back to the same filtered list
+	back := parseListQuery(func() url.Values { v, _ := url.ParseQuery(r.PostForm.Get("back")); return v }()).encode()
+	if back != "" {
+		back = "&" + back
+	}
+	if r.PostForm.Get("action") == "cleanup" {
+		redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(s.cleanup(r.PostForm))+back)
+		return
+	}
 	// season feeds have composite "{seriesId}/sesong/{seasonId}" ids
 	if feedid.Valid(seriesID) {
 		switch r.PostForm.Get("action") {
@@ -212,70 +177,45 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			s.Crawler.Enqueue(seriesID)
 			notice = "Arkiv-innhenting startet på nytt for " + seriesID
 		case "delete":
+			// only from the confirmation, which names the feed it deletes;
+			// anything else (an old tab, a stray post) shows it first
+			if r.PostForm.Get("confirm") != seriesID {
+				redirectAdmin(w, "/admin?slett="+nrk.EncodeURIComponent(seriesID)+back)
+				return
+			}
 			s.Store.DeleteSeriesByID(seriesID)
 			notice = seriesID + " slettet"
 		}
 	}
-	redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(notice))
+	redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(notice)+back)
 }
 
-func (s *Server) dashboard(notice string) *dashboard {
-	snap := s.Stats.Snapshot()
-	series, _ := s.Store.ListSeriesOverview()
-	failed, _ := s.Store.ListFailedEpisodes(30)
-	status := s.Crawler.Status()
-
-	version := s.Config.BuildID
-	if len(version) > 10 {
-		version = version[:10]
+// cleanup deletes the unused feeds the admin was shown, and only those:
+// the form carries the preview's count and a hash of its feed ids.
+func (s *Server) cleanup(form url.Values) string {
+	now := clock.Now()
+	since, measured := s.Store.ActivitySince()
+	if !measured || now.Sub(since) < cleanupAfter {
+		return "Opprydding er ikke tilgjengelig ennå"
 	}
-	d := &dashboard{
-		Version: version, StartedAt: formatTime(snap.StartedAt), Notice: notice,
-		QueueLength: status.QueueLength, Running: status.Running,
-		Actions: []action{{"refresh", "Oppdater"}, {"recrawl", "Re-crawl"}, {"delete", "Slett"}},
+	series, err := s.Store.ListSeriesOverview()
+	if err != nil {
+		return "Opprydding feilet"
 	}
-
-	incomplete := 0
-	for _, o := range series {
-		if !o.BacklogComplete {
-			incomplete++
-		}
-		d.Series = append(d.Series, seriesRow{ID: o.ID, Title: o.Title, EpisodeCount: o.EpisodeCount,
-			Complete: o.BacklogComplete, LastFetchedAt: formatTime(o.LastFetchedAt)})
+	activity, err := s.Store.ReadFeedActivity(now.Add(-clientWindow))
+	if err != nil {
+		return "Opprydding feilet"
 	}
-	followed := "serier fulgt"
-	if size := s.Catalog.Size(); size > 0 {
-		followed = fmt.Sprintf("serier fulgt (av %d hos NRK)", size)
+	unused := unusedFeeds(series, activity, now)
+	ids := make([]string, len(unused))
+	for i, o := range unused {
+		ids[i] = o.ID
 	}
-	d.Tiles = []tile{
-		{strconv.Itoa(len(series)), followed},
-		{strconv.Itoa(s.Store.CountEpisodes()), "episoder i arkiv"},
-		{strconv.Itoa(incomplete), "arkiv under innhenting"},
-		{formatBytes(s.Store.DatabaseSizeBytes()), "database"},
+	if form.Get("count") != strconv.Itoa(len(ids)) || form.Get("hash") != cleanupHash(ids) {
+		return "Listen over ubrukte strømmer har endret seg. Se over den på nytt."
 	}
-	d.TrafficTiles = []tile{
-		{strconv.Itoa(snap.UpstreamTotal), "forespørsler til NRK"},
-		{strconv.Itoa(snap.UpstreamErrors), "NRK-feil"},
-		{fmt.Sprintf("%d / %d", snap.Feeds200, snap.Feeds304), "feed 200 / 304"},
-		{strconv.Itoa(snap.RateLimited), "429 servert"},
+	for _, id := range ids {
+		s.Store.DeleteSeriesByID(id)
 	}
-	for _, category := range stats.Categories {
-		if b := snap.Upstream[category]; b.Requests > 0 {
-			d.Upstream = append(d.Upstream, upstreamRow{category, b.Requests, b.Errors})
-		}
-	}
-	if snap.LastGc != nil {
-		d.LastGc = &gcRow{At: formatTime(snap.LastGc.At), Deleted: snap.LastGc.Deleted}
-	}
-	for i, e := range status.Events {
-		if i == 8 {
-			break
-		}
-		d.Events = append(d.Events, eventRow{At: formatTime(e.At), Message: e.Message})
-	}
-	for _, f := range failed {
-		d.Failed = append(d.Failed, failedRow{SeriesID: f.SeriesID, EpisodeID: f.EpisodeID,
-			Attempts: f.Attempts, NextRetryAt: formatTime(f.NextRetryAt)})
-	}
-	return d
+	return fmt.Sprintf("%d ubrukte strømmer slettet", len(ids))
 }

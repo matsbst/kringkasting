@@ -66,6 +66,12 @@ type SeriesOverview struct {
 	BacklogComplete bool
 	LastFetchedAt   time.Time
 	CatalogKind     *string
+	// BacklogCursor is the archive crawl's checkpoint (an NRK page link)
+	BacklogCursor *string
+	// OldestEpisode is how far back the saved archive reaches
+	OldestEpisode *time.Time
+	// VideoCount counts episodes with NRK video
+	VideoCount int
 }
 
 // FailedEpisode is an episode under retry backoff.
