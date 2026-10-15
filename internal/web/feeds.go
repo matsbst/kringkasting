@@ -116,7 +116,7 @@ func (s *Server) chapters(w http.ResponseWriter, r *http.Request, seriesID, epis
 		writeJSON(w, http.StatusNotFound, message{"Episode " + episodeID + " is missing"})
 		return
 	}
-	writeJSON(w, http.StatusOK, chaptersBody{Version: "1.2.0", Chapters: result.Chapters})
+	writeJSONType(w, http.StatusOK, chaptersBody{Version: "1.2.0", Chapters: result.Chapters}, "application/json+chapters")
 }
 
 // sitemapPaths grows as more indexable pages arrive.
