@@ -1,7 +1,7 @@
 # Migration to Go
 
 Date: 2026-10-15
-Status: steps 1 and 2 done on the `go-migration` branch (2026-10-15); step 3 (release) pending. One big-bang rewrite and release.
+Status: done. Released to kringkast.ing on 2026-10-15 (`fe5c839`); the Deno code was removed afterwards. Kept as the record of how the migration was done and verified.
 
 ## Why Go
 
@@ -158,12 +158,12 @@ Packaging:
 All automated checks in step 2 pass:
 
 - **Feeds:** byte-identical to the golden files for all six test feeds, their 304 responses and the failure scenarios; also for all 47 production feeds (33,452 episodes), compared with Deno serving the same database.
-- **Database round trip:** Deno and Go ran the same flows on separate copies of the production database. Their written rows match field by field (wall-clock timestamps compared by presence), all 33,847 existing rows were untouched, and Deno serves every feed from the Go-written database identically. `go test -tags roundtrip -run TestRoundTrip ./internal/e2e/` (needs Deno and a built `_fresh/`).
-- **Pages:** screenshots of every page are pixel-identical to Deno (desktop and mobile); the homepage differs only in its random suggestion chips. 22 browser checks of the JavaScript pass (`tools/baseline/browser-check.ts`).
+- **Database round trip:** Deno and Go ran the same flows on separate copies of the production database. Their written rows match field by field (wall-clock timestamps compared by presence), all 33,847 existing rows were untouched, and Deno serves every feed from the Go-written database identically. (The round-trip test was `internal/e2e/roundtrip_test.go`, removed with Deno.)
+- **Pages:** screenshots of every page are pixel-identical to Deno (desktop and mobile); the homepage differs only in its random suggestion chips. 22 browser checks of the JavaScript pass (the removed `tools/baseline/browser-check.ts`).
 - **Upgrade:** the Go image started on a volume written by the Deno image (including an unchecked WAL), runs as the same `cloudron` user, and the old `curl` healthcheck answers 200.
 - `go test -race ./...`, `go vet` and `staticcheck` pass; live NRK tests pass (`-tags live`).
 
-Measured with the same load script and production copy as the baseline (`tools/baseline/load.sh`):
+Measured with the same load script and production copy as the baseline (`tools/load.sh`):
 
 |                                                                     | Deno            | Go            |
 | ------------------------------------------------------------------- | --------------- | ------------- |
@@ -187,7 +187,7 @@ Deliberate differences from the Deno version:
 - The image has its own `HEALTHCHECK` (`kringkasting healthcheck`), so `compose.yaml` no longer defines one; `curl` stays for existing compose files. `sqlite3` is included for backups.
 - Multi-arch images (amd64 and arm64).
 
-Not yet done: the Deno source stays in the repo until after the release, so the round trip can be re-run against a fresh production copy right before cutover. Delete it (with `tools/baseline/` and the round-trip test) once the release has settled.
+After the release the Deno source, the capture tools (`tools/baseline/`), the browser check and the Deno → Go round-trip test were removed; they are in git history at `3ad24c6`. The golden files in `testdata/` stay and keep the Go version honest. `tools/load.sh` is the load test used for the measurements.
 
 ## Done when
 

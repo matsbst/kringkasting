@@ -1,7 +1,7 @@
-// Package e2e compares the Go application against the Deno version's
-// recorded behaviour (testdata/baseline), replaying the recorded NRK
-// responses (testdata/nrk) with the clock pinned to the capture time, as
-// tools/baseline did when the golden files were captured.
+// Package e2e compares the application against the behaviour recorded
+// from the Deno version before the Go rewrite (testdata/baseline),
+// replaying the recorded NRK responses (testdata/nrk) with the clock
+// pinned to the capture time, as the capture tool did.
 package e2e
 
 import (
@@ -35,10 +35,10 @@ const (
 	adminToken  = "baseline-admin-token"
 )
 
-// fixedStart is when the fixtures were recorded (tools/baseline/harness.ts).
+// fixedStart is when the fixtures were recorded.
 var fixedStart = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 
-// fixtureKey ports tools/baseline/harness.ts's fixtureKey exactly.
+// fixtureKey is the fixture file naming used when they were recorded.
 func fixtureKey(method, rawURL string) string {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -198,7 +198,7 @@ func body(resp *http.Response) string {
 }
 
 // warmFeed requests a feed until its archive crawl is done and the XML is
-// stable, as tools/baseline/capture.ts did.
+// stable, as the capture tool did.
 func (i *instance) warmFeed(t *testing.T, id string) {
 	t.Helper()
 	previous := ""

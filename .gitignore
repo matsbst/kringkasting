@@ -3,14 +3,7 @@
 .env.*.local
 .env.local
 
-# Fresh build directory
-_fresh/
-
-# dependencies
-node_modules/
-vendor/
-
-# local Deno KV database files
+# local databases (the test fixture below is the exception)
 *.sqlite3
 *.sqlite3-*
 
@@ -22,7 +15,7 @@ vendor/
 .claude/
 skills-lock.json
 
-# Go build
+# build output
 .cache/
 web/static/assets/
 /kringkasting

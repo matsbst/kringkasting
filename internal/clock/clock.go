@@ -1,5 +1,5 @@
 // Package clock is the application's source of the current time and of
-// randomness, so tests can pin both (the same way tools/baseline pinned
+// randomness, so tests can pin both (the same way the capture tool pinned
 // the Deno app when the golden files were captured).
 package clock
 
