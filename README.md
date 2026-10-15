@@ -6,10 +6,10 @@ Kringkasting started as a fork of [olaven/nrss](https://github.com/olaven/nrss).
 
 - **Full episode archives**: a background crawler pages through each series' complete backlog, so feeds aren't limited to the latest ~20 episodes (fixes upstream [issue #8](https://github.com/olaven/NRSS/issues/8))
 - **Per-season feeds**: NRK publishes many standalone shows as seasons of umbrella podcasts (e.g. Radiodokumentaren's titles); each gets its own feed at `/api/feeds/{serie}/sesong/{sesong}` with its own title and artwork, mirroring NRK's structure
-- Storage on plain **SQLite** (built-in `node:sqlite`) — a single embedded file, no external database
+- Storage on plain **SQLite** — a single embedded file, no external database
 - **Conditional GETs**: feeds answer `304 Not Modified` to polling clients, and send CDN-friendly caching headers
 - Feeds carry real enclosure byte sizes, `atom:link rel=self`, `language`, and the registered `audio/mpeg` MIME type; stream-only shows are handled honestly
-- Migrated from Fresh 1.x + twind to **Fresh 2 + Tailwind CSS 4** (vite-based build)
+- Written in **Go**: one static binary with templates and assets embedded, a ~15 MB container image, and only one third-party dependency (the pure-Go SQLite driver). The interface is server-rendered HTML with Tailwind CSS 4, enhanced by a small script; everything works without JavaScript
 - Redesigned UI with instant search and one-tap subscribe (Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, YouTube Music — your choice is remembered)
 - Per-client rate limiting, a global upstream concurrency cap, and security headers
 - Optional admin dashboard (`/admin`) and optional server-side error reporting (Sentry protocol / self-hosted [Bugsink](https://www.bugsink.com/))
@@ -108,12 +108,12 @@ The service is a deliberately light, adaptive consumer of NRK's open API — sub
 
 ## Local development
 
-1. [Install Deno](https://docs.deno.com/runtime/getting_started/installation/) (2.x)
-2. `deno install --allow-scripts`
-3. `deno task dev`
-4. Open [localhost:5173](http://localhost:5173)
+1. [Install Go](https://go.dev/doc/install) (the version in `go.mod`)
+2. `./tools/build-css.sh` — builds the stylesheet with Tailwind's standalone CLI (downloaded once into `.cache/`, no Node needed); rerun after changing templates
+3. `go run ./cmd/kringkasting`
+4. Open [localhost:8000](http://localhost:8000)
 
-Other tasks: `deno task check` (fmt, lint, types), `deno task test` (offline tests; `deno task test:live` checks NRK's live API), `deno task build` + `deno task start`. To build the container image yourself: `docker build -t kringkasting .`
+Tests: `go test -race ./...` runs everything offline (NRK is replayed from recorded responses in `testdata/`); `go test -tags live ./internal/nrk/` checks NRK's live API. Lint: `go vet ./...` and `go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...`. To build the container image yourself: `docker build -t kringkasting .`
 
 ## Known problems
 

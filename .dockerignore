@@ -7,3 +7,14 @@ _fresh
 *.sqlite3-*
 .env
 README.md
+.cache
+web/static/assets
+testdata
+docs
+design
+blocks
+controls
+screens
+resources
+tokens
+*.elyx

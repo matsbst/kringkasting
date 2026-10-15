@@ -1,7 +1,6 @@
 version: 2
 updates:
-  # Replace this ecosystem with npm when the Node.js migration lands.
-  - package-ecosystem: deno
+  - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
@@ -10,7 +9,7 @@ updates:
       timezone: Europe/Oslo
     open-pull-requests-limit: 5
     groups:
-      deno-minor-and-patch:
+      go-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
 
