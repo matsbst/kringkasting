@@ -17,7 +17,8 @@ jobs:
       - name: Format
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
       - run: go vet ./...
-      - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
+      # pinned in go.mod (tool directive), so Dependabot keeps it current
+      - run: go tool staticcheck ./...
       # the stylesheet is embedded in the binary
       - run: ./tools/build-css.sh
       # offline: NRK is replayed from testdata/; live tests are opt-in (-tags live)
