@@ -200,25 +200,7 @@ After the release the Deno source, the capture tools (`tools/baseline/`), the br
 
 ## First release after the switch: video episodes
 
-New features wait until the Go release is out with unchanged output, so the byte-for-byte feed check stays meaningful. The first improvement is video for shows where NRK publishes it.
-
-What NRK has (checked 2026-10-15 on `sentralbordet`):
-
-- Each episode in the catalogue has a `clipId`. `GET /playback/manifest/clip/{clipId}` returns `sourceMedium: "video"` and a full-length video (same duration as the audio), offered only as HLS (360p–1080p), with no downloadable MP4. The audio episode still has its MP3.
-- The video addresses contain no expiry token (`/open/potion/...`), and older addresses kept working. NRK's CDN serves the playlist with a cache lifetime of about 60 days. NRK rotates between three CDN hosts (Akamai, Telenor, DNA) with the same path.
-- Not yet verified over a longer period: re-check the collected addresses after a few weeks before relying on them.
-
-App support for HLS video from RSS (as of August 2026): Pocket Casts, Podcast Addict, Fountain, Podcast Guru, True Fans and Amazon Music (beta). Apple Podcasts plays HLS video only when it's submitted through Apple's own system, not from RSS; Overcast and most other apps play only the audio.
-
-Design:
-
-1. **Feed:** keep the MP3 `<enclosure>`, GUIDs and links exactly as they are. Add a `podcast:alternateEnclosure` with the HLS video as a source for episodes that have video. Apps without support ignore it, so existing subscribers see no change.
-2. **Video address:** the feed links to a Kringkasting address, `/api/feeds/{seriesId}/{episodeId}/video`. On request, Kringkasting resolves the `clipId` to the current HLS address and redirects there, caching the answer for about a day. This doesn't depend on any CDN host staying the same and costs NRK nothing until someone plays a video.
-3. **Crawl cost:** the `clipId` already comes with the episode lists the crawler fetches today, so storing it costs no extra requests. Confirm `sourceMedium == "video"` once per new episode that has a `clipId`, and store the result.
-4. **Database:** additive columns for `clipId` and the video flag. The old Deno image tolerates them, so switching back still works.
-5. **Archived episodes:** episodes crawled before this release have no `clipId`. Either fill it in lazily by paging the episode lists again (a few requests per show, only for shows known to have video), or show video only on new episodes.
-
-Even if stored addresses turn out to stay valid, the redirect is the safer default, because it doesn't depend on one CDN host.
+Superseded: video is passed through directly with NRK's own playlist URLs, without a Kringkasting redirect address. See [nrk-video-pass-through.md](nrk-video-pass-through.md).
 
 ## References
 

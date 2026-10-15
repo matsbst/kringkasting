@@ -22,8 +22,10 @@ type titles struct {
 
 // Episode is an episode as listed in a catalog page.
 type Episode struct {
-	ID                string `json:"id"`
-	EpisodeID         string `json:"episodeId"`
+	ID        string `json:"id"`
+	EpisodeID string `json:"episodeId"`
+	// ClipID may reference a video version of the episode
+	ClipID            string `json:"clipId"`
 	Titles            titles `json:"titles"`
 	Date              string `json:"date"`
 	DurationInSeconds int64  `json:"durationInSeconds"`
@@ -86,6 +88,20 @@ type manifest struct {
 	Playable *struct {
 		Assets []*struct {
 			URL string `json:"url"`
+		} `json:"assets"`
+	} `json:"playable"`
+}
+
+// clipManifest is /playback/manifest/clip/{clipId}.
+type clipManifest struct {
+	SourceMedium string `json:"sourceMedium"`
+	Playability  string `json:"playability"`
+	Playable     *struct {
+		Duration string `json:"duration"`
+		Assets   []*struct {
+			URL       string `json:"url"`
+			Format    string `json:"format"`
+			Encrypted bool   `json:"encrypted"`
 		} `json:"assets"`
 	} `json:"playable"`
 }

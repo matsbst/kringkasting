@@ -113,3 +113,36 @@ func TestLiveResolveLinks(t *testing.T) {
 		t.Errorf("episode share link %s resolved to %+v", page.Episodes[0].ShareLink, resolution)
 	}
 }
+
+// NRK's video versions of podcast episodes: found, playable, the same
+// length as the audio, and the playlist URL answers.
+func TestLiveClipVideo(t *testing.T) {
+	c := liveClient(t)
+	var listing episodesPage
+	if _, ok := c.up.getJSON(API+"/radio/catalog/podcast/sentralbordet/episodes?page=1&pageSize=5", &listing); !ok {
+		t.Fatal("no sentralbordet listing")
+	}
+	checked := 0
+	for _, e := range listing.Embedded.Episodes {
+		if e.ClipID == "" {
+			continue
+		}
+		video, outcome := c.VideoForClip(e.ClipID)
+		if outcome != Found {
+			t.Errorf("%s (clip %s): %v", e.EpisodeID, e.ClipID, outcome)
+			continue
+		}
+		if diff := video.DurationSeconds - float64(e.DurationInSeconds); diff > 60 || diff < -60 {
+			t.Errorf("%s: video %.0f s, audio %d s", e.EpisodeID, video.DurationSeconds, e.DurationInSeconds)
+		}
+		resp, err := http.Head(video.URL)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: playlist %s: %v %v", e.EpisodeID, video.URL, resp, err)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Error("no sentralbordet episode with a clip reference")
+	}
+	t.Logf("checked %d episodes with video", checked)
+}
