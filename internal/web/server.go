@@ -119,7 +119,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		s.qrCode(w, r)
 	case strings.HasPrefix(path, "/api/feeds/") && readMethod(r):
 		s.feedRoutes(w, r, strings.Split(strings.TrimPrefix(path, "/api/feeds/"), "/"))
-	case readMethod(r) && s.static.serve(w, r, path):
+	case readMethod(r) && s.static.serve(w, r, path, s.origin(r)):
 	default:
 		s.errorPage(w, r, http.StatusNotFound)
 	}

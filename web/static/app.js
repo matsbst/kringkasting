@@ -5,6 +5,8 @@
 // inserted later.
 
 const STORAGE_KEY = "kringkasting:podcast-app";
+// feeds sent to an app from here: { "/api/feeds/<id>": { app, name } }
+const SENT_KEY = "kringkasting:sent";
 const CHANGE_EVENT = "kringkasting:podcast-app-changed";
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -44,13 +46,59 @@ function writeChoice(id) {
   dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+function readSent() {
+  try {
+    return JSON.parse(localStorage.getItem(SENT_KEY) ?? "{}") ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** remember that this feed was sent to an app, in this browser only */
+function recordSent(feedUrl, app) {
+  const sent = readSent();
+  sent[new URL(feedUrl, location.href).pathname] = { app: app.dataset.app, name: app.dataset.appName };
+  try {
+    localStorage.setItem(SENT_KEY, JSON.stringify(sent));
+  } catch {
+    // storage unavailable: nothing to remember
+  }
+}
+
+/** "Sendt til Overcast" under a card whose feed went to an app */
+function renderSent(control) {
+  const line = control.closest("article")?.querySelector("[data-subscribed]");
+  if (!line) return;
+  const entry = readSent()[new URL(control.dataset.feedUrl, location.href).pathname];
+  line.hidden = !entry;
+  if (!entry) return;
+  line.innerHTML = ICONS.check;
+  line.append(` Sendt til ${entry.name}`);
+}
+
 // ---------------------------------------------------------------- subscribe
+
+// a phone lists only the apps that exist for it; computers list them all
+// (iPadOS reports itself as a Mac, but with touch; Macs have none)
+const PLATFORM = /Android/i.test(navigator.userAgent)
+  ? "android"
+  : /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 0)
+  ? "ios"
+  : null;
+
+function availableHere(app) {
+  return PLATFORM === null || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
+}
 
 /** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
 function renderControl(control) {
+  renderSent(control);
   const dialog = control.nextElementSibling;
   if (!(dialog instanceof HTMLDialogElement)) return;
-  const chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
+  // a choice made on another platform (e.g. synced) counts as none here
+  let chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
+  if (chosen && !availableHere(chosen)) chosen = null;
   const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
 
   if (!chosen) {
@@ -104,17 +152,17 @@ function feedUrlOf(element) {
 }
 
 let hintTimer;
-function showAppleHint() {
-  let hint = document.getElementById("apple-hint");
+function showHint(text) {
+  let hint = document.getElementById("hint");
   if (!hint) {
     hint = document.createElement("div");
-    hint.id = "apple-hint";
+    hint.id = "hint";
     hint.setAttribute("role", "status");
     hint.className =
       "fixed inset-x-0 bottom-4 z-50 mx-auto w-fit max-w-[90vw] rounded-xl bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark px-4 py-3 text-sm shadow-lg text-center";
-    hint.textContent = "Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).";
     document.body.append(hint);
   }
+  hint.textContent = text;
   hint.hidden = false;
   clearTimeout(hintTimer);
   hintTimer = setTimeout(() => (hint.hidden = true), 7000);
@@ -130,7 +178,7 @@ function activate(appId, href, feedUrl, event) {
   if (appId !== "apple" || navigator.maxTouchPoints !== 0) return;
   event.preventDefault();
   navigator.clipboard.writeText(feedUrl).catch(() => {}).finally(() => {
-    showAppleHint();
+    showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
     location.href = href;
   });
 }
@@ -152,6 +200,7 @@ function openDialog(dialog) {
   resetCopy(dialog);
   showQr(dialog, false);
   dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
+  dialog.querySelectorAll("a[data-app]").forEach((app) => (app.closest("li").hidden = !availableHere(app)));
   dialog.showModal();
 }
 
@@ -172,6 +221,7 @@ async function copyLink(button) {
     button.querySelector("svg").outerHTML = ICONS.checkDraw;
     button.querySelector("[data-copy-label]").textContent = "Kopiert!";
     dialog.querySelector("[data-copy-status]").textContent = "RSS-lenken er kopiert";
+    showHint("RSS-lenken er kopiert. Lim den inn i podkast-appen din, under «Legg til via URL» eller lignende.");
     // leave the confirmation visible before closing
     setTimeout(() => {
       dialog.close();
@@ -229,6 +279,11 @@ document.addEventListener("click", (event) => {
   const chosen = target.closest("[data-chosen-app]");
   if (chosen) {
     pulse(chosen);
+    const app = chosen.closest("[data-subscribe]").nextElementSibling
+      .querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
+    if (app) recordSent(feedUrlOf(chosen), app);
+    // only the line: replacing the link mid-click would cancel its navigation
+    renderSent(chosen.closest("[data-subscribe]"));
     activate(chosen.dataset.chosenApp, chosen.href, feedUrlOf(chosen), event);
     return;
   }
@@ -238,6 +293,7 @@ document.addEventListener("click", (event) => {
     const dialog = app.closest("dialog");
     const control = dialog.previousElementSibling;
     activate(app.dataset.app, app.getAttribute("href"), feedUrlOf(app), event);
+    recordSent(feedUrlOf(app), app);
     writeChoice(app.dataset.app);
     dialog.close();
     // the opener was replaced by the split control, so native focus
@@ -278,10 +334,24 @@ document.addEventListener("focusin", (event) => {
   }
 });
 
+// "/" jumps to the search field, unless typing somewhere or in a dialog
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+  const target = event.target;
+  if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, dialog"))) {
+    return;
+  }
+  const input = document.querySelector("[data-search-form] input[name=query]");
+  if (!input) return;
+  event.preventDefault();
+  input.focus();
+  input.select();
+});
+
 // keep every card in sync when a choice is made here or in another tab
 addEventListener(CHANGE_EVENT, () => renderControls());
 addEventListener("storage", (event) => {
-  if (event.key === STORAGE_KEY) renderControls();
+  if (event.key === STORAGE_KEY || event.key === SENT_KEY) renderControls();
 });
 
 // ------------------------------------------------------------------ search

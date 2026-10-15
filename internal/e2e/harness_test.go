@@ -25,6 +25,7 @@ import (
 	"github.com/matsbst/kringkasting/internal/app"
 	"github.com/matsbst/kringkasting/internal/clock"
 	"github.com/matsbst/kringkasting/internal/config"
+	"github.com/matsbst/kringkasting/internal/feed"
 )
 
 const (
@@ -249,6 +250,28 @@ func readGolden(t *testing.T, name string) golden {
 	return g
 }
 
+// Intentional correction to the Deno baseline: feeds link a stylesheet for
+// browsers right after the XML declaration, which changes their bodies and
+// so their ETags. correctedETags maps a baseline ETag to the corrected one,
+// for the conditional-GET goldens that follow each feed's 200.
+var correctedETags = map[string]string{}
+
+const xmlDeclaration = `<?xml version="1.0" encoding="UTF-8"?>`
+
+func correctFeed(g *golden) {
+	if etag, ok := correctedETags[g.headers["etag"]]; ok {
+		g.headers["etag"] = etag
+	}
+	if g.status != http.StatusOK || !strings.HasPrefix(g.body, xmlDeclaration+"<rss") {
+		return
+	}
+	g.body = xmlDeclaration + `<?xml-stylesheet type="text/css" href="` + feed.Stylesheet + `"?>` +
+		strings.TrimPrefix(g.body, xmlDeclaration)
+	corrected := feed.ETagFor(g.body)
+	correctedETags[g.headers["etag"]] = corrected
+	g.headers["etag"] = corrected
+}
+
 // headersExcept are never compared: transport details that legitimately
 // differ between the Deno and Go servers.
 var headersExcept = map[string]bool{"date": true, "content-length": true}
@@ -269,6 +292,7 @@ func compare(t *testing.T, name string, resp *http.Response, mode check) string 
 	if strings.HasPrefix(name, "chapters_") && g.status == http.StatusOK {
 		g.headers["content-type"] = "application/json+chapters"
 	}
+	correctFeed(&g)
 	got := body(resp)
 	if resp.StatusCode != g.status {
 		t.Errorf("%s: status %d, want %d", name, resp.StatusCode, g.status)

@@ -53,11 +53,24 @@ func newStaticFiles(root fs.FS) (*staticFiles, error) {
 	return &staticFiles{files: files}, err
 }
 
-// serve writes the file at urlPath; false when there is none.
-func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, urlPath string) bool {
+// publicOrigin is the public instance's address as written in the text
+// files that describe the site; each instance serves them with its own.
+const publicOrigin = "https://kringkast.ing"
+
+// withOrigin are the text files naming the instance's address.
+var withOrigin = map[string]bool{"/robots.txt": true, "/llms.txt": true}
+
+// serve writes the file at urlPath; false when there is none. origin
+// replaces publicOrigin in the withOrigin files.
+func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, urlPath, origin string) bool {
 	file, ok := s.files[urlPath]
 	if !ok {
 		return false
+	}
+	if withOrigin[urlPath] && origin != publicOrigin {
+		body := []byte(strings.ReplaceAll(string(file.body), publicOrigin, origin))
+		sum := sha256.Sum256(body)
+		file = staticFile{body: body, etag: `W/"` + hex.EncodeToString(sum[:]) + `"`, contentType: file.contentType}
 	}
 	h := w.Header()
 	if strings.HasPrefix(urlPath, "/fonts/") || r.URL.Query().Get("v") != "" {

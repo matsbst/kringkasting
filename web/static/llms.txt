@@ -1,15 +1,24 @@
 # Kringkasting
 
-> Kringkasting (https://kringkast.ing) generates open, public RSS feeds for the podcasts of NRK, Norway's public broadcaster, so listeners can subscribe in any podcast app instead of being locked into NRK's own app. Feeds include the complete episode archive of each show. The service is free, open source (AGPL-3.0), and not affiliated with NRK; all content in the feeds belongs to NRK and is fetched from NRK's open API.
+> Kringkasting turns the podcasts of NRK, Norway's public broadcaster, into open RSS feeds, so they can be followed in any podcast app instead of only in NRK's own app. Each feed carries the show's complete episode archive. The service is free, open source (AGPL-3.0), self-hostable and not affiliated with NRK; all content belongs to NRK, and audio, video and artwork are streamed directly from NRK.
 
-## How it works
+The website is in Norwegian (bokmål). Kringkasting does not select, rank or edit NRK's content: it offers a feed for every podcast, season and radio series NRK's API lists.
 
-- Search for an NRK podcast on https://kringkast.ing and tap "Abonner i app" to subscribe in Apple Podcasts, Overcast, Pocket Casts, Castro, AntennaPod or YouTube Music. Spotify does not support open RSS feeds.
-- A feed for any NRK podcast is available at https://kringkast.ing/api/feeds/{seriesId}, where seriesId is NRK's series slug (for example https://kringkast.ing/api/feeds/oppdatert).
-- Archives are fetched in the background after the first feed request, so a new feed may initially contain only recent episodes. Interrupted crawls resume from saved checkpoints, and archives are retained until manually deleted.
-- Episode checks are request-driven, with base intervals of 3 hours (newest episode under 2 days old), 12 hours (2–30 days), 3 days (30–180 days), and 7 days (180 days or more), plus ±15% jitter. Idle shows are not polled by a timer.
-- Chapter results and the discovery catalog are cached in SQLite for seven days. Retry deadlines survive restarts, use increasing delays, and respect upstream Retry-After headers.
+## Using it
 
-## Source
+- [Search for a podcast](https://kringkast.ing/): search by name, or paste a link to a podcast, season or episode from radio.nrk.no or the NRK app (Del → Kopier lenke). "Abonner i app" opens the feed in Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, Anytime Player or YouTube Music, or copies the RSS address for any other app. On a computer, a QR code hands the subscription over to the phone. Spotify does not support RSS feeds.
+- [Feed address format](https://kringkast.ing/api/feeds/sentralbordet): `/api/feeds/{seriesId}` for a podcast or radio series, where seriesId is the slug in NRK's own address (radio.nrk.no/podkast/{seriesId}), and `/api/feeds/{seriesId}/sesong/{seasonId}` for a season NRK publishes as a show of its own.
+- [Privacy](https://kringkast.ing/personvern): no accounts and no tracking; the chosen app, and which podcasts were sent to an app, are remembered only in the visitor's browser.
 
-- Source code: https://github.com/matsbst/kringkasting (fork of https://github.com/olaven/nrss by Olav Sundfør)
+## What the feeds contain
+
+- The full archive: older episodes are fetched in the background after a feed is first requested, so a new feed may start with only the latest episodes.
+- Chapters ([Podcasting 2.0](https://podcasting2.org/) `podcast:chapters`) where NRK marks them.
+- Video where NRK publishes it, as a `podcast:alternateEnclosure` with NRK's HLS stream; apps without video support play the audio.
+- Some radio programs exist only as HLS streams, which not every podcast app can play.
+
+## Source and self-hosting
+
+- [Source code](https://github.com/matsbst/kringkasting): Go and SQLite in one container; started as a fork of [NRSS](https://github.com/olaven/nrss) by Olav Sundfør.
+- [Self-hosting guide](https://github.com/matsbst/kringkasting/blob/main/docs/self-hosting.md): Docker Compose, NAS and Cloudron.
+- [How NRK's API is used](https://github.com/matsbst/kringkasting/blob/main/docs/nrk-api-usage.md): caching and request limits that keep the load on NRK low.

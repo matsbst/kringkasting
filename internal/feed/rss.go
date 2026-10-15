@@ -33,6 +33,9 @@ func deref(s *string) string {
 	return *s
 }
 
+// Stylesheet is the path of the stylesheet feeds link for browsers.
+const Stylesheet = "/feed.css"
+
 // AssembleFeed renders a series as RSS. origin is this instance's public
 // origin, for absolute URLs back to the app (self link, chapters).
 func AssembleFeed(series *store.Series, origin string) string {
@@ -87,6 +90,10 @@ func AssembleFeed(series *store.Series, origin string) string {
 	// ~800 bytes per episode, so large feeds are built in one allocation
 	return serialize(
 		[]attr{{"version", "1.0"}, {"encoding", "UTF-8"}},
+		// a browser opening the feed shows a readable page instead of raw
+		// XML; podcast apps ignore it. CSS, not XSLT: browsers are
+		// removing XSLT, while CSS for XML stays
+		[]attr{{"type", "text/css"}, {"href", Stylesheet}},
 		node("rss", []tag{node("channel", channel)},
 			attr{"version", "2.0"},
 			attr{"xmlns:itunes", "http://www.itunes.com/dtds/podcast-1.0.dtd"},
