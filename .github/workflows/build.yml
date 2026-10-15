@@ -28,9 +28,10 @@ jobs:
       - run: go build ./cmd/kringkasting
 
   docker:
-    # only publish images from main; PRs just run tests, and version tags
-    # reuse the image built for their commit (the release job)
-    if: github.event_name != 'pull_request' && github.ref_type != 'tag'
+    # only publish images from main; PRs and manual runs on other
+    # branches just run tests, and version tags reuse the image built for
+    # their commit (the release job)
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     permissions:

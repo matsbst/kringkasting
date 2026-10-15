@@ -58,6 +58,9 @@ func run(cfg config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	if cfg.Origin == "" {
+		log.Print("APP_ORIGIN is not set: feed and page URLs follow each request's Host header. Set it to your public URL.")
+	}
 	application, err := app.New(ctx, cfg, app.Options{})
 	if err != nil {
 		return err

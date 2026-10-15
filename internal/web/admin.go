@@ -116,6 +116,23 @@ func (s *Server) isHTTPS(r *http.Request) bool {
 	return r.TLS != nil
 }
 
+const adminMaxBody = 16 << 10
+
+// sameOrigin rejects cross-origin form posts. Browsers send Sec-Fetch-Site
+// (or at least Origin) on POSTs; requests with neither are not from a
+// browser and carry no ambient cookie risk.
+func sameOrigin(r *http.Request) bool {
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" {
+		return site == "same-origin" || site == "none"
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	return err == nil && parsed.Host == r.Host
+}
+
 func noStore(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Robots-Tag", "noindex")
@@ -149,7 +166,11 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseMultipartForm(1 << 20); err != nil && err != http.ErrNotMultipart {
+	// SameSite=Strict still lets sibling subdomains (same site, other
+	// origin) post with the cookie, so require the browser to say the
+	// form came from this origin. The admin forms are a few short fields.
+	r.Body = http.MaxBytesReader(w, r.Body, adminMaxBody)
+	if !sameOrigin(r) || r.ParseForm() != nil {
 		s.adminPage(w, r, adminView{Login: true})
 		return
 	}
@@ -173,7 +194,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// admin actions (POST + the SameSite=Strict cookie keeps this same-origin)
+	// admin actions (POST + the SameSite=Strict cookie + sameOrigin)
 	seriesID := r.PostForm.Get("seriesId")
 	notice := "Ukjent handling"
 	// season feeds have composite "{seriesId}/sesong/{seasonId}" ids

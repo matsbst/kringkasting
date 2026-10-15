@@ -11,7 +11,12 @@ import (
 	"github.com/matsbst/kringkasting/internal/store"
 )
 
-const chaptersTTL = 7 * 24 * time.Hour
+const (
+	chaptersTTL = 7 * 24 * time.Hour
+	// pruneInterval spaces out deleting expired "not found" results, which
+	// any caller can create for arbitrary well-formed ids
+	pruneInterval = time.Hour
+)
 
 // Chapter is one entry of a Podcasting 2.0 chapters file. Title keeps
 // NRK's raw value: absent is omitted and null stays null, as in the Deno
@@ -34,8 +39,9 @@ type Chapters struct {
 	nrk   *nrk.Client
 	retry *retry.Retry
 
-	mu       sync.Mutex
-	inFlight map[string]*chapterCall
+	mu         sync.Mutex
+	inFlight   map[string]*chapterCall
+	lastPruned time.Time
 }
 
 type chapterCall struct {
@@ -123,5 +129,25 @@ func (c *Chapters) fetch(key, seriesID, episodeID string, cached ChaptersResult,
 	stored.Expires = clock.Now().Add(chaptersTTL).UnixMilli()
 	c.store.WriteState(key, stored)
 	c.retry.Clear(key)
+	if status == 404 {
+		c.pruneNotFound()
+	}
 	return result
+}
+
+// pruneNotFound deletes expired 404 results, at most once per
+// pruneInterval. Expired chapters of real episodes are kept: they are the
+// fallback while NRK is unavailable, and their number is bounded by NRK's
+// catalogue.
+func (c *Chapters) pruneNotFound() {
+	c.mu.Lock()
+	now := clock.Now()
+	due := now.Sub(c.lastPruned) >= pruneInterval
+	if due {
+		c.lastPruned = now
+	}
+	c.mu.Unlock()
+	if due {
+		c.store.DeleteExpiredState("chapters:", 404)
+	}
 }
