@@ -48,7 +48,7 @@ docker compose up -d
 
 Open <http://localhost:8000>. The supplied Compose file retains the database in a persistent volume.
 
-**[Self-hosting guide →](docs/self-hosting.md)** — reachable feed addresses, configuration, HTTPS, updates, backups and Cloudron installation.
+**[Self-hosting guide →](docs/self-hosting.md)** — reachable feed addresses, configuration, HTTPS, updates, backup and restore, plus [Synology](docs/self-hosting/synology.md), [QNAP](docs/self-hosting/qnap.md) and Cloudron installation.
 
 ## ℹ️ Good to know
 
