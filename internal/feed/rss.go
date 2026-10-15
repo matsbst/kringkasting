@@ -110,7 +110,7 @@ func assembleEpisode(e store.Episode, seriesID, origin string) tag {
 	if nrk.IsHLS(e.URL) {
 		mediaType = "application/vnd.apple.mpegurl"
 	}
-	return node("item", []tag{
+	children := []tag{
 		text("title", e.Title),
 		text("link", e.ShareLink),
 		text("description", description),
@@ -126,5 +126,15 @@ func assembleEpisode(e store.Episode, seriesID, origin string) tag {
 			// RSS length is the file size in bytes ("0" = unknown)
 			attr{"length", strconv.FormatInt(length, 10)},
 			attr{"type", mediaType}),
-	})
+	}
+	if e.VideoURL != nil {
+		// NRK's own adaptive HLS playlist, as is: players that support the
+		// extension can offer video, others keep the audio enclosure. The
+		// length is unknown ("0", as for enclosures); no bitrate or height
+		// is invented.
+		children = append(children, node("podcast:alternateEnclosure",
+			[]tag{text("podcast:source", "", attr{"uri", *e.VideoURL})},
+			attr{"type", "application/x-mpegURL"}, attr{"length", "0"}, attr{"lang", "no"}, attr{"title", "Video"}))
+	}
+	return node("item", children)
 }

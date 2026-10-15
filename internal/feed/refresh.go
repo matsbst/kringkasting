@@ -38,6 +38,9 @@ type Feeds struct {
 	nrk     *nrk.Client
 	retry   *retry.Retry
 	crawler Enqueuer
+	// Videos, when set, gets a round after each fetch or refresh (not on
+	// plain feed polls, which never reach fetchSeries).
+	Videos Enqueuer
 
 	mu            sync.Mutex
 	notFoundUntil map[string]time.Time
@@ -74,8 +77,13 @@ func (f *Feeds) onFailure(feedID string) nrk.OnEpisodeFailure {
 	return func(episodeID string) { f.store.RecordEpisodeFailure(feedID, episodeID) }
 }
 
+// onClipIDs records clip references of listed episodes already stored.
+func (f *Feeds) onClipIDs(feedID string) func(map[string]string) {
+	return func(clipIDs map[string]string) { f.store.SetClipIDs(feedID, clipIDs) }
+}
+
 func (f *Feeds) initialFetch(id string) (*store.Series, error) {
-	series, outcome := f.fetchFromNrk(id, nrk.FetchOptions{OnEpisodeFailure: f.onFailure(id)})
+	series, outcome := f.fetchFromNrk(id, nrk.FetchOptions{OnEpisodeFailure: f.onFailure(id), OnClipIDs: f.onClipIDs(id)})
 	switch outcome {
 	case nrk.Unavailable:
 		// surface the outage (502) instead of letting the negative cache
@@ -168,7 +176,8 @@ func (f *Feeds) updateFetch(existing *store.Series) *store.Series {
 		for _, s := range stopIDs {
 			stop[s] = true
 		}
-		opts := nrk.FetchOptions{SkipEpisodeIDs: skip, StopEpisodeIDs: stop, OnEpisodeFailure: onFailure}
+		opts := nrk.FetchOptions{SkipEpisodeIDs: skip, StopEpisodeIDs: stop, OnEpisodeFailure: onFailure,
+			OnClipIDs: f.onClipIDs(id)}
 		if hasProgress {
 			opts.CursorHref = &saved.Cursor
 		}
@@ -194,6 +203,7 @@ func (f *Feeds) updateFetch(existing *store.Series) *store.Series {
 
 	update, outcome := f.fetchFromNrk(id, nrk.FetchOptions{
 		SkipEpisodeIDs: skip, OnEpisodeFailure: onFailure, CatalogKind: existing.CatalogKind,
+		OnClipIDs: f.onClipIDs(id),
 	})
 	if outcome != nrk.Found {
 		// NRK outage or rate limiting: serve the stale copy rather than
@@ -301,6 +311,9 @@ func (f *Feeds) fetchSeries(id string) (*store.Series, error) {
 	// make sure the full archive gets (or resumes getting) crawled
 	if series != nil && !series.BacklogComplete {
 		f.crawler.Enqueue(series.ID)
+	}
+	if series != nil && f.Videos != nil {
+		f.Videos.Enqueue(series.ID)
 	}
 	return series, nil
 }

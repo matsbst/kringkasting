@@ -110,8 +110,8 @@ func (s *Store) ReadSeries(id string) (*Series, error) {
 		series.MetadataRefreshedAt = &t
 	}
 
-	rows, err := s.read.Query(`SELECT id, title, subtitle, url, share_link, date, duration_seconds, bytes
-		FROM episodes WHERE series_id = ? ORDER BY date DESC`, id)
+	rows, err := s.read.Query(`SELECT id, title, subtitle, url, share_link, date, duration_seconds, bytes,
+		clip_id, video_url FROM episodes WHERE series_id = ? ORDER BY date DESC`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +124,15 @@ func (s *Store) ReadSeries(id string) (*Series, error) {
 			date     int64
 			duration float64 // REAL in rows written from fractional JS numbers
 			bytes    sql.NullInt64
+			clip     sql.NullString
+			video    sql.NullString
 		)
-		if err := rows.Scan(&e.ID, &e.Title, &sub, &e.URL, &e.ShareLink, &date, &duration, &bytes); err != nil {
+		if err := rows.Scan(&e.ID, &e.Title, &sub, &e.URL, &e.ShareLink, &date, &duration, &bytes, &clip, &video); err != nil {
 			return nil, err
 		}
 		e.Subtitle = nullString(sub)
+		e.ClipID = nullString(clip)
+		e.VideoURL = nullString(video)
 		e.Date = fromMs(date)
 		e.DurationInSeconds = int64(math.Round(duration))
 		if bytes.Valid {
@@ -196,8 +200,8 @@ func (s *Store) AddEpisodes(seriesID string, episodes []Episode) bool {
 
 func insertEpisodes(tx *sql.Tx, seriesID string, episodes []Episode) error {
 	stmt, err := tx.Prepare(`
-    INSERT INTO episodes (series_id, id, title, subtitle, url, share_link, date, duration_seconds, bytes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO episodes (series_id, id, title, subtitle, url, share_link, date, duration_seconds, bytes, clip_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(series_id, id) DO UPDATE SET
       title = excluded.title,
       subtitle = excluded.subtitle,
@@ -205,14 +209,15 @@ func insertEpisodes(tx *sql.Tx, seriesID string, episodes []Episode) error {
       share_link = excluded.share_link,
       date = excluded.date,
       duration_seconds = excluded.duration_seconds,
-      bytes = COALESCE(excluded.bytes, episodes.bytes)`)
+      bytes = COALESCE(excluded.bytes, episodes.bytes),
+      clip_id = COALESCE(excluded.clip_id, episodes.clip_id)`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, e := range episodes {
 		if _, err := stmt.Exec(seriesID, e.ID, e.Title, e.Subtitle, e.URL, e.ShareLink, ms(e.Date),
-			e.DurationInSeconds, e.Bytes); err != nil {
+			e.DurationInSeconds, e.Bytes, e.ClipID); err != nil {
 			return err
 		}
 	}

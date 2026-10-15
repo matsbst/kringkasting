@@ -52,6 +52,8 @@ type Crawler struct {
 	pageDelay time.Duration
 	// OnPanic reports a crashed crawl (wired to error reporting).
 	OnPanic func(err error)
+	// AfterPage is told when a page added episodes (video lookups).
+	AfterPage func(feedID string)
 
 	mu      sync.Mutex
 	queue   []string
@@ -207,6 +209,11 @@ func (c *Crawler) crawl(feedID string) {
 			log.Printf("Backlog crawl for %s paused: episode write failed", feedID)
 			c.pause(feedID, "databaselagring feilet")
 			return
+		}
+		// clip references for listed episodes stored earlier
+		c.store.SetClipIDs(feedID, page.ClipIDs)
+		if len(page.Episodes) > 0 && c.AfterPage != nil {
+			c.AfterPage(feedID)
 		}
 		if page.TransientFailures > 0 {
 			// NRK hiccups on some manifests: retry this page later instead

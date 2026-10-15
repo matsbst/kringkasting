@@ -27,8 +27,9 @@ The subscribe chooser includes Apple Podcasts, Overcast, Pocket Casts, Castro, D
 - **Full episode archives:** the service fetches the available back catalog, beyond the latest page of episodes.
 - **Season subscriptions:** subscribe to an individual season where NRK publishes one separately.
 - **NRK's chapter markers:** available in supporting players when NRK provides them.
+- **NRK's video, where available:** players that support video podcasts, such as Pocket Casts and Podcast Addict, can show the video NRK publishes for an episode. Other players keep the audio.
 - **Your choice of app:** the website remembers your selection in your browser. Search and subscription links also work without JavaScript.
-- **No media hosting:** audio and artwork come directly from NRK. Kringkasting provides the feeds and stores podcast metadata.
+- **No media hosting:** audio, video and artwork come directly from NRK. Kringkasting provides the feeds and stores podcast metadata.
 - **Your own instance, if you want one:** a small Go app in one container, with SQLite and no required external services.
  
 

@@ -18,6 +18,7 @@ import (
 	"github.com/matsbst/kringkasting/internal/retry"
 	"github.com/matsbst/kringkasting/internal/stats"
 	"github.com/matsbst/kringkasting/internal/store"
+	"github.com/matsbst/kringkasting/internal/video"
 	"github.com/matsbst/kringkasting/internal/web"
 )
 
@@ -33,6 +34,7 @@ type App struct {
 	Handler http.Handler
 	Store   *store.Store
 	Crawler *crawl.Crawler
+	Videos  *video.Worker
 	Stats   *stats.Stats
 }
 
@@ -55,10 +57,15 @@ func New(ctx context.Context, cfg config.Config, opts Options) (*App, error) {
 	client := nrk.New(opts.Transport, retries, counters)
 	crawler := crawl.New(ctx, db, client, retries, pageDelay)
 	crawler.OnPanic = func(err error) { reporter.Capture(err, map[string]string{"kind": "backlog"}) }
+	videos := video.New(ctx, db, client, retries)
+	videos.OnPanic = func(err error) { reporter.Capture(err, map[string]string{"kind": "video"}) }
+	crawler.AfterPage = videos.Enqueue
+	feeds := feed.NewFeeds(db, client, retries, crawler)
+	feeds.Videos = videos
 
 	handler, err := web.New(web.Deps{
 		Config: cfg, Store: db, NRK: client, Crawler: crawler, Stats: counters, Reporter: reporter,
-		Feeds:    feed.NewFeeds(db, client, retries, crawler),
+		Feeds:    feeds,
 		Cache:    feed.NewCache(),
 		Chapters: feed.NewChapters(db, client, retries),
 		Catalog:  catalog.New(db, client, retries),
@@ -67,13 +74,16 @@ func New(ctx context.Context, cfg config.Config, opts Options) (*App, error) {
 		db.Close()
 		return nil, err
 	}
-	return &App{Handler: handler, Store: db, Crawler: crawler, Stats: counters}, nil
+	return &App{Handler: handler, Store: db, Crawler: crawler, Videos: videos, Stats: counters}, nil
 }
 
 // Close waits (bounded by ctx) for the crawler to stop, then closes the
 // database. Cancel the context given to New first.
 func (a *App) Close(ctx context.Context) error {
 	waitErr := a.Crawler.WaitIdle(ctx)
+	if err := a.Videos.WaitIdle(ctx); err != nil && waitErr == nil {
+		waitErr = err
+	}
 	if err := a.Store.Close(); err != nil {
 		return err
 	}
