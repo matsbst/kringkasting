@@ -21,3 +21,8 @@ vendor/
 .agents/
 .claude/
 skills-lock.json
+
+# Go build
+.cache/
+web/static/assets/
+/kringkasting
