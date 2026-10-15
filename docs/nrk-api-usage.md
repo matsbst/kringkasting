@@ -21,6 +21,7 @@ The interval has ±15% jitter. New episodes in a long-dormant show may therefore
 | Operation            | Upstream work and cache policy                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Search               | Results cached in memory for 5 minutes per query                                                                                            |
+| Pasted NRK link      | One series request; a season link adds the season; an episode of an umbrella podcast adds the episode and its season. Cached 5 minutes, same rate limit as search; the pasted URL itself is never fetched |
 | Discovery catalog    | Complete catalog persisted in SQLite for 7 days, loaded on demand; restarts reuse it                                                        |
 | Episode refresh      | Usually one listing request, following additional pages only until the original saved-episode boundary is reached                           |
 | New playable episode | One playback manifest lookup and one HEAD request for enclosure byte size                                                                   |

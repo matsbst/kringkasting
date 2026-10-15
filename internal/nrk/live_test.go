@@ -8,8 +8,10 @@ package nrk
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/matsbst/kringkasting/internal/nrklink"
 	"github.com/matsbst/kringkasting/internal/retry"
 	"github.com/matsbst/kringkasting/internal/stats"
 	"github.com/matsbst/kringkasting/internal/testutil"
@@ -65,5 +67,49 @@ func TestLiveChapters(t *testing.T) {
 	detail, status := c.GetEpisodeResult("sentralbordet", episodeID)
 	if status != 200 || detail == nil || len(detail.IndexPoints) == 0 {
 		t.Errorf("chapters for %s: status %d, %+v", episodeID, status, detail)
+	}
+}
+
+func TestLiveResolveLinks(t *testing.T) {
+	c := liveClient(t)
+	for _, tc := range []struct {
+		url  string
+		want []string // feed ids, in order
+	}{
+		{"https://radio.nrk.no/podkast/sentralbordet", []string{"sentralbordet"}},
+		{"https://radio.nrk.no/podkast/musikkhistorier/sesong/miles-davis--bak-mytene",
+			[]string{"musikkhistorier/sesong/miles-davis--bak-mytene", "musikkhistorier"}},
+		{"https://radio.nrk.no/serie/radioteatret-nrk-p1pluss", []string{"radioteatret-nrk-p1pluss"}},
+	} {
+		link, result := nrklink.Parse(tc.url)
+		if result != nrklink.Supported {
+			t.Fatalf("%s: not supported", tc.url)
+		}
+		resolution, outcome := c.Resolve(link)
+		var got []string
+		for _, show := range resolution.Shows {
+			id := show.SeriesID
+			if show.SeasonID != "" {
+				id += "/sesong/" + show.SeasonID
+			}
+			got = append(got, id)
+			if show.Title == "" || show.ImageURL == "" {
+				t.Errorf("%s: incomplete show %+v", tc.url, show)
+			}
+		}
+		if outcome != Found || strings.Join(got, " ") != strings.Join(tc.want, " ") {
+			t.Errorf("%s: %v %v, want %v", tc.url, outcome, got, tc.want)
+		}
+	}
+
+	// an episode of an umbrella podcast's season resolves to that season
+	page := c.GetEpisodePage("musikkhistorier/sesong/miles-davis--bak-mytene", "", map[string]bool{}, nil, nil)
+	if page == nil || len(page.Episodes) == 0 {
+		t.Fatal("no Miles Davis episodes")
+	}
+	link, _ := nrklink.Parse(page.Episodes[0].ShareLink)
+	resolution, _ := c.Resolve(link)
+	if len(resolution.Shows) != 2 || resolution.Shows[0].SeasonID != "miles-davis--bak-mytene" || !resolution.Episode {
+		t.Errorf("episode share link %s resolved to %+v", page.Episodes[0].ShareLink, resolution)
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/matsbst/kringkasting/internal/feedid"
 	"github.com/matsbst/kringkasting/internal/nrk"
+	"github.com/matsbst/kringkasting/internal/nrklink"
 	"github.com/matsbst/kringkasting/internal/store"
 )
 
@@ -108,9 +109,91 @@ func pickImage(images []nrk.SearchImage, wanted int) string {
 	return best.URI
 }
 
+// maxLinkLength bounds pasted NRK links, which run longer than names (an
+// episode link is ~110 characters).
+const maxLinkLength = 500
+
+// found is the outcome of a query: a name search, or a pasted NRK link.
+type found struct {
+	summaries []SeriesSummary
+	labels    []string // per summary; set for link results offering a choice
+	link      bool     // the query was a supported NRK link
+	episode   bool     // ... to a single episode
+	// unsupported: the query looks like a link, but not one we can resolve
+	unsupported bool
+	// notFound: a supported link to a podcast NRK doesn't know
+	notFound bool
+	// failed: NRK was unavailable
+	failed bool
+}
+
+// queryAllowed applies the length limits: names 2–100 characters, links
+// up to maxLinkLength.
+func queryAllowed(query string) bool {
+	n := jsLength(query)
+	if _, result := nrklink.Parse(query); result != nrklink.NotALink {
+		return n <= maxLinkLength
+	}
+	return n >= minQueryLength && n <= maxQueryLength
+}
+
+// find runs a name search, or resolves a pasted NRK link to the feeds it
+// can be subscribed as. The caller has applied rate limits.
+func (s *Server) find(query string) found {
+	link, result := nrklink.Parse(query)
+	switch result {
+	case nrklink.Unsupported:
+		return found{unsupported: true}
+	case nrklink.Supported:
+		resolution, outcome := s.NRK.Resolve(link)
+		switch outcome {
+		case nrk.Unavailable:
+			return found{link: true, failed: true}
+		case nrk.NotFound:
+			return found{link: true, notFound: true}
+		}
+		f := found{link: true, episode: resolution.Episode}
+		ids := make([]string, len(resolution.Shows))
+		for i, show := range resolution.Shows {
+			summary := SeriesSummary{SeriesID: show.SeriesID, SeasonID: show.SeasonID, Title: show.Title,
+				Description: show.Description}
+			if show.ImageURL != "" {
+				image := show.ImageURL
+				summary.ImageURL = &image
+			}
+			f.summaries = append(f.summaries, summary)
+			ids[i] = summary.FeedID()
+		}
+		streamOnly := s.Store.StreamOnlySeriesIDs(ids)
+		for i := range f.summaries {
+			f.summaries[i].StreamOnly = streamOnly[ids[i]]
+		}
+		// with a season and the whole podcast on offer, say which is which
+		if len(resolution.Shows) > 1 {
+			whole := resolution.Shows[len(resolution.Shows)-1]
+			for _, show := range resolution.Shows {
+				switch {
+				case show.SeasonID != "":
+					f.labels = append(f.labels, "Sesong i «"+whole.Title+"»")
+				case link.Kind == nrklink.Series:
+					f.labels = append(f.labels, "Hele serien")
+				default:
+					f.labels = append(f.labels, "Hele podkasten")
+				}
+			}
+		}
+		return f
+	}
+	results := s.NRK.Search(query)
+	if results == nil {
+		return found{failed: true}
+	}
+	return found{summaries: s.toSummaries(results)}
+}
+
 func (s *Server) searchAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	if n := jsLength(query); n < minQueryLength || n > maxQueryLength {
+	if !queryAllowed(query) {
 		writeJSON(w, http.StatusOK, map[string][]SeriesSummary{"results": {}})
 		return
 	}
@@ -119,15 +202,19 @@ func (s *Server) searchAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Stats.RecordSearchServed()
-	results := s.NRK.Search(query)
-	if results == nil {
+	f := s.find(query)
+	if f.failed {
 		// upstream failure: never cache it as an empty result
 		w.Header().Set("Cache-Control", "no-store")
 		writeJSON(w, http.StatusServiceUnavailable, message{"Search unavailable"})
 		return
 	}
 	setCacheHeaders(w, searchTTL, searchTTL)
-	writeJSON(w, http.StatusOK, map[string][]SeriesSummary{"results": s.toSummaries(results)})
+	summaries := f.summaries
+	if summaries == nil {
+		summaries = []SeriesSummary{}
+	}
+	writeJSON(w, http.StatusOK, map[string][]SeriesSummary{"results": summaries})
 }
 
 // searchView is the search UI state rendered below the form.
@@ -140,6 +227,13 @@ type searchView struct {
 	Failed      bool
 	Cards       []card
 	Suggestions []string
+	// Link: the results come from a pasted NRK link
+	Link bool
+	// Notice explains a link result (e.g. a link to a single episode)
+	Notice string
+	// UnsupportedLink / LinkNotFound: messages instead of results
+	UnsupportedLink bool
+	LinkNotFound    bool
 }
 
 type appLink struct {
@@ -152,8 +246,10 @@ type card struct {
 	SeriesSummary
 	FeedURL, ShareURL, NrkURL, DialogID string
 	ImageURL, Description               string
-	Apps                                []appLink
-	SpotifyIcon                         template.HTML
+	// Label says what a link result subscribes to ("Hele podkasten")
+	Label       string
+	Apps        []appLink
+	SpotifyIcon template.HTML
 }
 
 var notIDChars = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
@@ -215,6 +311,38 @@ func (s *Server) suggestions() []string {
 	return fallbackSuggestions
 }
 
+// applyFound fills the search view from a find result.
+func (s *Server) applyFound(view *searchView, origin string, f found) {
+	switch {
+	case f.failed:
+		view.Failed = true
+		view.Status = "Søket feilet. Prøv igjen."
+	case f.unsupported:
+		view.UnsupportedLink = true
+		view.Status = "Lenken støttes ikke"
+	case f.notFound:
+		view.LinkNotFound = true
+		view.Status = "Fant ikke podkasten i lenken"
+	default:
+		view.HasResults = true
+		view.Link = f.link
+		view.Cards = s.cards(origin, f.summaries)
+		for i := range view.Cards {
+			if i < len(f.labels) {
+				view.Cards[i].Label = f.labels[i]
+			}
+		}
+		if f.episode {
+			view.Notice = "Lenken går til én episode. Abonnerer du, får du alle episodene."
+		}
+		if f.link {
+			view.Status = resultsStatus("NRK-lenken", len(view.Cards))
+		} else {
+			view.Status = resultsStatus(view.Query, len(view.Cards))
+		}
+	}
+}
+
 func resultsStatus(query string, count int) string {
 	if count == 0 {
 		return "Ingen treff for " + query
@@ -228,18 +356,17 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	view := searchView{Input: query, Suggestions: s.suggestions()}
 
 	trimmed := strings.TrimSpace(query)
-	if query != "" && jsLength(trimmed) >= minQueryLength {
+	if query != "" && queryAllowed(trimmed) {
 		// same admission control as /api/search; over the limit the page
 		// renders without results rather than querying NRK
 		if s.limiter.allowScoped("search", clientKey(r), 30, 0.5, 120, 2) {
-			results := s.NRK.Search(query)
-			if results == nil {
-				results = []nrk.SearchResult{}
-			}
-			view.HasResults = true
-			view.Cards = s.cards(origin, s.toSummaries(results))
 			view.Query = trimmed
-			view.Status = resultsStatus(trimmed, len(view.Cards))
+			f := s.find(trimmed)
+			if f.failed && !f.link {
+				// as before: a failed name search renders as no matches
+				f = found{summaries: []SeriesSummary{}}
+			}
+			s.applyFound(&view, origin, f)
 		}
 	}
 
@@ -271,7 +398,7 @@ func jsonLD(origin string) template.HTML {
 		},
 	})
 	// "<" can't end the script element early when escaped
-	return template.HTML(`<script type="application/ld+json">` + strings.ReplaceAll(encoded, "<", `<`) + `</script>`)
+	return template.HTML(`<script type="application/ld+json">` + strings.ReplaceAll(encoded, "<", "\\u003c") + `</script>`)
 }
 
 // searchFragment returns the rendered results area for the client-side
@@ -282,8 +409,8 @@ func (s *Server) searchFragment(w http.ResponseWriter, r *http.Request) {
 	view := searchView{Query: query}
 	status := http.StatusOK
 
-	switch n := jsLength(query); {
-	case n < minQueryLength || n > maxQueryLength:
+	switch {
+	case jsLength(query) < minQueryLength || !queryAllowed(query):
 		view.Suggestions = s.suggestions()
 		w.Header().Set("Cache-Control", "no-store")
 	case !s.limiter.allowScoped("search", clientKey(r), 30, 0.5, 120, 2):
@@ -292,15 +419,13 @@ func (s *Server) searchFragment(w http.ResponseWriter, r *http.Request) {
 		view.Failed, status = true, http.StatusTooManyRequests
 	default:
 		s.Stats.RecordSearchServed()
-		results := s.NRK.Search(query)
-		if results == nil {
+		f := s.find(query)
+		s.applyFound(&view, s.origin(r), f)
+		if f.failed {
 			w.Header().Set("Cache-Control", "no-store")
-			view.Failed, status = true, http.StatusServiceUnavailable
+			status = http.StatusServiceUnavailable
 			break
 		}
-		view.HasResults = true
-		view.Cards = s.cards(s.origin(r), s.toSummaries(results))
-		view.Status = resultsStatus(query, len(view.Cards))
 		setCacheHeaders(w, searchTTL, searchTTL)
 	}
 
