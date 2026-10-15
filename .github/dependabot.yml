@@ -1,5 +1,8 @@
 version: 2
 updates:
+  # Go modules, including the staticcheck tool (go.mod `tool` directive).
+  # Not covered by Dependabot: the Tailwind CLI version and checksums in
+  # tools/build-css.sh; update those by hand.
   - package-ecosystem: gomod
     directory: /
     schedule:
@@ -13,6 +16,7 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
+  # the Go builder and Alpine runtime images in the Dockerfile, together
   - package-ecosystem: docker
     directory: /
     schedule:
@@ -21,6 +25,9 @@ updates:
       time: "09:00"
       timezone: Europe/Oslo
     open-pull-requests-limit: 5
+    groups:
+      docker-images:
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     directory: /
