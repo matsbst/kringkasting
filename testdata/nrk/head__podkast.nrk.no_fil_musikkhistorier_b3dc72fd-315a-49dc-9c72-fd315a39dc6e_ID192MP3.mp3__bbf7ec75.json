@@ -1,0 +1,10 @@
+{
+  "method": "HEAD",
+  "url": "https://podkast.nrk.no/fil/musikkhistorier/b3dc72fd-315a-49dc-9c72-fd315a39dc6e_ID192MP3.mp3",
+  "status": 200,
+  "headers": {
+    "content-type": "audio/mpeg",
+    "content-length": "77823980"
+  },
+  "body": ""
+}

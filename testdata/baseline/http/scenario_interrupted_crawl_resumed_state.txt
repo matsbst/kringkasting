@@ -1,0 +1,60 @@
+# series: id | backlog_complete | backlog_cursor | catalog_kind | is_umbrella
+radioteatret-nrk-p1pluss | 1 |  | series | 0
+# episodes: series_id | id | url | date | duration_seconds | bytes
+radioteatret-nrk-p1pluss | 042b31b60cd600e996fc66c85e4aa4a8 | https://nrkod96-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39001114/101aa5e6-1.smil/muxed.m3u8?adap=audio&aco=aac | 1394877780000 | 1620 | 
+radioteatret-nrk-p1pluss | 0be174f37b7bcb1a862f543f72f2ae50 | https://nrk-od-world-78.akamaized.net/open/ps/dmpo/dmpo39003514/63fafdc7-3.smil/muxed.m3u8?adap=audio&aco=aac | 1409389380000 | 1620 | 
+radioteatret-nrk-p1pluss | 0e5ba769ab1140cf857b8b150b50bea4 | https://nrk-od-world-23.akamaized.net/open/ps/dmpo/dmpo39004114/53e5527d-3.smil/muxed.m3u8?adap=audio&aco=aac | 1413018180000 | 1620 | 
+radioteatret-nrk-p1pluss | 0f00a0d6dc9025ab0c6c4836329e6ea3 | https://nrkod81-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39009714/f870e76f-4.smil/muxed.m3u8?adap=audio&aco=aac | 1415442600000 | 1800 | 
+radioteatret-nrk-p1pluss | 1173c1a65dcd7cb65cfea7197f8b4475 | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39003314/eb3b30b8-3.smil/muxed.m3u8?adap=audio&aco=aac | 1408179780000 | 1620 | 
+radioteatret-nrk-p1pluss | 19de3e6a0492f9f7a16772c363fa206d | https://nrkod57-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39009614/08d9b0d0-4.smil/muxed.m3u8?adap=audio&aco=aac | 1414837800000 | 1800 | 
+radioteatret-nrk-p1pluss | 27561aa9f4cc05a5cdb7ce76ab354789 | https://nrkod11-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002414/de7bb87f-1.smil/muxed.m3u8?adap=audio&aco=aac | 1402736580000 | 1620 | 
+radioteatret-nrk-p1pluss | 27e6399ae589934eea09b35ff4093b3d | https://nrkod77-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000214/6c46c914-0.smil/muxed.m3u8?adap=audio&aco=aac | 1389434580000 | 1620 | 
+radioteatret-nrk-p1pluss | 2a9162d05e6eaf2bfd562ccb43ceecc4 | https://nrkod99-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000714/c1993f92-1.smil/muxed.m3u8?adap=audio&aco=aac | 1392458580000 | 1620 | 
+radioteatret-nrk-p1pluss | 2b379065bac16a0365fd99521f33970a | https://nrkod84-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002714/47a5fe8f-1.smil/muxed.m3u8?adap=audio&aco=aac | 1404550980000 | 1620 | 
+radioteatret-nrk-p1pluss | 2d1aebda025a0a63578836a14c31cfe9 | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo44002514/5e9943f1-3.smil/muxed.m3u8?adap=audio&aco=aac | 1403359380000 | 7020 | 
+radioteatret-nrk-p1pluss | 2e87a26ac37b12e4b3eeebfcf16b4309 | https://nrk-od-world-47.akamaized.net/open/ps/dmpo/dmpo44001914/64215b21-3.smil/muxed.m3u8?adap=audio&aco=aac | 1399730580000 | 7020 | 
+radioteatret-nrk-p1pluss | 2ecc24c7f20615d5a36dc6419faed990 | https://nrkod87-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002314/60fe29d5-1.smil/muxed.m3u8?adap=audio&aco=aac | 1402131780000 | 1620 | 
+radioteatret-nrk-p1pluss | 358135f134c5a933f4e7ad767291e143 | https://nrk-od-world-26.akamaized.net/open/ps/dmpo/dmpo39003714/3a3f2255-3.smil/muxed.m3u8?adap=audio&aco=aac | 1410598980000 | 1620 | 
+radioteatret-nrk-p1pluss | 3ece0ea99e7a68ade1bb89aa048ab2da | https://nrkod20-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo44002214/50025864-3.smil/muxed.m3u8?adap=audio&aco=aac | 1401544980000 | 7020 | 
+radioteatret-nrk-p1pluss | 448858e2a2fb773a40e1a449e5e4c29a | https://nrk-od-world-33.akamaized.net/open/ps/dmpo/dmpo39009514/417999b2-4.smil/muxed.m3u8?adap=audio&aco=aac | 1414229400000 | 1800 | 
+radioteatret-nrk-p1pluss | 45b1a715505a620825694303ca913d6e | https://nrk-od-world-53.akamaized.net/open/ps/dmpo/dmpo39000114/46f66451-0.smil/muxed.m3u8?adap=audio&aco=aac | 1388829780000 | 1620 | 
+radioteatret-nrk-p1pluss | 47c22003f9c2433f0a8d54184e7a3536 | https://nrkod62-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002214/6f8d4822-1.smil/muxed.m3u8?adap=audio&aco=aac | 1401526980000 | 1620 | 
+radioteatret-nrk-p1pluss | 497c373ef6296d3b0f14d7e5f2698fcd | https://nrkod92-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39001313/bc4eb7e4-2.smil/muxed.m3u8?adap=audio&aco=aac | 1388224980000 | 2353 | 
+radioteatret-nrk-p1pluss | 4b88ff1ef5035bb9e7618b66ab59f481 | https://nrk-od-world-59.akamaized.net/open/ps/dmpo/dmpo39002614/50bfd9d7-1.smil/muxed.m3u8?adap=audio&aco=aac | 1403946180000 | 1620 | 
+radioteatret-nrk-p1pluss | 4ce69c306d04afea77bec074a30d46fd | https://nrkod68-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39001414/621bc3d2-1.smil/muxed.m3u8?adap=audio&aco=aac | 1396688580000 | 1620 | 
+radioteatret-nrk-p1pluss | 56b1256b64dceeff4277028c3ad1ba0b | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39001514/b6c6494e-1.smil/muxed.m3u8?adap=audio&aco=aac | 1397293380000 | 1620 | 
+radioteatret-nrk-p1pluss | 58584e7112cd9d018aec7eadc767ac88 | https://nrk-od-world-71.akamaized.net/open/ps/dmpo/dmpo39001014/7ffed5bb-1.smil/muxed.m3u8?adap=audio&aco=aac | 1394272980000 | 1020 | 
+radioteatret-nrk-p1pluss | 5972893f3cf4d3fe06629c0afada3d5b | https://nrkod74-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo44001614/114a1ba7-1.smil/muxed.m3u8?adap=audio&aco=aac | 1397916180000 | 7020 | 
+radioteatret-nrk-p1pluss | 5fdd39e5201a3272d3b4cdfdc7498d06 | https://nrk-od-world-81.akamaized.net/open/ps/dmpo/dmpo39003114/77aa7f0b-1.smil/muxed.m3u8?adap=audio&aco=aac | 1406970180000 | 1620 | 
+radioteatret-nrk-p1pluss | 621442cb92abea5a75b7bee7d3f3cdc2 | https://nrk-od-world-23.akamaized.net/open/ps/dmpo/dmpo39000814/cfdac264-1.smil/muxed.m3u8?adap=audio&aco=aac | 1393063380000 | 1620 | 
+radioteatret-nrk-p1pluss | 679b23379714c817f384b65fdc046f7f | https://nrkod32-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002914/ba4006ae-1.smil/muxed.m3u8?adap=audio&aco=aac | 1405760580000 | 1620 | 
+radioteatret-nrk-p1pluss | 6c87488025ce71a4bb23b658c7a75cfe | https://nrkod41-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39001714/b29292cb-1.smil/muxed.m3u8?adap=audio&aco=aac | 1398502980000 | 1620 | 
+radioteatret-nrk-p1pluss | 77ce380dde6142736e809e2ed9e0f51d | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39001914/220e2f38-1.smil/muxed.m3u8?adap=audio&aco=aac | 1399712580000 | 1620 | 
+radioteatret-nrk-p1pluss | 7e11c5ec4ff26503e45ecdf110f802bc | https://nrk-od-world-98.akamaized.net/open/ps/dmpo/dmpo44001714/aa4c8e6a-2.smil/muxed.m3u8?adap=audio&aco=aac | 1398520980000 | 7020 | 
+radioteatret-nrk-p1pluss | 7e82f1bb16dd3c5dbf0ac33d3cfa43df | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo44002414/f38b2636-3.smil/muxed.m3u8?adap=audio&aco=aac | 1402754580000 | 7020 | 
+radioteatret-nrk-p1pluss | 7f2cebaa776c65d1c195a7aef1607741 | https://nrkod26-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000414/77b9ee74-1.smil/muxed.m3u8?adap=audio&aco=aac | 1390644180000 | 1620 | 
+radioteatret-nrk-p1pluss | 83729ec83863ce769586b40a1319a0d1 | https://nrkod44-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39001314/60f569eb-1.smil/muxed.m3u8?adap=audio&aco=aac | 1396087380000 | 1620 | 
+radioteatret-nrk-p1pluss | 8580f7818625b811684192c18474943f | https://nrkod47-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000914/4bc93592-1.smil/muxed.m3u8?adap=audio&aco=aac | 1393668180000 | 1620 | 
+radioteatret-nrk-p1pluss | 8ae3517db0ecad5ba05c65cdeb4d6792 | https://nrk-od-world-53.akamaized.net/open/ps/dmpo/dmpo39003414/23598a9f-3.smil/muxed.m3u8?adap=audio&aco=aac | 1408784580000 | 1620 | 
+radioteatret-nrk-p1pluss | 8e268acb2d2f0bb438ff70c85060a35d | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39009914/017e8023-4.smil/muxed.m3u8?adap=audio&aco=aac | 1416652200000 | 1800 | 
+radioteatret-nrk-p1pluss | 8f86b6019a2a09d25228326e811e2269 | https://nrkod74-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000614/4a9b4297-1.smil/muxed.m3u8?adap=audio&aco=aac | 1391853780000 | 1620 | 
+radioteatret-nrk-p1pluss | 930f8ed22150b2cc238329c03b7da658 | https://nrkod75-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39003914/a73c7893-3.smil/muxed.m3u8?adap=audio&aco=aac | 1411808580000 | 1620 | 
+radioteatret-nrk-p1pluss | 93d7e0680c07d49336b5e07aec654f9b | https://nrk-od-world-20.akamaized.net/open/ps/dmpo/dmpo39001214/aab6b156-1.smil/muxed.m3u8?adap=audio&aco=aac | 1395482580000 | 1620 | 
+radioteatret-nrk-p1pluss | 9aba1ca7d6917298bdfa23180a1c22df | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39002814/62be3d89-1.smil/muxed.m3u8?adap=audio&aco=aac | 1405155780000 | 1620 | 
+radioteatret-nrk-p1pluss | 9c965698a77ca064fde93c1b0c1ba982 | https://nrk-od-world-02.akamaized.net/open/ps/dmpo/dmpo39003614/60a04f17-3.smil/muxed.m3u8?adap=audio&aco=aac | 1409994180000 | 1620 | 
+radioteatret-nrk-p1pluss | 9fa8927a005d2a2163cf28c7a8341345 | https://nrk-od-world-50.akamaized.net/open/ps/dmpo/dmpo39003814/be51ffaf-3.smil/muxed.m3u8?adap=audio&aco=aac | 1411203780000 | 1620 | 
+radioteatret-nrk-p1pluss | a1eee0f0d9d7cc93721e3e9d73574b3c | https://nrk-od2.telenorcdn.net/open/ps/dmpo/dmpo39001614/d308b37c-1.smil/muxed.m3u8?adap=audio&aco=aac | 1397898180000 | 1620 | 
+radioteatret-nrk-p1pluss | a5c6fd94b35545e82b2cdbfd3b981c31 | https://nrk-od-world-65.akamaized.net/open/ps/dmpo/dmpo39001814/320f3f7b-1.smil/muxed.m3u8?adap=audio&aco=aac | 1399107780000 | 1620 | 
+radioteatret-nrk-p1pluss | b8677b2ab723303787b8bb5002ec5164 | https://nrk-od-world-54.akamaized.net/open/ps/dmpo/dmpo39010014/e85497e8-5.smil/muxed.m3u8?adap=audio&aco=aac | 1417257000000 | 1800 | 
+radioteatret-nrk-p1pluss | b9c9a5bb877edf8da29988020246beb1 | https://nrkod02-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000314/ef26b53b-1.smil/muxed.m3u8?adap=audio&aco=aac | 1390039380000 | 1620 | 
+radioteatret-nrk-p1pluss | bb80804cbb58ece1af1a22c14cd0950a | https://nrk-od-world-38.akamaized.net/open/ps/dmpo/dmpo39002114/c8c000ce-1.smil/muxed.m3u8?adap=audio&aco=aac | 1400922180000 | 1620 | 
+radioteatret-nrk-p1pluss | bd6819533d0d006ac343458f881c0d0f | https://nrkod23-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo44001814/c3632430-1.smil/muxed.m3u8?adap=audio&aco=aac | 1399125780000 | 7020 | 
+radioteatret-nrk-p1pluss | cce7778cb7b4d375d9faee02b18da2a6 | https://nrk-od-world-05.akamaized.net/open/ps/dmpo/dmpo39003214/ab3dff23-1.smil/muxed.m3u8?adap=audio&aco=aac | 1407574980000 | 1620 | 
+radioteatret-nrk-p1pluss | d44d58f144aabf38f291a77b36b094cb | https://nrkod06-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39009814/c047f73f-4.smil/muxed.m3u8?adap=audio&aco=aac | 1416047400000 | 1800 | 
+radioteatret-nrk-p1pluss | de1b08796fec5e110211693253d6e97e | https://nrkod99-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39004014/ce46b5e0-3.smil/muxed.m3u8?adap=audio&aco=aac | 1412413380000 | 1620 | 
+radioteatret-nrk-p1pluss | e6f2b2cb835f794c68d2e0839bc379b9 | https://nrkod35-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39002514/ee61d3c8-1.smil/muxed.m3u8?adap=audio&aco=aac | 1403341380000 | 1620 | 
+radioteatret-nrk-p1pluss | fc0a0665810becd95560e6abb6f3974c | https://nrkod09-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39009414/24b5941c-4.smil/muxed.m3u8?adap=audio&aco=aac | 1413624600000 | 1800 | 
+radioteatret-nrk-p1pluss | fd4949ecaeaa12d47df47e86f5702393 | https://nrk-od-world-56.akamaized.net/open/ps/dmpo/dmpo39003014/d1ca0046-1.smil/muxed.m3u8?adap=audio&aco=aac | 1406365380000 | 1620 | 
+radioteatret-nrk-p1pluss | fe010181949b9cc79a2b1987ff64940f | https://nrkod50-cdn0-47115-odedge1.dna.contentdelivery.net/47115-odedge1/open/ps/dmpo/dmpo39000514/56b63815-1.smil/muxed.m3u8?adap=audio&aco=aac | 1391248980000 | 1620 | 
+# failed_episodes: series_id | id | attempts
+# app_state keys

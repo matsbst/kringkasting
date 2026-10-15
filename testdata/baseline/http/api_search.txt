@@ -1,0 +1,13 @@
+GET /api/search?q=musikk
+
+HTTP 200
+cache-control: public, max-age=300, s-maxage=300
+content-length: 2171
+content-type: application/json
+date: <dynamic>
+expires: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"results":[{"seriesId":"musikklivet","title":"Musikklivet","description":"Oppdaterer deg på det som skjer i norsk og internasjonalt musikkliv.","imageUrl":"https://gfx.nrk.no/e07dRJr-sh-JcKCagYVS4wi_mw0AYcgXSBlAWq_zPrNw"},{"seriesId":"ring-inn-musikken","title":"Ring inn musikken","description":"Hva vil du høre? Her kan du dele din yndlingsmusikk og dine personlige opplevelser med musikken.","imageUrl":"https://gfx.nrk.no/rDWA22xR-UWq-L6055oS6Ah0a_XMnRPFfR35hxblWzBg"},{"seriesId":"p3-musikk-med-abiel","title":"P3 Musikk med Abiel","description":"Abiel Tesfai sørger for god fredagsstemning og den beste musikken.","imageUrl":"https://gfx.nrk.no/2keAWqNRW1Ogn6bY8dWVNg82X2icYvdqIeIMlqulho7A"},{"seriesId":"musikkfrokost","title":"Musikkfrokost","description":"En god start på dagen med den beste klassiske musikken.","imageUrl":"https://gfx.nrk.no/BhMsJYRiaK23TIoS0Bwf8wNWFIt7Rah4YRYDzvz1KkSA"},{"seriesId":"musikk_fra_nrk_super","seasonId":"musikk-fra-dyredilla","title":"Musikk fra Dyredilla","description":"Musikk fra Dyredilla","imageUrl":"https://gfx.nrk.no/uXgpWmiLuNzZyWwwfRoiNAUyv3GfMEUS3-tZBYHAelnQ"},{"seriesId":"quizforeningen","title":"Quizforeningen","description":"Hvor mye kan du om musikk? Bli med i Quizforeningen, hold deg oppdatert og sett musikkunnskapen på prøve!","imageUrl":"https://gfx.nrk.no/i6ZtRzC0HJlLbNaMUcVoFwVdCn3L0HqTVnmJLvOMtV4g"},{"seriesId":"p3-musikk-paa-karpe-world","title":"P3 Musikk på Karpe World","description":"","imageUrl":"https://gfx.nrk.no/M2GT3uGkhZJwBOqiAbIZ8AFkaHab9HH28SEjSjHxNTnA"},{"seriesId":"musikk_fra_nrk_super","title":"Musikk fra NRK Super","description":"Hør NRK Super sine beste sanger!","imageUrl":"https://gfx.nrk.no/MVL3ZhlYtM7CuXQ_giFXmAKUlkSRJgr1Jmbz0Rj0KQ3Q"},{"seriesId":"topplaater-med-ronny","title":"Topplåter med Ronny","description":"Ronny Brede Aase kickstartar helga med dei beste låtene – kvar fredag på NRK P3 Musikk.","imageUrl":"https://gfx.nrk.no/bV1zbTevlzwVa02yIYMaIw7oXiXmBYcD68mFa3nGWwow"},{"seriesId":"sangtimen","title":"Sangtimen","description":"Viser og musikk. \rVed Nils Abrahamsen","imageUrl":"https://gfx.nrk.no/Jk7P0IGEQt9eDP3rsECfVwy_062Lb6fa2Fogvo1ICtWQ"}]}

@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/podcast/supertroett/episodes/finnes-ikke",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "55"
+  },
+  "body": "\"Could not find podcast episode supertroett finnes-ikke\""
+}

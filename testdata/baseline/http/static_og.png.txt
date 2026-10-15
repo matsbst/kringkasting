@@ -1,0 +1,12 @@
+GET /og.png
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 58978
+content-type: image/png
+date: <dynamic>
+etag: W/"901d01f7940efa86951962421ec662529944a6b83da27829f3beb4ae45d1de4d"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY

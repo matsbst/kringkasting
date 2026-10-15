@@ -1,0 +1,12 @@
+GET /api/feeds/musikkhistorier/f8d447db8b46dfab131aaf2b6e90bc8f/chapters
+
+HTTP 200
+cache-control: public, max-age=86400, s-maxage=86400
+content-length: 494
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"version":"1.2.0","chapters":[{"title":"Her kommer djevelen","startTime":31},{"title":"Maria Kjos Fonn har giftering fra Susie Cave","startTime":199},{"title":"– Han er klok og banal på samme tid","startTime":846},{"title":"Kan Nick Cave trøste når tragedien treffer?","startTime":1273},{"title":"Leser flere hundre brev hver uke fra fans","startTime":2024},{"title":"Er Nick Cave kristen?","startTime":2378},{"title":"Forholdet til fansen er en bølge av kjærlighet","startTime":3072}]}

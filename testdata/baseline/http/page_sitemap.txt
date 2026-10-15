@@ -1,0 +1,13 @@
+GET /sitemap.xml
+
+HTTP 200
+cache-control: public, max-age=3600, s-maxage=86400
+content-length: 219
+content-type: application/xml
+date: <dynamic>
+expires: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://kringkasting.example/</loc></url><url><loc>https://kringkasting.example/personvern</loc></url></urlset>

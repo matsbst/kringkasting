@@ -1,0 +1,11 @@
+GET /api/feeds/supertroett/..%2F..%2Fx/chapters
+
+HTTP 400
+content-length: 24
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"message":"Invalid id"}

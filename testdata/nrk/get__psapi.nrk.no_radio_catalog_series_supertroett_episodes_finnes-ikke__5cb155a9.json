@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/series/supertroett/episodes/finnes-ikke",
+  "status": 404,
+  "headers": {
+    "content-length": "0"
+  },
+  "body": ""
+}

@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/podcast/finnes-ikke-baseline/episodes",
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": "54"
+  },
+  "body": "\"Could not find episodes for podcast finnes-ikke-baseline\""
+}

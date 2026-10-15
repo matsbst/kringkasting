@@ -1,0 +1,10 @@
+{
+  "method": "HEAD",
+  "url": "https://podkast.nrk.no/fil/doemt/a7c748f6-7745-46a8-a404-7a202bd3ecde_0_ID192MP3.mp3",
+  "status": 200,
+  "headers": {
+    "content-type": "audio/mpeg",
+    "content-length": "84472749"
+  },
+  "body": ""
+}

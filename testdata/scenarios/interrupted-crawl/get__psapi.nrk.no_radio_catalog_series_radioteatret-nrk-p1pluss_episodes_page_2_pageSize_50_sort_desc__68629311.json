@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "url": "https://psapi.nrk.no/radio/catalog/series/radioteatret-nrk-p1pluss/episodes?page=2&pageSize=50&sort=desc",
+  "status": 503,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": "\"Service unavailable\""
+}

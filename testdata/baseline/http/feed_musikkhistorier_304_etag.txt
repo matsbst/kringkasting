@@ -1,0 +1,13 @@
+GET /api/feeds/musikkhistorier
+If-None-Match: "1caf968edd0eea72859469dd2d6b7c87bce5947a"
+
+HTTP 304
+cache-control: public, max-age=1800, s-maxage=3600
+date: <dynamic>
+etag: "1caf968edd0eea72859469dd2d6b7c87bce5947a"
+expires: <dynamic>
+last-modified: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+

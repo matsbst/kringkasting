@@ -1,0 +1,16 @@
+POST /admin
+Content-Type: application/x-www-form-urlencoded
+
+token=baseline-admin-token
+
+HTTP 303
+cache-control: no-store
+content-length: 0
+date: <dynamic>
+location: /admin
+referrer-policy: same-origin
+set-cookie: kringkasting_admin=baseline-admin-token; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-robots-tag: noindex
+

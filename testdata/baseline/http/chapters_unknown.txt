@@ -1,0 +1,12 @@
+GET /api/feeds/supertroett/finnes-ikke/chapters
+
+HTTP 404
+cache-control: public, max-age=86400, s-maxage=86400
+content-length: 44
+content-type: application/json
+date: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY
+
+{"message":"Episode finnes-ikke is missing"}

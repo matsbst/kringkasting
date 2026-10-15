@@ -1,0 +1,11 @@
+# series: id | backlog_complete | backlog_cursor | catalog_kind | is_umbrella
+supertroett | 1 |  | podcast | 0
+# episodes: series_id | id | url | date | duration_seconds | bytes
+supertroett | 3dbb81f46c959cec42aa4074c9af2e11 | https://podkast.nrk.no/fil/supertroett/efb6d452-1e2b-4ae6-b6d4-521e2beae675_1_ID192MP3.mp3 | 1781841660000 | 573 | 13773356
+supertroett | 4a88d1265ae0185dc567e92d24e293a7 | https://podkast.nrk.no/fil/supertroett/5cd1df23-8a92-49a5-b53e-6a41deb33ffe_0_ID192MP3.mp3 | 1711083600000 | 506 | 12160557
+supertroett | 5aca243beb5e9292551e8c61397a355e | https://podkast.nrk.no/fil/supertroett/56b8f270-244c-4480-b8f2-70244c8480e2_1_ID192MP3.mp3 | 1790308800000 | 918 | 22055084
+supertroett | 5ad05519841f4236ae026d6e7dfdaa04 | https://podkast.nrk.no/fil/supertroett/c3aac6b6-5f65-471d-8240-da59256b6e9e_0_ID192MP3.mp3 | 1711083660000 | 578 | 13873581
+supertroett | 6d66b079d63a79acae96f2993e81b809 | https://podkast.nrk.no/fil/supertroett/b3b2bddc-0849-4979-b2bd-dc0849597986_1_ID192MP3.mp3 | 1781841600000 | 825 | 19808108
+# failed_episodes: series_id | id | attempts
+supertroett | 1178f5169f85071db54b8a1abad398d8 | 1
+# app_state keys

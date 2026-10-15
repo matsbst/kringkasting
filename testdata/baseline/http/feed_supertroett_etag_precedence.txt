@@ -1,0 +1,15 @@
+GET /api/feeds/supertroett
+If-None-Match: "stale"
+If-Modified-Since: Thu, 15 Oct 2026 12:00:00 GMT
+
+HTTP 200
+cache-control: public, max-age=1800, s-maxage=3600
+content-length: 6651
+content-type: application/xml
+date: <dynamic>
+etag: "ce35c704b3379bef979944d9b0b4d6cd6a05fc5a"
+expires: <dynamic>
+last-modified: <dynamic>
+referrer-policy: same-origin
+x-content-type-options: nosniff
+x-frame-options: DENY

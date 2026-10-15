@@ -1,0 +1,12 @@
+GET /robots.txt
+
+HTTP 200
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+content-length: 85
+content-type: text/plain; charset=UTF-8
+date: <dynamic>
+etag: W/"729ae27b89e2135e1c6881f77408b1823bfcbebf0e963e783ddf0e8e345d2174"
+referrer-policy: same-origin
+vary: If-None-Match
+x-content-type-options: nosniff
+x-frame-options: DENY
