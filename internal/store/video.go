@@ -9,7 +9,7 @@ import (
 	"github.com/matsbst/kringkasting/internal/clock"
 )
 
-// Video metadata for episodes (docs/nrk-video-pass-through.md). The video
+// Video metadata for episodes. The video
 // columns are written only here; episode upserts leave them alone, and
 // databases without them (or an older image ignoring them) keep working.
 

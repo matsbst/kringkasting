@@ -20,3 +20,8 @@ skills-lock.json
 web/static/assets/
 /kringkasting
 !testdata/baseline/deno-created.sqlite3
+
+# plans, proposals, research and reviews stay local: the repo is public
+docs/plans/
+docs/*research*.md
+docs/*review*.md

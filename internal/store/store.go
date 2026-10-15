@@ -3,8 +3,7 @@
 // must stay compatible with databases written by the Deno version, in both
 // directions.
 //
-// Connection policy (docs/go-migration.md, "SQLite connections and
-// transactions"): all writes go through a single connection, so a
+// Connection policy: all writes go through a single connection, so a
 // multi-statement transaction can never be split across connections and
 // writers never contend. Reads use a separate small pool, which WAL mode
 // lets run alongside the writer.
@@ -63,7 +62,7 @@ var migrations = []string{
 	"ALTER TABLE series ADD COLUMN catalog_kind TEXT",
 	"ALTER TABLE series ADD COLUMN is_umbrella INTEGER NOT NULL DEFAULT 0",
 	"ALTER TABLE series ADD COLUMN metadata_refreshed_at INTEGER",
-	// NRK video for an episode (docs/nrk-video-pass-through.md): the clip
+	// NRK video for an episode: the clip
 	// reference from catalog listings, the confirmed HLS playlist URL, and
 	// when to check again. NULL next-check = never checked.
 	"ALTER TABLE episodes ADD COLUMN clip_id TEXT",
