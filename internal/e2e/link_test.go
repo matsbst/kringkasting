@@ -245,7 +245,8 @@ func TestAppPlatforms(t *testing.T) {
 	_, html := fetch(t, a, "/?query=radio.nrk.no/podkast/sentralbordet", "platforms")
 	for app, platforms := range map[string]string{
 		"apple": "ios", "overcast": "ios", "pocketcasts": "ios android", "castro": "ios",
-		"downcast": "ios", "podcastaddict": "android", "antennapod": "android", "youtubemusic": "ios android",
+		"downcast": "ios", "podcastaddict": "android", "antennapod": "android", "anytime": "ios android",
+		"youtubemusic": "ios android",
 	} {
 		if !strings.Contains(html, `data-app="`+app+`" data-app-name="`) ||
 			!regexp.MustCompile(`data-app="`+app+`" data-app-name="[^"]+" data-platforms="`+platforms+`"`).MatchString(html) {

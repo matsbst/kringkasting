@@ -272,6 +272,9 @@ func apps(feedURL string) []appLink {
 		{ID: "downcast", Name: "Downcast", Href: template.URL("downcast://" + withoutScheme(feedURL)), Platforms: "ios"},
 		{ID: "podcastaddict", Name: "Podcast Addict", Href: template.URL("podcastaddict://" + withoutScheme(feedURL)), Platforms: "android"},
 		{ID: "antennapod", Name: "AntennaPod", Href: template.URL("https://antennapod.org/deeplink/subscribe?url=" + encoded), Platforms: "android"},
+		// open source, with chapters and video; its page opens the app or
+		// offers the stores
+		{ID: "anytime", Name: "Anytime Player", Href: template.URL("https://anytimeplayer.app/subscribe?url=" + feedURL), Platforms: "ios android"},
 		// RFC 4648 §5 base64url, the encoding YouTube Music expects
 		{ID: "youtubemusic", Name: "YouTube Music", Href: template.URL("https://music.youtube.com/library/podcasts?addrssfeed=" +
 			base64.RawURLEncoding.EncodeToString([]byte(feedURL))), Platforms: "ios android"},

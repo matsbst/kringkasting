@@ -5,6 +5,8 @@
 // inserted later.
 
 const STORAGE_KEY = "kringkasting:podcast-app";
+// feeds sent to an app from here: { "/api/feeds/<id>": { app, name, at } }
+const SENT_KEY = "kringkasting:sent";
 const CHANGE_EVENT = "kringkasting:podcast-app-changed";
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
@@ -44,6 +46,38 @@ function writeChoice(id) {
   dispatchEvent(new Event(CHANGE_EVENT));
 }
 
+function readSent() {
+  try {
+    return JSON.parse(localStorage.getItem(SENT_KEY) ?? "{}") ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** remember that this feed was sent to an app, in this browser only */
+function recordSent(feedUrl, app) {
+  const sent = readSent();
+  sent[new URL(feedUrl, location.href).pathname] = { app: app.dataset.app, name: app.dataset.appName, at: Date.now() };
+  try {
+    localStorage.setItem(SENT_KEY, JSON.stringify(sent));
+  } catch {
+    // storage unavailable: nothing to remember
+  }
+}
+
+const SENT_DATE = new Intl.DateTimeFormat("nb-NO", { day: "numeric", month: "short" });
+
+/** "Sendt til Overcast 16. okt." under a card whose feed went to an app */
+function renderSent(control) {
+  const line = control.closest("article")?.querySelector("[data-subscribed]");
+  if (!line) return;
+  const entry = readSent()[new URL(control.dataset.feedUrl, location.href).pathname];
+  line.hidden = !entry;
+  if (!entry) return;
+  line.innerHTML = ICONS.check;
+  line.append(` Sendt til ${entry.name} ${SENT_DATE.format(entry.at)}`);
+}
+
 // ---------------------------------------------------------------- subscribe
 
 // a phone lists only the apps that exist for it; computers list them all
@@ -61,6 +95,7 @@ function availableHere(app) {
 
 /** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
 function renderControl(control) {
+  renderSent(control);
   const dialog = control.nextElementSibling;
   if (!(dialog instanceof HTMLDialogElement)) return;
   // a choice made on another platform (e.g. synced) counts as none here
@@ -246,6 +281,11 @@ document.addEventListener("click", (event) => {
   const chosen = target.closest("[data-chosen-app]");
   if (chosen) {
     pulse(chosen);
+    const app = chosen.closest("[data-subscribe]").nextElementSibling
+      .querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
+    if (app) recordSent(feedUrlOf(chosen), app);
+    // only the line: replacing the link mid-click would cancel its navigation
+    renderSent(chosen.closest("[data-subscribe]"));
     activate(chosen.dataset.chosenApp, chosen.href, feedUrlOf(chosen), event);
     return;
   }
@@ -255,6 +295,7 @@ document.addEventListener("click", (event) => {
     const dialog = app.closest("dialog");
     const control = dialog.previousElementSibling;
     activate(app.dataset.app, app.getAttribute("href"), feedUrlOf(app), event);
+    recordSent(feedUrlOf(app), app);
     writeChoice(app.dataset.app);
     dialog.close();
     // the opener was replaced by the split control, so native focus
@@ -312,7 +353,7 @@ document.addEventListener("keydown", (event) => {
 // keep every card in sync when a choice is made here or in another tab
 addEventListener(CHANGE_EVENT, () => renderControls());
 addEventListener("storage", (event) => {
-  if (event.key === STORAGE_KEY) renderControls();
+  if (event.key === STORAGE_KEY || event.key === SENT_KEY) renderControls();
 });
 
 // ------------------------------------------------------------------ search
