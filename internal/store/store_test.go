@@ -102,16 +102,12 @@ func TestReadPoolRejectsWrites(t *testing.T) {
 	}
 }
 
-// The production copy is optional and never committed; see
-// docs/go-migration.md step 1. Set KRINGKASTING_PROD_DB to use another path.
+// Optional: KRINGKASTING_PROD_DB points at a copy of a real database (never
+// committed) to check that it opens and passes integrity_check.
 func TestOpenProductionCopy(t *testing.T) {
 	src := os.Getenv("KRINGKASTING_PROD_DB")
 	if src == "" {
-		home, _ := os.UserHomeDir()
-		src = filepath.Join(home, "Prosjekter", "kringkasting-data", "kringkasting-copy.sqlite3")
-	}
-	if _, err := os.Stat(src); err != nil {
-		t.Skip("no production copy at " + src)
+		t.Skip("set KRINGKASTING_PROD_DB to check a copy of a real database")
 	}
 	s, err := Open(copyDB(t, src))
 	if err != nil {
