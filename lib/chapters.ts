@@ -9,7 +9,12 @@ type Cached = Result & { expiresAt: number };
 const TTL = 7 * 24 * 60 * 60_000;
 const inFlight = new Map<string, Promise<Result>>();
 
-export function getChapters(seriesId: string, episodeId: string): Promise<Result> {
+export function getChapters(seriesId: string, feedEpisodeId: string): Promise<Result> {
+  // feeds link chapters by NRK's hash id; NRK's endpoint needs episodeId.
+  // Ids that aren't stored (or already are episodeIds) pass through. The
+  // cache key uses the resolved id, so 404s cached under hash ids by
+  // earlier versions are never read again.
+  const episodeId = storage.readNrkEpisodeId(seriesId, feedEpisodeId) ?? feedEpisodeId;
   const key = `chapters:${seriesId}:${episodeId}`;
   const cached = storage.readState<Cached>(key);
   if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached);

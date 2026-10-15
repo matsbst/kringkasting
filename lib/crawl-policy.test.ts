@@ -62,6 +62,37 @@ Deno.test("chapter lookups coalesce and persist both chapters and confirmed abse
   }
 });
 
+Deno.test("chapter lookups translate the feed's hash id to NRK's episodeId", async () => {
+  // feeds link chapters by NRK's hash `id`; NRK's episode endpoint only
+  // answers to `episodeId`, which the stored share link ends with
+  const shareLink = (id: string) => `https://radio.nrk.no/podkast/chapter-map/${id}`;
+  storage.writeSeries(testUtils.generateSeries({
+    id: "chapter-map",
+    episodes: [testUtils.generateEpisode({ id: "hash-one", shareLink: shareLink("l_one") })],
+  }));
+  storage.writeSeries(testUtils.generateSeries({
+    id: "chapter-map/sesong/s1",
+    episodes: [testUtils.generateEpisode({ id: "hash-two", shareLink: shareLink("l_two") })],
+  }));
+  const original = globalThis.fetch;
+  const requested: string[] = [];
+  globalThis.fetch = ((input: RequestInfo | URL) => {
+    requested.push(String(input));
+    return Promise.resolve(json({ indexPoints: [{ title: "Intro", startPoint: "PT1S" }] }));
+  }) as typeof fetch;
+  try {
+    assertEquals((await getChapters("chapter-map", "hash-one")).status, 200);
+    // season episodes resolve via the parent series, as the feed links them
+    assertEquals((await getChapters("chapter-map", "hash-two")).status, 200);
+    // ids that aren't stored pass through unchanged
+    assertEquals((await getChapters("chapter-map", "l_three")).status, 200);
+    assertEquals(requested.map((url) => url.split("/episodes/")[1]), ["l_one", "l_two", "l_three"]);
+    assertExists(storage.readState("chapters:chapter-map:l_one"));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 Deno.test("chapter failures retain stale data and suppress immediate retries", async () => {
   storage.writeState("chapters:chapter-stale:one", {
     status: 200,
