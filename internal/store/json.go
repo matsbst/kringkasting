@@ -18,6 +18,7 @@ func MarshalJSON(value any) (string, error) {
 		return "", err
 	}
 	out := strings.TrimSuffix(buf.String(), "\n")
-	out = strings.ReplaceAll(out, ` `, " ")
-	return strings.ReplaceAll(out, ` `, " "), nil
+	// encoding/json always escapes U+2028/U+2029; JSON.stringify doesn't
+	out = strings.ReplaceAll(out, `\u2028`, "\u2028")
+	return strings.ReplaceAll(out, `\u2029`, "\u2029"), nil
 }
