@@ -13,12 +13,17 @@ import (
 
 // writeJSON sends a JSON body as application/json (no charset, as before).
 func writeJSON(w http.ResponseWriter, status int, body any) {
+	writeJSONType(w, status, body, "application/json")
+}
+
+// writeJSONType supports structured JSON formats such as Podcasting 2.0 chapters.
+func writeJSONType(w http.ResponseWriter, status int, body any, contentType string) {
 	encoded, err := store.MarshalJSON(body)
 	if err != nil {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(status)
 	_, _ = io.WriteString(w, encoded)
 }
