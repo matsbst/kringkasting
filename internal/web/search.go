@@ -388,19 +388,41 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusOK, "home", data)
 }
 
-// jsonLD is the WebSite structured data for the front page.
+// jsonLD is the front page's structured data: the site with its search,
+// and the service itself (free, open source, what it does), for search
+// engines and AI answers.
 func jsonLD(origin string) template.HTML {
+	description := "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i den podkast-appen du selv vil."
 	encoded, _ := store.MarshalJSON(map[string]any{
-		"@context":    "https://schema.org",
-		"@type":       "WebSite",
-		"name":        "Kringkasting",
-		"url":         origin,
-		"description": "Åpne RSS-strømmer for NRK sine podkaster, med komplette episodearkiv – hør dem i den podkast-appen du selv vil.",
-		"inLanguage":  "nb",
-		"potentialAction": map[string]any{
-			"@type":       "SearchAction",
-			"target":      map[string]any{"@type": "EntryPoint", "urlTemplate": origin + "/?query={search_term_string}"},
-			"query-input": "required name=search_term_string",
+		"@context": "https://schema.org",
+		"@graph": []any{
+			map[string]any{
+				"@type":       "WebSite",
+				"@id":         origin + "/#website",
+				"name":        "Kringkasting",
+				"url":         origin,
+				"description": description,
+				"inLanguage":  "nb",
+				"potentialAction": map[string]any{
+					"@type":       "SearchAction",
+					"target":      map[string]any{"@type": "EntryPoint", "urlTemplate": origin + "/?query={search_term_string}"},
+					"query-input": "required name=search_term_string",
+				},
+			},
+			map[string]any{
+				"@type":               "WebApplication",
+				"name":                "Kringkasting",
+				"url":                 origin,
+				"description":         description,
+				"inLanguage":          "nb",
+				"applicationCategory": "MultimediaApplication",
+				"operatingSystem":     "Alle",
+				"isAccessibleForFree": true,
+				"offers":              map[string]any{"@type": "Offer", "price": "0", "priceCurrency": "NOK"},
+				"license":             "https://www.gnu.org/licenses/agpl-3.0.html",
+				"codeRepository":      "https://github.com/matsbst/kringkasting",
+				"isPartOf":            map[string]any{"@id": origin + "/#website"},
+			},
 		},
 	})
 	// "<" can't end the script element early when escaped

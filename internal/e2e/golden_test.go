@@ -127,6 +127,27 @@ func TestStaticFiles(t *testing.T) {
 	}
 }
 
+// robots.txt and llms.txt name the instance's own address, not the public
+// instance's (they replaced their Deno baselines when that changed).
+func TestOriginTextFiles(t *testing.T) {
+	app := start(t, options{env: adminEnv()})
+	for path, want := range map[string]string{
+		"/robots.txt": "Sitemap: " + origin + "/sitemap.xml",
+		"/llms.txt":   "[Search for a podcast](" + origin + "/)",
+	} {
+		resp := app.do(request{path: path})
+		text := body(resp)
+		if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") ||
+			!strings.Contains(text, want) || strings.Contains(text, "https://kringkast.ing") {
+			t.Errorf("%s: status %d, missing %q or names kringkast.ing:\n%s", path, resp.StatusCode, want, text)
+		}
+		etag := resp.Header.Get("ETag")
+		if again := app.do(request{path: path, headers: map[string]string{"If-None-Match": etag}}); again.StatusCode != http.StatusNotModified {
+			t.Errorf("%s: revalidation with its ETag: status %d", path, again.StatusCode)
+		}
+	}
+}
+
 func TestAdmin(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
 	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
