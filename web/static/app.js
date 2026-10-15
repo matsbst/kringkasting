@@ -46,11 +46,26 @@ function writeChoice(id) {
 
 // ---------------------------------------------------------------- subscribe
 
+// a phone lists only the apps that exist for it; computers list them all
+// (iPadOS reports itself as a Mac, but with touch; Macs have none)
+const PLATFORM = /Android/i.test(navigator.userAgent)
+  ? "android"
+  : /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 0)
+  ? "ios"
+  : null;
+
+function availableHere(app) {
+  return PLATFORM === null || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
+}
+
 /** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
 function renderControl(control) {
   const dialog = control.nextElementSibling;
   if (!(dialog instanceof HTMLDialogElement)) return;
-  const chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
+  // a choice made on another platform (e.g. synced) counts as none here
+  let chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
+  if (chosen && !availableHere(chosen)) chosen = null;
   const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
 
   if (!chosen) {
@@ -104,17 +119,17 @@ function feedUrlOf(element) {
 }
 
 let hintTimer;
-function showAppleHint() {
-  let hint = document.getElementById("apple-hint");
+function showHint(text) {
+  let hint = document.getElementById("hint");
   if (!hint) {
     hint = document.createElement("div");
-    hint.id = "apple-hint";
+    hint.id = "hint";
     hint.setAttribute("role", "status");
     hint.className =
       "fixed inset-x-0 bottom-4 z-50 mx-auto w-fit max-w-[90vw] rounded-xl bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark px-4 py-3 text-sm shadow-lg text-center";
-    hint.textContent = "Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).";
     document.body.append(hint);
   }
+  hint.textContent = text;
   hint.hidden = false;
   clearTimeout(hintTimer);
   hintTimer = setTimeout(() => (hint.hidden = true), 7000);
@@ -130,7 +145,7 @@ function activate(appId, href, feedUrl, event) {
   if (appId !== "apple" || navigator.maxTouchPoints !== 0) return;
   event.preventDefault();
   navigator.clipboard.writeText(feedUrl).catch(() => {}).finally(() => {
-    showAppleHint();
+    showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
     location.href = href;
   });
 }
@@ -152,6 +167,7 @@ function openDialog(dialog) {
   resetCopy(dialog);
   showQr(dialog, false);
   dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
+  dialog.querySelectorAll("a[data-app]").forEach((app) => (app.closest("li").hidden = !availableHere(app)));
   dialog.showModal();
 }
 
@@ -172,6 +188,7 @@ async function copyLink(button) {
     button.querySelector("svg").outerHTML = ICONS.checkDraw;
     button.querySelector("[data-copy-label]").textContent = "Kopiert!";
     dialog.querySelector("[data-copy-status]").textContent = "RSS-lenken er kopiert";
+    showHint("RSS-lenken er kopiert. Lim den inn i podkast-appen din, under «Legg til via URL» eller lignende.");
     // leave the confirmation visible before closing
     setTimeout(() => {
       dialog.close();
@@ -276,6 +293,20 @@ document.addEventListener("focusin", (event) => {
   if (event.target instanceof HTMLInputElement && event.target.closest("[data-copy-fallback]")) {
     event.target.select();
   }
+});
+
+// "/" jumps to the search field, unless typing somewhere or in a dialog
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+  const target = event.target;
+  if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, dialog"))) {
+    return;
+  }
+  const input = document.querySelector("[data-search-form] input[name=query]");
+  if (!input) return;
+  event.preventDefault();
+  input.focus();
+  input.select();
 });
 
 // keep every card in sync when a choice is made here or in another tab

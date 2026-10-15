@@ -34,7 +34,7 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 <h2 id="{{.DialogID}}-title" class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Velg podkast-app</h2>
 {{if .StreamOnly}}<p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de fleste andre apper.</p>{{end}}
 <ul>
-{{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}{{.Name}}{{if and $.StreamOnly (eq .ID "apple")}}<span class="ml-auto text-xs text-ink-3 dark:text-ink-3-dark">anbefalt</span>{{end}}</a></li>
+{{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-platforms="{{.Platforms}}" data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}{{.Name}}{{if and $.StreamOnly (eq .ID "apple")}}<span class="ml-auto text-xs text-ink-3 dark:text-ink-3-dark">anbefalt</span>{{end}}</a></li>
 {{end}}<li aria-disabled="true" class="flex items-center gap-3 min-h-12 px-3 select-none"><span class="opacity-45">{{.SpotifyIcon}}</span><span class="text-base text-ink-3 dark:text-ink-3-dark">Spotify</span><span class="ml-auto text-sm text-ink-2 dark:text-ink-2-dark">støtter ikke RSS</span></li>
 <li class="mt-1 border-t border-line dark:border-line-dark pt-1">
 <button type="button" data-copy data-umami-event="kopier-rss" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-copy"}}<span data-copy-label>Kopier RSS-lenke</span></button>
@@ -91,6 +91,7 @@ loads and no-JS clients, and returned alone by /api/search/fragment. */}}
 <section class="mt-14 space-y-1">
 <h2 class="text-xl font-medium">Ingen treff for «{{.Query}}»</h2>
 <p class="text-ink-2 dark:text-ink-2-dark">Prøv et annet søkeord, eller sjekk skrivemåten.</p>
+<p class="mt-4 text-ink-2 dark:text-ink-2-dark">Finner du podkasten i NRK-appen eller på radio.nrk.no? Trykk <span class="font-medium text-ink dark:text-ink-dark">Del → Kopier lenke</span> og lim lenken inn i søkefeltet.</p>
 </section>
 {{end}}
 {{else}}
@@ -107,7 +108,7 @@ loads and no-JS clients, and returned alone by /api/search/fragment. */}}
 <section class="mt-28">
 <h2 class="text-xl font-semibold mb-6">Slik funker det</h2>
 <ol class="grid sm:grid-cols-3 gap-3">
-<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">01</p><h3 class="mt-5 font-semibold">Søk</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Finn NRK-podkasten du vil høre på.</p></li>
+<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">01</p><h3 class="mt-5 font-semibold">Søk</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Finn NRK-podkasten du vil høre på, eller lim inn en lenke fra NRK.</p></li>
 <li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">02</p><h3 class="mt-5 font-semibold">Abonner</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Trykk «Abonner i app» og velg podkast-appen din.</p></li>
 <li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">03</p><h3 class="mt-5 font-semibold">Hør</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Podkasten dukker opp i appen din, med hele arkivet.</p></li>
 </ol>

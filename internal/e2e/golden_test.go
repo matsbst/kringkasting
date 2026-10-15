@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matsbst/kringkasting/internal/feed"
 	_ "modernc.org/sqlite"
 )
 
@@ -45,6 +46,13 @@ func TestFeeds(t *testing.T) {
 		compare(t, "feed_"+slug+"_etag_precedence", app.do(request{path: path,
 			headers: map[string]string{"If-None-Match": `"stale"`, "If-Modified-Since": lastModified}}), headersOnly)
 	}
+	// browsers opening a feed get its stylesheet
+	css := app.do(request{path: feed.Stylesheet})
+	if css.StatusCode != http.StatusOK || !strings.HasPrefix(css.Header.Get("Content-Type"), "text/css") ||
+		!strings.Contains(body(css), "podkast-strøm") {
+		t.Errorf("feed stylesheet: status %d, %s", css.StatusCode, css.Header.Get("Content-Type"))
+	}
+
 	// Deno answered HEAD with content-length 0; Go sends the real length
 	// (excluded from comparison). Everything else matches.
 	compare(t, "feed_head", app.do(request{method: http.MethodHead, path: "/api/feeds/supertroett"}), headersOnly)
@@ -91,7 +99,8 @@ func TestSearchAndPages(t *testing.T) {
 		t.Errorf("page_home_search: %d cards, want 10", got)
 	}
 	none := compare(t, "page_home_search_none", app.do(request{path: "/?query=zzqqxxnotfound"}), statusOnly)
-	mustContain(t, "page_home_search_none", none, "Ingen treff for «zzqqxxnotfound»")
+	// and points to pasting a link from NRK instead
+	mustContain(t, "page_home_search_none", none, "Ingen treff for «zzqqxxnotfound»", "Kopier lenke")
 
 	personvern := compare(t, "page_personvern", app.do(request{path: "/personvern"}), statusOnly)
 	mustContain(t, "page_personvern", personvern, "<title>Personvern – Kringkasting</title>", `aria-current="page"`)

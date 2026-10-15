@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -219,6 +220,10 @@ func TestQRHandoff(t *testing.T) {
 		if resp.StatusCode != http.StatusOK || !strings.Contains(html, `<dialog id="`+c.dialogID+`"`) {
 			t.Errorf("%s: the handoff page lacks dialog %s", c.feedID, c.dialogID)
 		}
+		// "Del" shares the same address
+		if !strings.Contains(html, `data-url="`+origin+`/?query=radio.nrk.no/podkast/`+c.feedID+`#`+c.dialogID+`"`) {
+			t.Errorf("%s: the share link isn't the handoff address", c.feedID)
+		}
 		// the dialog's QR code, followed as the browser would
 		dialog := html[strings.Index(html, `<dialog id="`+c.dialogID+`"`):]
 		src := dialog[strings.Index(dialog, `data-qr-src="`)+len(`data-qr-src="`):]
@@ -230,6 +235,21 @@ func TestQRHandoff(t *testing.T) {
 	for _, bad := range []string{"", "a b", "../admin", "a/b", "https://example.com"} {
 		if resp, _ := fetch(t, a, "/api/qr?feed="+url.QueryEscape(bad), "qr"); resp.StatusCode != http.StatusNotFound {
 			t.Errorf("%q: status %d, want 404", bad, resp.StatusCode)
+		}
+	}
+}
+
+// Every app says which phones it exists on, so app.js can hide the rest.
+func TestAppPlatforms(t *testing.T) {
+	a, _ := linkApp(t)
+	_, html := fetch(t, a, "/?query=radio.nrk.no/podkast/sentralbordet", "platforms")
+	for app, platforms := range map[string]string{
+		"apple": "ios", "overcast": "ios", "pocketcasts": "ios android", "castro": "ios",
+		"downcast": "ios", "podcastaddict": "android", "antennapod": "android", "youtubemusic": "ios android",
+	} {
+		if !strings.Contains(html, `data-app="`+app+`" data-app-name="`) ||
+			!regexp.MustCompile(`data-app="`+app+`" data-app-name="[^"]+" data-platforms="`+platforms+`"`).MatchString(html) {
+			t.Errorf("%s: want data-platforms=%q", app, platforms)
 		}
 	}
 }
