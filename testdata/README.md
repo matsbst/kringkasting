@@ -1,7 +1,7 @@
 # Test data
 
-Recorded on 2026-10-15 from the Deno version, before the Go rewrite
-(docs/go-migration.md). The Go tests in `internal/e2e` replay these NRK
+Recorded on 2026-10-15 from the Deno version, before the Go rewrite.
+The Go tests in `internal/e2e` replay these NRK
 responses and compare the application's output with the Deno version's.
 The files are frozen: the capture tool was removed together with the Deno
 code (it is in git history at commit `3ad24c6`, `tools/baseline/`).

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Memory/latency load test (docs/go-migration.md): every feed once, then 3 rounds of all
+# Memory/latency load test: every feed once, then 3 rounds of all
 # feeds in parallel, sampling container memory. Usage: load.sh CONTAINER PORT LOGFILE
 # Feed ids are read from a copy of the database the container serves:
 #   KRINGKASTING_PROD_DB=/path/to/copy.sqlite3 tools/load.sh CONTAINER PORT LOGFILE

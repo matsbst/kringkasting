@@ -249,7 +249,7 @@ func TestEncodeURIComponent(t *testing.T) {
 	}
 }
 
-// NRK load limits must keep their values (docs/go-migration.md).
+// NRK load limits must keep their values (docs/nrk-api-usage.md).
 func TestLoadLimits(t *testing.T) {
 	if maxConcurrentUpstream != 12 || maxQueuedUpstream != 64 || fetchConcurrency != 6 || backlogConcurrency != 3 ||
 		requestTimeout != 15*time.Second || searchCacheTTL != 5*time.Minute {

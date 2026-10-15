@@ -1,5 +1,5 @@
 // Package video finds NRK's video versions of podcast episodes, so feeds
-// can offer them as an alternate enclosure (docs/nrk-video-pass-through.md).
+// can offer them as an alternate enclosure.
 //
 // It runs in the background, one feed at a time, after a feed is fetched
 // or refreshed — never on plain feed polls. Each round checks a bounded
