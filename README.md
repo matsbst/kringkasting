@@ -20,7 +20,7 @@ Kringkasting is the solution to this problem. It is an open-source app independe
 2. **Choose your app.** Use the subscribe button, or copy the RSS link into your preferred podcast player.
 3. **Listen.** Your app follows the feed and picks up new episodes.
 
-The subscribe chooser includes Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod and YouTube Music. Other players can use the RSS link if they support adding feeds by URL.
+The subscribe chooser includes Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, Anytime Player and YouTube Music. Other players can use the RSS link if they support adding feeds by URL.
 
 ## ✨ What you get
 

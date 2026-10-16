@@ -64,7 +64,7 @@ func TestLiveChapters(t *testing.T) {
 	}
 	share := page.Episodes[0].ShareLink
 	episodeID := share[len(share)-len("l_00000000-0000-0000-0000-000000000000"):]
-	detail, status := c.GetEpisodeResult("sentralbordet", episodeID)
+	detail, status := c.GetEpisodeResult("sentralbordet", episodeID, nil)
 	if status != 200 || detail == nil || len(detail.IndexPoints) == 0 {
 		t.Errorf("chapters for %s: status %d, %+v", episodeID, status, detail)
 	}

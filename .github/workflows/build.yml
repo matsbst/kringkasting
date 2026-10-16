@@ -119,6 +119,13 @@ jobs:
           fi
           minor="${version%.*}"
           major="${minor%.*}"
+          # a tag pushed together with its commit arrives before main's
+          # build has published the image: wait for it (up to 20 minutes)
+          for _ in $(seq 40); do
+            docker buildx imagetools inspect "$IMAGE:$GITHUB_SHA" >/dev/null 2>&1 && break
+            echo "Waiting for the image of $GITHUB_SHA"
+            sleep 30
+          done
           # fails when the commit was never built on main: tag main commits only
           docker buildx imagetools create \
             --tag "$IMAGE:$version" --tag "$IMAGE:$minor" --tag "$IMAGE:$major" \

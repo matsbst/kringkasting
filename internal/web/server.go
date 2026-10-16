@@ -176,14 +176,14 @@ type umami struct{ Src, WebsiteID string }
 
 // page holds what the layout and the page templates need.
 type page struct {
-	Title, Canonical, Origin, Path, BuildID string
-	Umami                                   *umami
-	Robots                                  string
-	JSONLD                                  template.HTML
-	Search                                  searchView
-	NotFound                                bool
-	Admin                                   adminView
-	Privacy                                 *privacy
+	Title, Canonical, Origin, Path, AssetVersion string
+	Umami                                        *umami
+	Robots                                       string
+	JSONLD                                       template.HTML
+	Search                                       searchView
+	NotFound                                     bool
+	Admin                                        adminView
+	Privacy                                      *privacy
 }
 
 // privacy is what the privacy page says about this instance: every
@@ -223,7 +223,7 @@ func (s *Server) page(r *http.Request, title string) *page {
 	origin := s.origin(r)
 	p := &page{
 		Title: title, Origin: origin, Path: r.URL.Path,
-		Canonical: origin + r.URL.EscapedPath(), BuildID: s.Config.BuildID,
+		Canonical: origin + r.URL.EscapedPath(), AssetVersion: s.static.version,
 	}
 	// optional cookieless Umami analytics; both values must be set
 	if s.Config.UmamiSrc != "" && s.Config.UmamiID != "" {
@@ -241,8 +241,26 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", s.contentSecurityPolicy(data))
 	w.WriteHeader(status)
 	_, _ = io.WriteString(w, buf.String())
+}
+
+// contentSecurityPolicy allows the pages what they use and nothing more:
+// scripts from this server (and Umami's, when configured), podcast artwork
+// from anywhere over HTTPS, and inline styles (the decorative SVG and the
+// no-JavaScript fallback use them). The JSON-LD block is data, which CSP
+// doesn't govern.
+func (s *Server) contentSecurityPolicy(p *page) string {
+	scripts := "'self'"
+	if p.Umami != nil {
+		if u, err := url.Parse(p.Umami.Src); err == nil && u.Scheme != "" && u.Host != "" {
+			scripts += " " + u.Scheme + "://" + u.Host
+		}
+	}
+	return "default-src 'self'; script-src " + scripts + "; connect-src " + scripts +
+		"; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'" +
+		"; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 }
 
 // errorPage renders the 404 or 500 page.

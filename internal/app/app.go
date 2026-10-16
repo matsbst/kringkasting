@@ -39,6 +39,7 @@ type App struct {
 	Crawler *crawl.Crawler
 	Videos  *video.Worker
 	Stats   *stats.Stats
+	nrk     *nrk.Client
 
 	flushMu sync.Mutex
 	flushed chan struct{} // closed when the flush loop has stopped
@@ -87,7 +88,7 @@ func New(ctx context.Context, cfg config.Config, opts Options) (*App, error) {
 		db.Close()
 		return nil, err
 	}
-	a := &App{Handler: handler, Store: db, Crawler: crawler, Videos: videos, Stats: counters, flushed: make(chan struct{})}
+	a := &App{Handler: handler, Store: db, Crawler: crawler, Videos: videos, Stats: counters, nrk: client, flushed: make(chan struct{})}
 	go a.flushLoop(ctx)
 	return a, nil
 }
@@ -128,6 +129,9 @@ func (a *App) Flush() {
 // Close waits (bounded by ctx) for the crawler to stop, then closes the
 // database. Cancel the context given to New first.
 func (a *App) Close(ctx context.Context) error {
+	// a page of the archive crawl can take minutes of NRK requests:
+	// cancel them, so the crawl and video rounds stop within ctx
+	a.nrk.Stop()
 	waitErr := a.Crawler.WaitIdle(ctx)
 	if err := a.Videos.WaitIdle(ctx); err != nil && waitErr == nil {
 		waitErr = err

@@ -3,6 +3,7 @@ package nrk
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -353,5 +354,101 @@ func TestLoadLimits(t *testing.T) {
 	if maxConcurrentUpstream != 12 || maxQueuedUpstream != 64 || fetchConcurrency != 6 || backlogConcurrency != 3 ||
 		requestTimeout != 15*time.Second || searchCacheTTL != 5*time.Minute {
 		t.Error("NRK load limits changed")
+	}
+}
+
+// An undecodable 200 counts once, as a failure; an error page's length is
+// never taken as a file size.
+func TestUpstreamCountsAndSizes(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	counters := stats.New()
+	fake := &testutil.FakeNRK{Handle: func(method, url string) testutil.Reply {
+		if method == "HEAD" {
+			return testutil.Reply{Status: 404, Headers: map[string]string{"content-length": "512"}}
+		}
+		return testutil.Reply{Status: 200, Body: "<html>not json"}
+	}}
+	c := New(fake, retry.New(s), counters)
+	var v any
+	if status, ok := c.GetJSON(API+"/broken", &v); status != 0 || ok {
+		t.Errorf("undecodable body: %d %v", status, ok)
+	}
+	if snap := counters.Snapshot(); snap.UpstreamTotal != 1 || snap.UpstreamErrors != 1 {
+		t.Errorf("counted %d requests, %d errors; want 1 and 1", snap.UpstreamTotal, snap.UpstreamErrors)
+	}
+	if status, size := c.up.head("https://podkast.nrk.no/missing.mp3"); status != 404 || size != nil {
+		t.Errorf("HEAD 404: status %d, size %v; want no size", status, size)
+	}
+}
+
+// Stop cancels requests in flight without recording NRK failures or
+// backoff, and fails later ones at once.
+func TestStopCancelsRequests(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	r := retry.New(s)
+	counters := stats.New()
+	gate := make(chan struct{})
+	fake := &testutil.FakeNRK{Gate: gate, Handle: func(string, string) testutil.Reply { return jsonReply(map[string]any{}) }}
+	c := New(&cancellable{fake}, r, counters)
+	done := make(chan int, 1)
+	go func() {
+		var v any
+		status, _ := c.GetJSON(API+"/slow", &v)
+		done <- status
+	}()
+	time.Sleep(100 * time.Millisecond)
+	c.Stop()
+	select {
+	case status := <-done:
+		if status != 0 {
+			t.Errorf("cancelled request: status %d", status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop didn't cancel the request in flight")
+	}
+	close(gate)
+	if !r.Can("GET:"+API+"/slow") || counters.Snapshot().UpstreamTotal != 0 {
+		t.Error("a cancelled request must not count as an NRK failure")
+	}
+}
+
+// cancellable makes a gated fake give up when the request's context ends,
+// as a real transport does.
+type cancellable struct{ fake *testutil.FakeNRK }
+
+func (c *cancellable) RoundTrip(req *http.Request) (*http.Response, error) {
+	type result struct {
+		resp *http.Response
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		resp, err := c.fake.RoundTrip(req)
+		ch <- result{resp, err}
+	}()
+	select {
+	case r := <-ch:
+		return r.resp, r.err
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	}
+}
+
+// Identical searches arriving together share one NRK request.
+func TestConcurrentSearchesShareOneRequest(t *testing.T) {
+	gate := make(chan struct{})
+	c, fake := newClient(t, func(string, string) testutil.Reply {
+		return jsonReply(map[string]any{"results": map[string]any{"series": map[string]any{"results": []any{}}}})
+	})
+	fake.Gate = gate
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Go(func() { c.Search("Dagsnytt") })
+	}
+	time.Sleep(100 * time.Millisecond)
+	close(gate)
+	wg.Wait()
+	if len(fake.Requests) != 1 {
+		t.Errorf("%d NRK requests for 10 identical searches, want 1", len(fake.Requests))
 	}
 }

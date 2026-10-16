@@ -151,17 +151,25 @@ func TestOriginTextFiles(t *testing.T) {
 func TestAdmin(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
 	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
-	cookie := "kringkasting_admin=" + adminToken
+	cookie := adminCookie["Cookie"]
 	withCookie := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": cookie}
 
 	login := compare(t, "admin_login_page", app.do(request{path: "/admin"}), statusOnly)
 	mustContain(t, "admin_login_page", login, "<title>Admin – Kringkasting</title>", `name="token"`)
 	wrong := compare(t, "admin_login_wrong", app.do(request{method: "POST", path: "/admin", headers: form, body: "token=wrong-token-123"}), statusOnly)
 	mustContain(t, "admin_login_wrong", wrong, "Feil token, prøv igjen.")
-	compare(t, "admin_login_ok", app.do(request{method: "POST", path: "/admin", headers: form, body: "token=" + adminToken}), headersOnly)
-	compare(t, "admin_login_ok_forwarded_https", app.do(request{method: "POST", path: "/admin",
-		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-Proto": "https"},
-		body:    "token=" + adminToken}), headersOnly)
+	// the Deno version stored the token itself in the cookie; it now holds
+	// a session value derived from it, otherwise unchanged
+	for name, headers := range map[string]map[string]string{
+		"admin_login_ok":                 form,
+		"admin_login_ok_forwarded_https": {"Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-Proto": "https"},
+	} {
+		resp := app.do(request{method: "POST", path: "/admin", headers: headers, body: "token=" + adminToken})
+		want := cookie + "; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000"
+		if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin" || resp.Header.Get("Set-Cookie") != want {
+			t.Errorf("%s: %d %q %q", name, resp.StatusCode, resp.Header.Get("Location"), resp.Header.Get("Set-Cookie"))
+		}
+	}
 	dashboard := compare(t, "admin_dashboard", app.do(request{path: "/admin", headers: map[string]string{"Cookie": cookie}}), statusOnly)
 	mustContain(t, "admin_dashboard", dashboard, "Siste 30 dager", "Strømmer (", "Rydd opp")
 	compare(t, "admin_action_unauthenticated", app.do(request{method: "POST", path: "/admin", headers: form,

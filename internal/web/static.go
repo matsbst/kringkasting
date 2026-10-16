@@ -7,14 +7,20 @@ import (
 	"mime"
 	"net/http"
 	"path"
+	"sort"
 	"strings"
 )
 
 // staticFiles serves the embedded static files with the Deno version's
 // headers: revalidate everything (weak SHA-256 ETag, 304 on match), except
-// fonts and versioned assets (?v=build), which never change.
+// fonts and assets requested with the current version (?v=version), which
+// never change.
 type staticFiles struct {
 	files map[string]staticFile
+	// version is a hash of every static file: pages link assets with it,
+	// so a release that changes any of them gets new URLs, whatever its
+	// build ID (an image built without GIT_REVISION is "dev")
+	version string
 }
 
 type staticFile struct {
@@ -50,7 +56,16 @@ func newStaticFiles(root fs.FS) (*staticFiles, error) {
 		files["/"+name] = staticFile{body: body, etag: `W/"` + hex.EncodeToString(sum[:]) + `"`, contentType: contentType}
 		return nil
 	})
-	return &staticFiles{files: files}, err
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	all := sha256.New()
+	for _, name := range names {
+		all.Write([]byte(name + files[name].etag))
+	}
+	return &staticFiles{files: files, version: hex.EncodeToString(all.Sum(nil))[:12]}, err
 }
 
 // publicOrigin is the public instance's address as written in the text
@@ -73,7 +88,10 @@ func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, urlPath, ori
 		file = staticFile{body: body, etag: `W/"` + hex.EncodeToString(sum[:]) + `"`, contentType: file.contentType}
 	}
 	h := w.Header()
-	if strings.HasPrefix(urlPath, "/fonts/") || r.URL.Query().Get("v") != "" {
+	// only the current version is immutable: any other ?v= (an old link,
+	// or one made up) would otherwise pin whatever it got for a year, and
+	// the origin-dependent text files never are
+	if strings.HasPrefix(urlPath, "/fonts/") || (r.URL.Query().Get("v") == s.version && !withOrigin[urlPath]) {
 		// content-stable: browsers and the CDN may keep it forever
 		h.Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {

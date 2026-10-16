@@ -389,3 +389,96 @@ func TestConcurrentChapterLookupsShareOneFetch(t *testing.T) {
 		}
 	}
 }
+
+// A lookup that panics answers 503 and leaves nothing behind: the next
+// request for the same chapters fetches again instead of waiting forever.
+func TestChapterLookupPanicIsCleanedUp(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	calls := 0
+	fake := &testutil.FakeNRK{Handle: func(string, string) testutil.Reply {
+		calls++
+		if calls == 1 {
+			panic("boom")
+		}
+		return reply(map[string]any{"indexPoints": []any{map[string]any{"title": "Intro", "startPoint": "PT10S"}}})
+	}}
+	r := retry.New(s)
+	chapters := feed.NewChapters(s, nrk.New(fake, r, stats.New()), r)
+	if got := chapters.Get("serie", "l_ep").Status; got != 503 {
+		t.Fatalf("panicking lookup: %d, want 503", got)
+	}
+	done := make(chan int, 1)
+	go func() { done <- chapters.Get("serie", "l_ep").Status }()
+	select {
+	case got := <-done:
+		if got != 200 {
+			t.Errorf("next lookup: %d, want 200", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the next lookup waited on the panicked one")
+	}
+}
+
+// Chapters for a show stored as a radio series ask NRK's series catalog
+// first, instead of spending a request on the podcast catalog.
+func TestChapterLookupUsesStoredCatalog(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	kind := store.KindSeries
+	s.WriteSeries(&store.Series{ID: "radio", Title: "Radio", Link: "l", LastFetchedAt: clock.Now(), CatalogKind: &kind})
+	fake := &testutil.FakeNRK{Handle: func(string, string) testutil.Reply {
+		return reply(map[string]any{"indexPoints": []any{map[string]any{"title": "Intro", "startPoint": "PT10S"}}})
+	}}
+	r := retry.New(s)
+	chapters := feed.NewChapters(s, nrk.New(fake, r, stats.New()), r)
+	if got := chapters.Get("radio", "l_ep").Status; got != 200 {
+		t.Fatalf("status %d", got)
+	}
+	if len(fake.Requests) != 1 || !strings.Contains(fake.Requests[0], "/radio/catalog/series/radio/episodes/l_ep") {
+		t.Errorf("requests %v, want one to the series catalog", fake.Requests)
+	}
+}
+
+// An umbrella show whose season listing fails is refreshed again once the
+// retry deadline passes, not a full refresh interval later.
+func TestUmbrellaSeasonFailureRetriesSoon(t *testing.T) {
+	defer clock.Unpin()
+	start := time.Now()
+	clock.Pin(start)
+	seasonFails := true
+	feeds, _, _, _ := env(t, func(method, url string) testutil.Reply {
+		if r, ok := manifestOK(url); ok {
+			return r
+		}
+		switch {
+		case strings.HasSuffix(url, "/radio/catalog/podcast/paraply/episodes"):
+			// umbrella shows list episodes per season; this page only has to exist
+			return reply(map[string]any{"_embedded": map[string]any{"episodes": []any{nrkEp("a1", 1)}}})
+		case strings.HasSuffix(url, "/radio/catalog/podcast/paraply"):
+			return reply(map[string]any{"type": "podcast", "seriesType": "umbrella",
+				"series": map[string]any{"id": "paraply", "titles": map[string]any{"title": "Paraply"}},
+				"_links": map[string]any{"seasons": []any{
+					map[string]any{"href": "/radio/catalog/podcast/paraply/seasons/a"},
+					map[string]any{"href": "/radio/catalog/podcast/paraply/seasons/b"}}}})
+		case strings.HasSuffix(url, "/seasons/a"):
+			return reply(map[string]any{"_embedded": map[string]any{"episodes": map[string]any{
+				"_embedded": map[string]any{"episodes": []any{nrkEp("a1", 1)}}}}})
+		case strings.HasSuffix(url, "/seasons/b"):
+			if seasonFails {
+				return testutil.Reply{Status: 503}
+			}
+			return reply(map[string]any{"_embedded": map[string]any{"episodes": map[string]any{
+				"_embedded": map[string]any{"episodes": []any{nrkEp("b1", 2)}}}}})
+		}
+		return testutil.Reply{Status: 404}
+	})
+	got, err := feeds.GetSeries("paraply")
+	if err != nil || got == nil || len(got.Episodes) != 1 {
+		t.Fatalf("first fetch: %+v, %v", got, err)
+	}
+	seasonFails = false
+	clock.Pin(start.Add(time.Hour)) // past the retry deadline, well inside any refresh interval
+	got, _ = feeds.GetSeries("paraply")
+	if len(got.Episodes) != 2 {
+		t.Errorf("the failed season wasn't fetched again: %d episodes", len(got.Episodes))
+	}
+}

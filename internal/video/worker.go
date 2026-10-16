@@ -208,7 +208,7 @@ func (w *Worker) check(c store.VideoCandidate) {
 }
 
 // lookup coalesces concurrent lookups of the same clip into one request.
-func (w *Worker) lookup(clipID string) (*nrk.ClipVideo, nrk.Outcome) {
+func (w *Worker) lookup(clipID string) (video *nrk.ClipVideo, outcome nrk.Outcome) {
 	w.lookupMu.Lock()
 	l := w.lookups[clipID]
 	if l != nil {
@@ -220,11 +220,20 @@ func (w *Worker) lookup(clipID string) (*nrk.ClipVideo, nrk.Outcome) {
 	w.lookups[clipID] = l
 	w.lookupMu.Unlock()
 
+	// a panic must not leave the entry behind, or later lookups of the
+	// clip (and the video round) would wait forever
+	defer func() {
+		if r := recover(); r != nil {
+			l.video, l.outcome = nil, nrk.Unavailable
+			video, outcome = l.video, l.outcome
+			log.Printf("video lookup %s panicked: %v", clipID, r)
+		}
+		w.lookupMu.Lock()
+		delete(w.lookups, clipID)
+		w.lookupMu.Unlock()
+		close(l.done)
+	}()
 	l.video, l.outcome = w.nrk.VideoForClip(clipID)
-	w.lookupMu.Lock()
-	delete(w.lookups, clipID)
-	w.lookupMu.Unlock()
-	close(l.done)
 	return l.video, l.outcome
 }
 
