@@ -237,9 +237,14 @@ func (s *Store) ReadEpisodeIDs(seriesID string) (map[string]bool, error) {
 // too. Empty when the episode isn't stored.
 func (s *Store) ReadNrkEpisodeID(seriesID, id string) string {
 	var shareLink string
-	err := s.read.QueryRow(
-		"SELECT share_link FROM episodes WHERE id = ? AND (series_id = ? OR series_id LIKE ? || '/sesong/%') LIMIT 1",
-		id, seriesID, seriesID).Scan(&shareLink)
+	// two primary-key lookups: the series itself, then its seasons as a
+	// key range ("0" sorts right after "/")
+	err := s.read.QueryRow("SELECT share_link FROM episodes WHERE series_id = ? AND id = ?", seriesID, id).Scan(&shareLink)
+	if errors.Is(err, sql.ErrNoRows) {
+		err = s.read.QueryRow(
+			"SELECT share_link FROM episodes WHERE series_id >= ? AND series_id < ? AND id = ? LIMIT 1",
+			seriesID+"/sesong/", seriesID+"/sesong0", id).Scan(&shareLink)
+	}
 	if err != nil {
 		return ""
 	}

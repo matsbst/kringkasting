@@ -2,6 +2,7 @@ package feed_test
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"strings"
 	"sync"
@@ -47,6 +48,26 @@ func TestRSSRendering(t *testing.T) {
 	s.Episodes = []store.Episode{ep("hls", "https://x/master.m3u8")}
 	if !strings.Contains(feed.AssembleFeed(s, "o"), `type="application/vnd.apple.mpegurl"`) || !feed.IsStreamOnly(s) {
 		t.Error("stream-only show must keep its HLS enclosures")
+	}
+}
+
+// Characters XML 1.0 doesn't allow are dropped from text and attributes,
+// so one stray control character can't break a whole feed.
+func TestRSSDropsInvalidXMLCharacters(t *testing.T) {
+	e := ep("a", "https://podkast.nrk.no/a.mp3")
+	e.Title = "Del\x0b1\x00"
+	subtitle := "tab\tline\nok\uFFFF"
+	e.Subtitle = &subtitle
+	e.ShareLink = "https://radio.nrk.no/x/l_a\x1f"
+	s := &store.Series{ID: "show", Title: "Show\x08", Link: "https://radio.nrk.no/podkast/show", Episodes: []store.Episode{e}}
+	out := feed.AssembleFeed(s, "https://k.example")
+	if err := xml.Unmarshal([]byte(out), new(any)); err != nil {
+		t.Fatalf("feed is not valid XML: %v", err)
+	}
+	for _, want := range []string{"<title>Del1</title>", "<title>Show</title>", "tab\tline\nok", "l_a</link>"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
 	}
 }
 

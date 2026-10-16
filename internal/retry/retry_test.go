@@ -34,10 +34,14 @@ func TestDeadlinesAndRetryAfter(t *testing.T) {
 		t.Error("cleared key should be allowed")
 	}
 
-	later := start.Add(3 * 24 * time.Hour).UnixMilli()
+	later := start.Add(3 * time.Hour).UnixMilli()
 	r.Defer("upstream", later)
 	if r.At("upstream") != later {
 		t.Errorf("Retry-After deadline not honoured: %d", r.At("upstream"))
+	}
+	r.Defer("far", start.Add(365*24*time.Hour).UnixMilli())
+	if got := time.Duration(r.At("far")-start.UnixMilli()) * time.Millisecond; got > 24*time.Hour+5*time.Second {
+		t.Errorf("deadline %v ahead, want at most a day", got)
 	}
 
 	now := start.UnixMilli()
@@ -48,7 +52,42 @@ func TestDeadlinesAndRetryAfter(t *testing.T) {
 	if got := retry.ParseRetryAfter(date, now); got != start.Add(time.Hour).Truncate(time.Second).UnixMilli() {
 		t.Errorf("date: %d", got)
 	}
+	day := int64(24 * time.Hour / time.Millisecond)
+	if got := retry.ParseRetryAfter("31536000", now); got != now+day {
+		t.Errorf("a year in seconds must be capped at a day: %d", got-now)
+	}
+	if got := retry.ParseRetryAfter("99999999999999999999", now); got != now+day {
+		t.Errorf("an overflowing value must be capped at a day: %d", got-now)
+	}
+	if got := retry.ParseRetryAfter(start.AddDate(1, 0, 0).UTC().Format(time.RFC1123), now); got != now+day {
+		t.Errorf("a far-future date must be capped at a day: %d", got-now)
+	}
 	if retry.ParseRetryAfter("", now) != 0 || retry.ParseRetryAfter("soon", now) != 0 {
 		t.Error("invalid values must give 0")
+	}
+}
+
+// SetDeadline stores the deadline as given, without escalating, and keeps
+// a later pending one.
+func TestSetDeadline(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	r := retry.New(s)
+	defer clock.Unpin()
+	start := time.Now().Truncate(time.Millisecond)
+	clock.Pin(start)
+	now := start.UnixMilli()
+	for range 10 {
+		r.SetDeadline("origin", now+30_000)
+	}
+	if got := r.At("origin"); got != now+30_000 {
+		t.Errorf("deadline %d ms ahead, want 30000", got-now)
+	}
+	r.SetDeadline("origin", now+10_000)
+	if got := r.At("origin"); got != now+30_000 {
+		t.Errorf("an earlier deadline replaced a later one: %d ms ahead", got-now)
+	}
+	r.SetDeadline("origin", now+60_000)
+	if got := r.At("origin"); got != now+60_000 {
+		t.Errorf("a later deadline was ignored: %d ms ahead", got-now)
 	}
 }
