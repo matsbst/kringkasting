@@ -254,3 +254,24 @@ func TestAppPlatforms(t *testing.T) {
 		}
 	}
 }
+
+// On a computer, apps that don't simply open say what they do instead:
+// Apple Podcasts gets the link copied, phone-only apps the QR code. And
+// app.js finds each card's dialog right after its subscribe button.
+func TestAppDesktopActions(t *testing.T) {
+	a, _ := linkApp(t)
+	_, html := fetch(t, a, "/?query=radio.nrk.no/podkast/sentralbordet", "desktop")
+	for app, desktop := range map[string]string{
+		"apple": "copy", "podcastaddict": "phone", "antennapod": "phone", "anytime": "phone",
+		"overcast": "", "pocketcasts": "", "youtubemusic": "",
+	} {
+		row := regexp.MustCompile(`<a [^>]*data-app="` + app + `"[^>]*>`).FindString(html)
+		got := regexp.MustCompile(`data-desktop="([a-z]+)"`).FindStringSubmatch(row)
+		if (desktop == "" && got != nil) || (desktop != "" && (got == nil || got[1] != desktop)) {
+			t.Errorf("%s: row %q, want data-desktop=%q", app, row, desktop)
+		}
+	}
+	if !regexp.MustCompile(`data-subscribe data-feed-url="[^"]+">\s*<button[^>]*>.*?</button>\s*</span>\s*<dialog `).MatchString(html) {
+		t.Error("the subscribe dialog must directly follow its button")
+	}
+}

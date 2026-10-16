@@ -87,8 +87,17 @@ const PLATFORM = /Android/i.test(navigator.userAgent)
   ? "ios"
   : null;
 
+// a computer: some apps work differently there (data-desktop on the row)
+const COMPUTER = PLATFORM === null;
+const MAC = /Mac/.test(navigator.userAgent);
+
 function availableHere(app) {
-  return PLATFORM === null || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
+  return COMPUTER || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
+}
+
+/** what an app's row does here: open the link, "copy" or "phone" */
+function desktopKind(app) {
+  return COMPUTER ? app.dataset.desktop ?? "" : "";
 }
 
 /** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
@@ -98,7 +107,8 @@ function renderControl(control) {
   if (!(dialog instanceof HTMLDialogElement)) return;
   // a choice made on another platform (e.g. synced) counts as none here
   let chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
-  if (chosen && !availableHere(chosen)) chosen = null;
+  // an app that only exists on phones is no choice on a computer
+  if (chosen && (!availableHere(chosen) || desktopKind(chosen) === "phone")) chosen = null;
   const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
 
   if (!chosen) {
@@ -113,15 +123,19 @@ function renderControl(control) {
   const icon = chosen.querySelector("svg").cloneNode(true);
   icon.setAttribute("width", "15");
   icon.setAttribute("height", "15");
-  const link = document.createElement("a");
-  link.href = chosen.getAttribute("href");
+  // says what it does: an app that needs the link pasted gets a copy
+  // button, the others a link that opens the app
+  const copies = desktopKind(chosen) === "copy";
+  const link = document.createElement(copies ? "button" : "a");
+  if (copies) link.type = "button";
+  else link.href = chosen.getAttribute("href");
   link.dataset.chosenApp = chosen.dataset.app;
   link.dataset.pulse = "";
   link.dataset.umamiEvent = `app-${chosen.dataset.app}`;
   link.dataset.umamiEventApp = chosen.dataset.appName;
   link.dataset.umamiEventHandling = "aapne";
   link.className = `${PRIMARY_BUTTON} rounded-r-none px-3 py-2`;
-  link.append(icon, ` Åpne i ${chosen.dataset.appName}`);
+  link.append(icon, copies ? ` Kopier lenke til ${chosen.dataset.appName}` : ` Åpne i ${chosen.dataset.appName}`);
   link.insertAdjacentHTML("beforeend", pulse);
   const switcher = document.createElement("button");
   switcher.type = "button";
@@ -179,84 +193,120 @@ function showHint(text) {
   hintTimer = setTimeout(() => (hint.hidden = true), 7000);
 }
 
-function copyTextSynchronously(text) {
-  // Safari can deny the async clipboard API in contexts where a user gesture
-  // is required. Copy synchronously while the click is still active, before
-  // opening the external app consumes that gesture.
-  const input = document.createElement("textarea");
-  input.value = text;
-  input.setAttribute("readonly", "");
-  input.style.position = "fixed";
-  input.style.opacity = "0";
-  document.body.append(input);
-  input.select();
+/**
+ * Copy text; true only if it worked. The old synchronous copy runs first,
+ * while the click still counts as a user gesture, which Safari requires;
+ * the clipboard API is the fallback. container: where the temporary field
+ * goes (inside an open modal dialog, the rest of the page is inert).
+ */
+async function copyText(text, container = document.body) {
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.opacity = "0";
+  container.append(field);
+  field.select();
   let copied = false;
   try {
     copied = document.execCommand("copy");
+  } catch {
+    // not supported: try the clipboard API
   } finally {
-    input.remove();
+    field.remove();
   }
-  return copied;
+  if (copied) return true;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // no clipboard API (plain HTTP) or no permission
+    return false;
+  }
 }
 
 /**
- * Apple Podcasts on the desktop opens "Follow a Show by URL" without
- * pre-filling the feed URL, so on non-touch devices copy the URL first and
- * show a paste hint; the deep link still opens the app. Touch devices
- * (iOS/iPadOS) subscribe directly through the plain link.
+ * The panel for an app that needs the link pasted (Apple Podcasts on a
+ * computer opens «Følg et program via URL» empty): it says whether the
+ * copy worked, keeps the link selectable, and opens the app as a separate
+ * step, so the copy never has to survive the app launching.
  */
-function activate(appId, href, feedUrl, event) {
-  // If maxTouchPoints is unavailable (older Safari), treat the device as a
-  // desktop. Touch Macs such as iPadOS still follow the native handoff.
-  if (appId !== "apple" || navigator.maxTouchPoints > 0) return;
-  event.preventDefault();
-  let copied = false;
-  try {
-    copied = copyTextSynchronously(feedUrl);
-  } catch {
-    // Fall back to the async API or the manual-copy prompt below.
+function pastePanel(dialog) {
+  let panel = dialog.querySelector("[data-paste-panel]");
+  if (panel) return panel;
+  const back = dialog.querySelector("[data-qr-back]").cloneNode(true);
+  delete back.dataset.qrBack;
+  back.dataset.pasteBack = "";
+  panel = document.createElement("div");
+  panel.className = "p-2";
+  panel.dataset.pastePanel = "";
+  panel.hidden = true;
+  panel.innerHTML = `<div class="flex items-center gap-1 px-1 pt-1 pb-2"><h2 id="${dialog.id}-paste-title" class="text-sm font-semibold text-ink-2 dark:text-ink-2-dark"></h2></div>
+<p role="status" data-paste-status class="mx-3 flex items-center gap-2 text-base font-medium"></p>
+<div class="mx-3 mt-2"><input readonly data-paste-url aria-label="RSS-lenke" class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"/></div>
+<ol class="mx-3 mt-4 list-decimal space-y-1 pl-5 text-sm text-ink-2 dark:text-ink-2-dark"><li data-paste-step-open></li><li data-paste-step-paste></li></ol>
+<a data-paste-open class="mt-4 flex w-full items-center justify-center min-h-12 rounded-lg bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 text-base font-semibold transition-colors"></a>
+<button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Lukk</button>`;
+  panel.firstElementChild.prepend(back);
+  dialog.append(panel);
+  return panel;
+}
+
+/** copy the feed link for an app that needs it pasted, then explain */
+async function startPaste(dialog, app) {
+  const feedUrl = feedUrlOf(app);
+  // copy first, while this is still the click
+  const copying = copyText(feedUrl, dialog.open ? dialog : document.body);
+  const panel = pastePanel(dialog);
+  // Apple's app is «Podkaster» on a Norwegian Mac
+  const appName = app.dataset.app === "apple" && MAC ? "Podkaster" : app.dataset.appName;
+  panel.querySelector("h2").textContent = app.dataset.appName;
+  panel.querySelector("[data-paste-url]").value = feedUrl;
+  panel.querySelector("[data-paste-step-open]").textContent =
+    `Åpne ${appName}. Vinduet «Følg et program via URL» åpnes.`;
+  panel.querySelector("[data-paste-step-paste]").textContent =
+    `Lim inn lenken (${MAC ? "⌘V" : "Ctrl+V"}) og velg Følg.`;
+  const open = panel.querySelector("[data-paste-open]");
+  open.href = app.getAttribute("href");
+  open.dataset.pasteApp = app.dataset.app;
+  open.textContent = `Åpne ${appName}`;
+  const status = panel.querySelector("[data-paste-status]");
+  status.textContent = "";
+  if (!dialog.open) openDialog(dialog);
+  showView(dialog, "paste");
+  if (await copying) {
+    status.innerHTML = ICONS.checkDraw;
+    status.append("RSS-lenken er kopiert");
+    open.focus();
+  } else {
+    status.textContent = `Kunne ikke kopiere automatisk. Marker lenken og kopier den (${MAC ? "⌘C" : "Ctrl+C"}):`;
+    const field = panel.querySelector("[data-paste-url]");
+    field.focus();
+    field.select();
   }
-  if (copied) {
-    showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
-    location.href = href;
-    return;
-  }
-  if (!navigator.clipboard) {
-    // plain HTTP (a home server) has no clipboard API: offer the URL to
-    // copy, then open the app
-    prompt("Kopier RSS-lenken (⌘C) og lim den inn i «Følg et program via URL» i Podkaster:", feedUrl);
-    location.href = href;
-    return;
-  }
-  navigator.clipboard.writeText(feedUrl).then(
-    () => {
-      showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
-      location.href = href;
-    },
-    () => {
-      prompt("Kopier RSS-lenken (⌘C) og lim den inn i «Følg et program via URL» i Podkaster:", feedUrl);
-      location.href = href;
-    },
-  );
 }
 
 // a computer: the QR code hands the subscription over to the phone
 const POINTER_DEVICE = matchMedia("(hover: hover) and (pointer: fine)");
 
-/** show the app list (or the QR code) in a subscribe dialog */
-function showQr(dialog, show) {
-  dialog.querySelector("[data-dialog-main]").hidden = show;
-  dialog.querySelector("[data-qr-panel]").hidden = !show;
-  dialog.setAttribute("aria-labelledby", `${dialog.id}${show ? "-qr" : ""}-title`);
-  if (!show) return;
+/** show one view of a subscribe dialog: "main" (the apps), "qr", "paste" */
+function showView(dialog, view) {
+  dialog.querySelector("[data-dialog-main]").hidden = view !== "main";
+  dialog.querySelector("[data-qr-panel]").hidden = view !== "qr";
+  const paste = dialog.querySelector("[data-paste-panel]");
+  if (paste) paste.hidden = view !== "paste";
+  dialog.setAttribute("aria-labelledby", `${dialog.id}${view === "main" ? "" : `-${view}`}-title`);
+  if (view !== "qr") return;
   const image = dialog.querySelector("[data-qr-src]");
   if (!image.getAttribute("src")) image.src = image.dataset.qrSrc;
 }
 
 function openDialog(dialog) {
   resetCopy(dialog);
-  showQr(dialog, false);
+  showView(dialog, "main");
   dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
+  // on a computer, rows that don't simply open the app say what they do
+  dialog.querySelectorAll("[data-desktop-note]").forEach((note) => (note.hidden = !COMPUTER));
   dialog.querySelectorAll("a[data-app]").forEach((app) => (app.closest("li").hidden = !availableHere(app)));
   dialog.showModal();
 }
@@ -273,8 +323,7 @@ function resetCopy(dialog) {
 async function copyLink(button) {
   const dialog = button.closest("dialog");
   button.dataset.copyIcon ??= button.querySelector("svg").outerHTML;
-  try {
-    await navigator.clipboard.writeText(feedUrlOf(button));
+  if (await copyText(feedUrlOf(button), dialog)) {
     button.querySelector("svg").outerHTML = ICONS.checkDraw;
     button.querySelector("[data-copy-label]").textContent = "Kopiert!";
     dialog.querySelector("[data-copy-status]").textContent = "RSS-lenken er kopiert";
@@ -284,7 +333,7 @@ async function copyLink(button) {
       dialog.close();
       resetCopy(dialog);
     }, 1600);
-  } catch {
+  } else {
     // clipboard unavailable (permissions, non-secure context): keep the
     // dialog open and offer the URL for manual copying
     dialog.querySelector("[data-copy-status]").textContent = "Kopiering feilet";
@@ -337,12 +386,31 @@ document.addEventListener("click", (event) => {
   const chosen = target.closest("[data-chosen-app]");
   if (chosen) {
     pulse(chosen);
-    const app = chosen.closest("[data-subscribe]").nextElementSibling
-      .querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
+    const dialog = chosen.closest("[data-subscribe]").nextElementSibling;
+    const app = dialog.querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
+    if (app && desktopKind(app) === "copy") {
+      startPaste(dialog, app);
+      return;
+    }
     if (app) recordSent(feedUrlOf(chosen), app);
     // only the line: replacing the link mid-click would cancel its navigation
     renderSent(chosen.closest("[data-subscribe]"));
-    activate(chosen.dataset.chosenApp, chosen.href, feedUrlOf(chosen), event);
+    return;
+  }
+
+  // the paste panel's "Åpne Podkaster": the link opens the app
+  const pasteOpen = target.closest("[data-paste-open]");
+  if (pasteOpen) {
+    const dialog = pasteOpen.closest("dialog");
+    const app = dialog.querySelector(`a[data-app="${CSS.escape(pasteOpen.dataset.pasteApp)}"]`);
+    if (app) recordSent(feedUrlOf(app), app);
+    renderSent(dialog.previousElementSibling);
+    return;
+  }
+  if (target.closest("[data-paste-back]")) {
+    const dialog = target.closest("dialog");
+    showView(dialog, "main");
+    dialog.querySelector("a[data-desktop=copy]")?.focus();
     return;
   }
 
@@ -350,7 +418,20 @@ document.addEventListener("click", (event) => {
   if (app) {
     const dialog = app.closest("dialog");
     const control = dialog.previousElementSibling;
-    activate(app.dataset.app, app.getAttribute("href"), feedUrlOf(app), event);
+    // on a computer: an app only on phones goes there by QR code, one
+    // that needs the link pasted gets it copied first
+    if (desktopKind(app) === "phone") {
+      event.preventDefault();
+      showView(dialog, "qr");
+      dialog.querySelector("[data-qr-back]").focus();
+      return;
+    }
+    if (desktopKind(app) === "copy") {
+      event.preventDefault();
+      writeChoice(app.dataset.app);
+      startPaste(dialog, app);
+      return;
+    }
     recordSent(feedUrlOf(app), app);
     writeChoice(app.dataset.app);
     dialog.close();
@@ -367,13 +448,13 @@ document.addEventListener("click", (event) => {
   }
   if (target.closest("[data-qr-open]")) {
     const dialog = target.closest("dialog");
-    showQr(dialog, true);
+    showView(dialog, "qr");
     dialog.querySelector("[data-qr-back]").focus();
     return;
   }
   if (target.closest("[data-qr-back]")) {
     const dialog = target.closest("dialog");
-    showQr(dialog, false);
+    showView(dialog, "main");
     dialog.querySelector("[data-qr-open]").focus();
     return;
   }
@@ -387,7 +468,7 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("focusin", (event) => {
-  if (event.target instanceof HTMLInputElement && event.target.closest("[data-copy-fallback]")) {
+  if (event.target instanceof HTMLInputElement && event.target.closest("[data-copy-fallback], [data-paste-panel]")) {
     event.target.select();
   }
 });
