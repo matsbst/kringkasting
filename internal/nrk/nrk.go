@@ -4,6 +4,7 @@
 package nrk
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -40,6 +41,8 @@ type Client struct {
 	searchMu    sync.Mutex
 	searchCache map[string]searchEntry
 	searchOrder []string // insertion order, for oldest-first eviction
+	// searchInFlight coalesces identical searches made at the same time
+	searchInFlight map[string]*searchCall
 
 	resolved resolveCache
 
@@ -64,13 +67,20 @@ func New(transport http.RoundTripper, r *retry.Retry, s *stats.Stats) *Client {
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
+	ctx, stop := context.WithCancel(context.Background())
 	return &Client{
-		up:          &upstream{client: &http.Client{Transport: transport}, retry: r, stats: s},
+		up:          &upstream{client: &http.Client{Transport: transport}, retry: r, stats: s, ctx: ctx, stop: stop},
 		searchCache: map[string]searchEntry{},
+
+		searchInFlight: map[string]*searchCall{},
 
 		manifestFailures: map[string]int{},
 	}
 }
+
+// Stop cancels NRK requests in flight and fails new ones at once: called
+// on shutdown, so background work ends before the database closes.
+func (c *Client) Stop() { c.up.stop() }
 
 // manifestFailed counts a transient manifest failure and reports whether
 // the episode has now failed too often.
@@ -118,6 +128,9 @@ type FetchOptions struct {
 	// OnClipIDs is told the NRK clip reference of every listed episode,
 	// including ones skipped as already stored (episode id → clip id).
 	OnClipIDs func(map[string]string)
+	// OnIncomplete is told when part of the listing couldn't be fetched
+	// (an umbrella show's season), so the caller can retry soon.
+	OnIncomplete func()
 }
 
 // reportClipIDs passes listed episodes' clip references to the callback.
@@ -377,7 +390,7 @@ func (c *Client) GetSeries(seriesID string, opts FetchOptions) (*store.Series, O
 		(opts.MetadataOnly || len(episodesBody.Embedded.Episodes) > 0) {
 		episodes := []episodeWithMedia{}
 		if !opts.MetadataOnly {
-			episodes = c.extractEpisodes(&seriesBody, &episodesBody, opts.SkipEpisodeIDs, opts.OnEpisodeFailure, opts.OnClipIDs)
+			episodes = c.extractEpisodes(&seriesBody, &episodesBody, opts)
 		}
 		kind := usedKind
 		s := seriesBody.Series
@@ -402,26 +415,36 @@ func (c *Client) GetSeries(seriesID string, opts FetchOptions) (*store.Series, O
 // extractEpisodes resolves download links for a series' episodes. Umbrella
 // shows list their episodes per season (first page of each season).
 // Non-playable episodes are dropped and reported, not fatal.
-func (c *Client) extractEpisodes(series *seriesResponse, page *episodesPage, skip map[string]bool,
-	onFailure OnEpisodeFailure, onClipIDs func(map[string]string)) []episodeWithMedia {
+func (c *Client) extractEpisodes(series *seriesResponse, page *episodesPage, opts FetchOptions) []episodeWithMedia {
 	var candidates []Episode
 	if series.SeriesType == "umbrella" {
-		seasons := mapConcurrent(series.Links.Seasons, fetchConcurrency, func(season link) []Episode {
+		type seasonResult struct {
+			episodes []Episode
+			failed   bool
+		}
+		seasons := mapConcurrent(series.Links.Seasons, fetchConcurrency, func(season link) seasonResult {
 			var body seasonResponse
-			if _, ok := c.up.getJSON(API+season.Href, &body); !ok || body.Embedded.Episodes == nil {
-				return nil
+			status, ok := c.up.getJSON(API+season.Href, &body)
+			if !ok || body.Embedded.Episodes == nil {
+				// a season that is gone (404) is nothing to retry
+				return seasonResult{failed: status != http.StatusNotFound}
 			}
-			return body.Embedded.Episodes.Embedded.Episodes
+			return seasonResult{episodes: body.Embedded.Episodes.Embedded.Episodes}
 		})
+		incomplete := false
 		for _, s := range seasons {
-			candidates = append(candidates, s...)
+			candidates = append(candidates, s.episodes...)
+			incomplete = incomplete || s.failed
+		}
+		if incomplete && opts.OnIncomplete != nil {
+			opts.OnIncomplete()
 		}
 	} else {
 		candidates = page.Embedded.Episodes
 	}
-	reportClipIDs(onClipIDs, candidates)
-	fresh := filterSkipped(candidates, skip)
-	episodes, _ := collect(fresh, c.resolveAll(fresh, fetchConcurrency, series.Type), onFailure)
+	reportClipIDs(opts.OnClipIDs, candidates)
+	fresh := filterSkipped(candidates, opts.SkipEpisodeIDs)
+	episodes, _ := collect(fresh, c.resolveAll(fresh, fetchConcurrency, series.Type), opts.OnEpisodeFailure)
 	return episodes
 }
 
@@ -560,11 +583,12 @@ func (c *Client) GetNewEpisodes(seriesID string, kind store.CatalogKind, opts Fe
 
 // GetEpisodeResult fetches one episode (for its chapters) by NRK's
 // episodeId. Status is 200, 404 (not in either catalog) or 503.
-func (c *Client) GetEpisodeResult(seriesID, episodeID string) (*EpisodeDetail, int) {
+// The stored catalog kind, when known, is tried first.
+func (c *Client) GetEpisodeResult(seriesID, episodeID string, kind *store.CatalogKind) (*EpisodeDetail, int) {
 	failed := false
-	for _, kind := range []string{"podcast", "series"} {
+	for _, kind := range catalogOrder(kind) {
 		var detail EpisodeDetail
-		status, ok := c.up.getJSON(API+"/radio/catalog/"+kind+"/"+seriesID+"/episodes/"+episodeID, &detail)
+		status, ok := c.up.getJSON(API+"/radio/catalog/"+string(kind)+"/"+seriesID+"/episodes/"+episodeID, &detail)
 		if status == http.StatusOK && ok {
 			return &detail, status
 		}
@@ -688,8 +712,33 @@ func (c *Client) Search(query string) []SearchResult {
 		c.searchMu.Unlock()
 		return cached.result
 	}
+	// the same search arriving at once (a link shared widely) costs NRK
+	// one request
+	if call := c.searchInFlight[key]; call != nil {
+		c.searchMu.Unlock()
+		<-call.done
+		return call.result
+	}
+	call := &searchCall{done: make(chan struct{})}
+	c.searchInFlight[key] = call
 	c.searchMu.Unlock()
+	defer func() {
+		c.searchMu.Lock()
+		delete(c.searchInFlight, key)
+		c.searchMu.Unlock()
+		close(call.done)
+	}()
+	call.result = c.fetchSearch(key, q)
+	return call.result
+}
 
+type searchCall struct {
+	done   chan struct{}
+	result []SearchResult
+}
+
+// fetchSearch asks NRK and caches the answer under key.
+func (c *Client) fetchSearch(key, q string) []SearchResult {
 	var body searchResponse
 	status, ok := c.up.getJSON(API+"/radio/search/search?q="+EncodeURIComponent(q), &body)
 	if status != http.StatusOK || !ok {

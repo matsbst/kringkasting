@@ -10,7 +10,7 @@
 </section>{{else}}{{with .Admin.Dashboard}}{{$d := .}}<div class="pt-12 pb-8">
 <div class="flex items-baseline justify-between flex-wrap gap-2">
 <h1 class="text-3xl font-bold tracking-tight">Admin</h1>
-<p class="text-sm text-ink-3 dark:text-ink-3-dark">versjon {{.Version}} · oppe siden {{.StartedAt}} · <span title="Adressen grensene for søk og innlogging teller per. Står det en lokal adresse her, sender ikke proxyen klientens adresse videre.">din adresse {{$.Admin.Client}}</span></p>
+<p class="text-sm text-ink-3 dark:text-ink-3-dark">versjon {{.Version}} · oppe siden {{.StartedAt}} · <span title="Adressen grensene for søk og innlogging teller per. Står det en lokal adresse her, sender ikke proxyen klientens adresse videre.">din adresse {{$.Admin.Client}}</span> · <form method="post" class="inline"><input type="hidden" name="action" value="logout"/><button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut</button></form></p>
 </div>
 {{if .Notice}}<p role="status" class="mt-4 rounded-2xl bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm">{{.Notice}}</p>{{end}}
 {{with .Health}}<section aria-label="NRK-status" class="mt-6 flex items-start gap-3 rounded-2xl px-4 py-3 {{if eq .Level "down"}}border-2 border-brand bg-brand/10{{else}}bg-ink/5 dark:bg-ink-dark/8{{end}}">
@@ -59,7 +59,7 @@
 </tr>
 {{end}}</tbody>
 </table>{{else}}<p class="mt-6 text-ink-2 dark:text-ink-2-dark">Ingen strømmer passer. <a href="/admin" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Vis alle</a></p>{{end}}
-<p id="abonnenter" class="mt-4 text-xs text-ink-3 dark:text-ink-3-dark">«Sist brukt» og apper kommer fra forespørslene som når serveren; bak et CDN som Cloudflare skjer det omtrent én gang i timen per strøm. Abonnenter er et minimum: summen av det appene selv oppgir de siste 14 dagene (bl.a. Overcast, Feedly og Inoreader). Apper som ikke oppgir antall, som Apple Podcasts og Pocket Casts, er ikke med. {{if .Measured}}Bruk måles fra {{.MeasureFrom}}.{{else}}Bruk måles fra første forespørsel etter denne oppdateringen.{{end}}</p>
+<p id="abonnenter" class="mt-4 text-xs text-ink-3 dark:text-ink-3-dark">«Sist brukt» og apper kommer fra forespørslene som når serveren; bak et CDN som Cloudflare skjer det omtrent én gang i timen per strøm. Abonnenter er et minimum: summen av det appene selv oppgir de siste 14 dagene (bl.a. Overcast, Feedly og Inoreader). Apper som ikke oppgir antall, som Apple Podcasts og Pocket Casts, er ikke med. Tallene er appenes egne og kan ikke kontrolleres, så hvem som helst kan blåse dem opp. {{if .Measured}}Bruk måles fra {{.MeasureFrom}}.{{else}}Bruk måles fra første forespørsel etter denne oppdateringen.{{end}}</p>
 </section>
 <section class="mt-12" aria-labelledby="rydd-tittel">
 <h2 id="rydd-tittel" class="text-xl font-semibold">Rydd opp</h2>

@@ -51,9 +51,14 @@ func (s *Store) SetClipIDs(seriesID string, clipIDs map[string]string) {
 // VideosDue returns up to limit episodes of a feed with a clip reference
 // whose video hasn't been checked, or is due again; newest first.
 func (s *Store) VideosDue(seriesID string, limit int) ([]VideoCandidate, error) {
+	// clips waiting out a retry deadline (retry:video:{clip}) are left out,
+	// so they can't fill every round and starve the episodes behind them
+	now := clock.NowMs()
 	rows, err := s.read.Query(`SELECT id, clip_id, date, duration_seconds, video_url FROM episodes
 		WHERE series_id = ? AND clip_id IS NOT NULL AND (video_next_check_at IS NULL OR video_next_check_at <= ?)
-		ORDER BY date DESC LIMIT ?`, seriesID, clock.NowMs(), limit)
+		AND NOT EXISTS (SELECT 1 FROM app_state WHERE key = 'retry:video:' || clip_id
+			AND json_extract(value, '$.nextRetryAt') > ?)
+		ORDER BY date DESC LIMIT ?`, seriesID, now, now, limit)
 	if err != nil {
 		return nil, err
 	}

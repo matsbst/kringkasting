@@ -66,6 +66,8 @@ func (s *Store) FlushActivity(b ActivityBatch) error {
 		return nil
 	}
 	err := s.tx(func(tx *sql.Tx) error {
+		// a batch keeps each feed's latest request, so a new feed's first
+		// request is recorded to within one flush interval
 		for feedID, at := range b.Feeds {
 			if _, err := tx.Exec(`INSERT INTO feed_activity (feed_id, first_requested_at, last_requested_at) VALUES (?, ?, ?)
 				ON CONFLICT(feed_id) DO UPDATE SET last_requested_at = MAX(last_requested_at, excluded.last_requested_at)`,

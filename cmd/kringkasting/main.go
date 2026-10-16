@@ -70,7 +70,10 @@ func run(cfg config.Config) error {
 		Handler:           application.Handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		// a client that stops reading can't hold a connection forever;
+		// generous, as a cold feed waits for NRK and full archives are large
+		WriteTimeout: 5 * time.Minute,
+		IdleTimeout:  120 * time.Second,
 	}
 	serveErr := make(chan error, 1)
 	go func() {
@@ -94,6 +97,9 @@ func run(cfg config.Config) error {
 		log.Printf("HTTP shutdown: %v", err)
 	}
 	// ctx is cancelled, so the crawler stops after its current page and
-	// its checkpoint; then the database closes
-	return application.Close(shutdownCtx)
+	// its checkpoint; then the database closes. Its own grace period, so a
+	// slow HTTP shutdown can't leave background work no time at all.
+	closeCtx, cancelClose := context.WithTimeout(context.Background(), shutdownGrace)
+	defer cancelClose()
+	return application.Close(closeCtx)
 }

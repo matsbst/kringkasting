@@ -9,7 +9,6 @@ import (
 	"math"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/matsbst/kringkasting/internal/clock"
 )
@@ -45,6 +44,17 @@ func (v *versions) get(id string) int64 {
 
 // DataVersion is the series' in-memory content version.
 func (s *Store) DataVersion(seriesID string) int64 { return s.versions.get(seriesID) }
+
+// ReadCatalogKind returns the series' stored catalog kind; nil when the
+// series or its kind is unknown.
+func (s *Store) ReadCatalogKind(id string) *CatalogKind {
+	var kind sql.NullString
+	if err := s.read.QueryRow("SELECT catalog_kind FROM series WHERE id = ?", id).Scan(&kind); err != nil || !kind.Valid {
+		return nil
+	}
+	k := CatalogKind(kind.String)
+	return &k
+}
 
 // HasSeries is a cheap existence check without loading episodes.
 func (s *Store) HasSeries(id string) bool {
@@ -194,7 +204,15 @@ func (s *Store) WriteSeries(series *Series) bool {
 
 // AddEpisodes adds episodes to an existing series (the backlog crawler).
 func (s *Store) AddEpisodes(seriesID string, episodes []Episode) bool {
-	err := s.tx(func(tx *sql.Tx) error { return insertEpisodes(tx, seriesID, episodes) })
+	err := s.tx(func(tx *sql.Tx) error {
+		// a crawl or refresh that raced an admin delete must not leave
+		// episodes behind without their series
+		var one int
+		if err := tx.QueryRow("SELECT 1 FROM series WHERE id = ?", seriesID).Scan(&one); err != nil {
+			return fmt.Errorf("series is gone: %w", err)
+		}
+		return insertEpisodes(tx, seriesID, episodes)
+	})
 	if err != nil {
 		log.Printf("Failed to add episodes to %s: %v", seriesID, err)
 		return false
@@ -349,37 +367,6 @@ func (s *Store) idSet(query string, args ...any) (map[string]bool, error) {
 	return ids, rows.Err()
 }
 
-// DeleteStaleSeries deletes series nobody has requested for maxAge.
-func (s *Store) DeleteStaleSeries(maxAge time.Duration) int {
-	cutoff := clock.NowMs() - maxAge.Milliseconds()
-	stale, err := s.idSet("SELECT id FROM series WHERE last_fetched_at < ?", cutoff)
-	if err != nil || len(stale) == 0 {
-		return 0
-	}
-	err = s.tx(func(tx *sql.Tx) error {
-		for id := range stale {
-			for _, q := range []string{
-				"DELETE FROM episodes WHERE series_id = ?",
-				"DELETE FROM failed_episodes WHERE series_id = ?",
-				"DELETE FROM series WHERE id = ?",
-			} {
-				if _, err := tx.Exec(q, id); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Printf("Garbage collection failed: %v", err)
-		return 0
-	}
-	for id := range stale {
-		s.versions.bump(id)
-	}
-	return len(stale)
-}
-
 // ListSeriesOverview returns everything the admin series table needs.
 func (s *Store) ListSeriesOverview() ([]SeriesOverview, error) {
 	rows, err := s.read.Query(`
@@ -470,9 +457,19 @@ func (s *Store) DeleteSeriesByID(seriesID string) {
 				return err
 			}
 		}
-		_, err := tx.Exec("DELETE FROM app_state WHERE key IN (?, ?, ?)",
-			"refresh-progress:"+seriesID, "retry:refresh:"+seriesID, "retry:backlog:"+seriesID)
-		return err
+		if _, err := tx.Exec("DELETE FROM app_state WHERE key IN (?, ?, ?)",
+			"refresh-progress:"+seriesID, "retry:refresh:"+seriesID, "retry:backlog:"+seriesID); err != nil {
+			return err
+		}
+		// cached chapters and their retry deadlines, by key range (";"
+		// sorts right after ":")
+		for _, prefix := range []string{"chapters:" + seriesID + ":", "retry:chapters:" + seriesID + ":"} {
+			if _, err := tx.Exec("DELETE FROM app_state WHERE key >= ? AND key < ?",
+				prefix, strings.TrimSuffix(prefix, ":")+";"); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		log.Printf("Failed to delete series %s: %v", seriesID, err)
@@ -482,8 +479,7 @@ func (s *Store) DeleteSeriesByID(seriesID string) {
 }
 
 // ExpireSeries marks a series stale so the next request refreshes it
-// (admin). 9 days back beats every adaptive refresh interval while staying
-// far from the 90-day GC cutoff.
+// (admin). 9 days back beats every adaptive refresh interval.
 func (s *Store) ExpireSeries(seriesID string) {
 	if _, err := s.write.Exec("UPDATE series SET last_fetched_at = ? WHERE id = ?",
 		clock.NowMs()-9*dayMs, seriesID); err != nil {

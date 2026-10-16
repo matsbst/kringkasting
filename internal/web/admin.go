@@ -1,14 +1,15 @@
 package web
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/matsbst/kringkasting/internal/clock"
@@ -44,18 +45,34 @@ func (s *Server) tokenMatches(candidate string) bool {
 	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
 }
 
+// sessionValue is what the admin cookie holds: an HMAC under ADMIN_TOKEN,
+// so the token itself is never stored in the browser, and changing the
+// token ends every session.
+func (s *Server) sessionValue() string {
+	mac := hmac.New(sha256.New, []byte(s.Config.AdminToken))
+	mac.Write([]byte("kringkasting admin session v1"))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func (s *Server) authenticated(r *http.Request) bool {
-	for _, part := range strings.Split(r.Header.Get("Cookie"), ";") {
-		name, value, _ := strings.Cut(strings.TrimSpace(part), "=")
-		if name == adminCookie {
-			decoded, err := url.PathUnescape(value)
-			if err != nil {
-				return false
-			}
-			return s.tokenMatches(decoded)
-		}
+	if !s.adminEnabled() {
+		return false
 	}
-	return false
+	cookie, err := r.Cookie(adminCookie)
+	if err != nil {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(s.sessionValue())) == 1
+}
+
+// setSession sets (maxAge > 0) or clears (maxAge 0) the admin cookie.
+func (s *Server) setSession(w http.ResponseWriter, r *http.Request, value string, maxAge int) {
+	secure := ""
+	if s.isHTTPS(r) {
+		secure = " Secure;"
+	}
+	w.Header().Set("Set-Cookie", fmt.Sprintf("%s=%s; Path=/admin; HttpOnly;%s SameSite=Strict; Max-Age=%d",
+		adminCookie, value, secure, maxAge))
 }
 
 // isHTTPS: behind Cloudron/Cloudflare the upstream request is plain HTTP,
@@ -143,12 +160,12 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.limiter.refundScoped("adminlogin", client)
-		secure := ""
-		if s.isHTTPS(r) {
-			secure = " Secure;"
-		}
-		w.Header().Set("Set-Cookie", fmt.Sprintf("%s=%s; Path=/admin; HttpOnly;%s SameSite=Strict; Max-Age=2592000",
-			adminCookie, nrk.EncodeURIComponent(tokens[0]), secure))
+		s.setSession(w, r, s.sessionValue(), 30*24*60*60)
+		redirectAdmin(w, "/admin")
+		return
+	}
+	if r.PostForm.Get("action") == "logout" {
+		s.setSession(w, r, "", 0)
 		redirectAdmin(w, "/admin")
 		return
 	}

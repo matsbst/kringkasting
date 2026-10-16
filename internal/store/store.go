@@ -136,7 +136,10 @@ func dsn(path string, readOnly bool) string {
 	if readOnly {
 		params.Add("_pragma", "query_only(1)")
 	}
-	return "file:" + path + "?" + params.Encode()
+	// a URI: "?", "#" and "%" in the path must not start the query,
+	// a fragment or an escape
+	escaped := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").Replace(path)
+	return "file:" + escaped + "?" + params.Encode()
 }
 
 // Close closes both pools. The write connection closes last so SQLite can

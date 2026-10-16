@@ -121,3 +121,21 @@ func TestOpenProductionCopy(t *testing.T) {
 	}
 	integrityOK(t, s)
 }
+
+// A database path with characters special in URIs opens the file it names.
+func TestOpenPathWithURICharacters(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "data #1 100% ?")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "kringkasting.sqlite3")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.WriteState("probe", 1)
+	s.Close()
+	if _, err := os.Stat(path); err != nil {
+		t.Errorf("database not at its path: %v", err)
+	}
+}
