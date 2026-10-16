@@ -179,6 +179,26 @@ function showHint(text) {
   hintTimer = setTimeout(() => (hint.hidden = true), 7000);
 }
 
+function copyTextSynchronously(text) {
+  // Safari can deny the async clipboard API in contexts where a user gesture
+  // is required. Copy synchronously while the click is still active, before
+  // opening the external app consumes that gesture.
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.opacity = "0";
+  document.body.append(input);
+  input.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } finally {
+    input.remove();
+  }
+  return copied;
+}
+
 /**
  * Apple Podcasts on the desktop opens "Follow a Show by URL" without
  * pre-filling the feed URL, so on non-touch devices copy the URL first and
@@ -186,8 +206,21 @@ function showHint(text) {
  * (iOS/iPadOS) subscribe directly through the plain link.
  */
 function activate(appId, href, feedUrl, event) {
-  if (appId !== "apple" || navigator.maxTouchPoints !== 0) return;
+  // If maxTouchPoints is unavailable (older Safari), treat the device as a
+  // desktop. Touch Macs such as iPadOS still follow the native handoff.
+  if (appId !== "apple" || navigator.maxTouchPoints > 0) return;
   event.preventDefault();
+  let copied = false;
+  try {
+    copied = copyTextSynchronously(feedUrl);
+  } catch {
+    // Fall back to the async API or the manual-copy prompt below.
+  }
+  if (copied) {
+    showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
+    location.href = href;
+    return;
+  }
   if (!navigator.clipboard) {
     // plain HTTP (a home server) has no clipboard API: offer the URL to
     // copy, then open the app
@@ -195,10 +228,16 @@ function activate(appId, href, feedUrl, event) {
     location.href = href;
     return;
   }
-  navigator.clipboard.writeText(feedUrl).catch(() => {}).finally(() => {
-    showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
-    location.href = href;
-  });
+  navigator.clipboard.writeText(feedUrl).then(
+    () => {
+      showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
+      location.href = href;
+    },
+    () => {
+      prompt("Kopier RSS-lenken (⌘C) og lim den inn i «Følg et program via URL» i Podkaster:", feedUrl);
+      location.href = href;
+    },
+  );
 }
 
 // a computer: the QR code hands the subscription over to the phone
