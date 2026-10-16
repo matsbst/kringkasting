@@ -20,7 +20,7 @@ The interval has ±15% jitter. New episodes in a long-dormant show may therefore
 
 | Operation            | Upstream work and cache policy                                                                                                              |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Search               | Results cached in memory for 5 minutes per query                                                                                            |
+| Search               | Results cached in memory for 5 minutes per query; identical searches made at the same time share one request                                |
 | Pasted NRK link      | One series request; a season link adds the season; an episode of an umbrella podcast adds the episode and its season. Cached 5 minutes, same rate limit as search; the pasted URL itself is never fetched |
 | Episode video        | One clip manifest lookup per episode with an NRK clip reference, after a fetch/refresh (not on polls); at most 20 per feed per round; re-checked after 30 days (6 hours while a recent episode has no video yet); clip references for older episodes recovered one listing page per round, shows with video only |
 | Discovery catalog    | Complete catalog persisted in SQLite for 7 days, loaded on demand; restarts reuse it                                                        |
@@ -33,7 +33,7 @@ Chapter responses allow one day of browser/CDN caching. On an upstream outage, a
 
 ## Archive and refresh recovery
 
-The initial archive crawl runs one series at a time, with a one-second pause between pages and at most 200 pages per run. Known episode IDs skip repeated manifest and file-size lookups. Progress is saved in SQLite. Resuming revisits the last completed page to provide overlap if pagination shifted.
+The initial archive crawl runs one series at a time, with a one-second pause between pages and at most 200 pages per run, followed by a five-minute pause. Known episode IDs skip repeated manifest and file-size lookups. Progress is saved in SQLite. Resuming revisits the last completed page to provide overlap if pagination shifted.
 
 Incremental refreshes have their own durable checkpoint and original episode boundary. If a page/manifest fails or the ten-page batch limit is reached, the next eligible feed request resumes that checkpoint with one page of overlap. It does not reopen a full archive scan. The boundary is recorded before new episodes are persisted, so a restart cannot mistake a partially saved batch for a complete refresh. If NRK answers 404 or 410 for the first page, the checkpoint is dropped and a full fetch runs instead; it tries both catalogs, so a show NRK has moved is found again.
 

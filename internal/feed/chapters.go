@@ -2,6 +2,7 @@ package feed
 
 import (
 	"encoding/json"
+	"log"
 	"sync"
 	"time"
 
@@ -84,11 +85,21 @@ func (c *Chapters) Get(seriesID, feedEpisodeID string) ChaptersResult {
 		call = &chapterCall{done: make(chan struct{})}
 		c.inFlight[key] = call
 		c.mu.Unlock()
-		call.result = c.fetch(key, seriesID, episodeID, cached, hasCached)
-		c.mu.Lock()
-		delete(c.inFlight, key)
-		c.mu.Unlock()
-		close(call.done)
+		func() {
+			// a panic must not leave the entry behind: every later
+			// request for these chapters would wait on it forever
+			defer func() {
+				if r := recover(); r != nil {
+					call.result = ChaptersResult{Status: 503}
+					log.Printf("chapters %s panicked: %v", key, r)
+				}
+				c.mu.Lock()
+				delete(c.inFlight, key)
+				c.mu.Unlock()
+				close(call.done)
+			}()
+			call.result = c.fetch(key, seriesID, episodeID, cached, hasCached)
+		}()
 	} else {
 		c.mu.Unlock()
 		<-call.done
@@ -105,7 +116,7 @@ func (c *Chapters) fetch(key, seriesID, episodeID string, cached ChaptersResult,
 		return ChaptersResult{Status: 503}
 	}
 
-	episode, status := c.nrk.GetEpisodeResult(seriesID, episodeID)
+	episode, status := c.nrk.GetEpisodeResult(seriesID, episodeID, c.store.ReadCatalogKind(seriesID))
 	if status != 200 && status != 404 {
 		return fail()
 	}

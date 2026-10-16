@@ -1,9 +1,11 @@
 package web
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/matsbst/kringkasting/internal/stats"
 	"github.com/matsbst/kringkasting/internal/store"
@@ -85,5 +87,13 @@ func TestDashboardFormatting(t *testing.T) {
 	if strings.Count(svg, "<rect") != 3 || !strings.Contains(svg, "<title>14. okt.: 10 (2 feil)</title>") ||
 		!strings.Contains(svg, `opacity="0.25"`) || !strings.Contains(svg, `role="img" aria-label="NRK"`) {
 		t.Errorf("chart: %s", svg)
+	}
+}
+
+// The admin search is cut at 100 characters, never inside one.
+func TestListQueryCutsByCharacter(t *testing.T) {
+	q := parseListQuery(url.Values{"q": {strings.Repeat("ø", 150)}}).Query
+	if !utf8.ValidString(q) || utf8.RuneCountInString(q) != 100 {
+		t.Errorf("cut to %d characters, valid UTF-8: %v", utf8.RuneCountInString(q), utf8.ValidString(q))
 	}
 }

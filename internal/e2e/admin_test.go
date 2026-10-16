@@ -1,6 +1,9 @@
 package e2e
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,7 +13,14 @@ import (
 	"time"
 )
 
-var adminCookie = map[string]string{"Cookie": "kringkasting_admin=" + adminToken}
+// adminCookie is the session a login with adminToken sets
+var adminCookie = map[string]string{"Cookie": "kringkasting_admin=" + adminSession()}
+
+func adminSession() string {
+	mac := hmac.New(sha256.New, []byte(adminToken))
+	mac.Write([]byte("kringkasting admin session v1"))
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
 func (i *instance) admin(t *testing.T, query string) string {
 	t.Helper()
@@ -208,5 +218,29 @@ func TestAdminLoginLimit(t *testing.T) {
 	}
 	if got := login("203.0.113.1", adminToken, nil); got != "ok" {
 		t.Errorf("admin elsewhere: %s, want ok", got)
+	}
+}
+
+// The cookie holds a session value, never the token; the raw token is no
+// longer accepted as a cookie, and logging out clears the session.
+func TestAdminSession(t *testing.T) {
+	app := start(t, options{env: adminEnv()})
+	resp := app.do(request{method: http.MethodPost, path: "/admin", remote: "203.0.113.1",
+		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+		body:    url.Values{"token": {adminToken}}.Encode()})
+	cookie := resp.Header.Get("Set-Cookie")
+	if strings.Contains(cookie, adminToken) || !strings.Contains(cookie, "kringkasting_admin="+adminSession()) {
+		t.Fatalf("login cookie %q", cookie)
+	}
+	raw := body(app.do(request{path: "/admin", headers: map[string]string{"Cookie": "kringkasting_admin=" + adminToken}}))
+	if !strings.Contains(raw, `name="token"`) {
+		t.Error("the raw token must not work as a session")
+	}
+	if !strings.Contains(app.admin(t, ""), "Logg ut") {
+		t.Error("logout button missing")
+	}
+	resp = app.adminPost(t, url.Values{"action": {"logout"}})
+	if c := resp.Header.Get("Set-Cookie"); resp.StatusCode != http.StatusSeeOther || !strings.Contains(c, "kringkasting_admin=;") || !strings.Contains(c, "Max-Age=0") {
+		t.Errorf("logout: %d %q", resp.StatusCode, c)
 	}
 }

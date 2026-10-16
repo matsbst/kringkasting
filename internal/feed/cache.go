@@ -1,6 +1,7 @@
 package feed
 
 import (
+	"container/list"
 	"crypto/sha1"
 	"encoding/hex"
 	"sync"
@@ -10,7 +11,14 @@ import (
 	"github.com/matsbst/kringkasting/internal/store"
 )
 
-const maxCacheEntries = 500
+const (
+	maxCacheEntries = 500
+	// maxCacheBytes bounds the cached XML: full archives run to several MB
+	// each, so a count alone doesn't bound memory
+	maxCacheBytes = 64 << 20
+	// maxValidators bounds the Last-Modified dates kept for evicted feeds
+	maxValidators = 10_000
+)
 
 // Rendered is a feed's XML with its validators.
 type Rendered struct {
@@ -21,8 +29,16 @@ type Rendered struct {
 
 type cacheEntry struct {
 	Rendered
+	key     string
 	origin  string
 	version int64
+}
+
+// validator is what a feed's Last-Modified must stay consistent with,
+// kept after its XML is evicted.
+type validator struct {
+	etag         string
+	lastModified time.Time
 }
 
 // Cache memoizes rendered feed XML (and its ETag) per feed, invalidated
@@ -30,20 +46,39 @@ type cacheEntry struct {
 // Serving a poll, 200 or 304, then costs no rendering or hashing. Each feed
 // has one entry, for the origin it was last rendered for: without
 // APP_ORIGIN the origin comes from the request Host, and keying on it would
-// let arbitrary Host values multiply full copies of a feed in memory.
+// let arbitrary Host values multiply full copies of a feed in memory. The
+// least recently used feeds are evicted beyond maxCacheEntries or
+// maxCacheBytes.
 type Cache struct {
-	mu      sync.Mutex
-	entries map[string]*cacheEntry
-	order   []string // insertion order, for oldest-first eviction
+	mu         sync.Mutex
+	entries    map[string]*list.Element // of *cacheEntry
+	lru        *list.List               // most recently used first
+	bytes      int
+	validators map[string]validator
+	// limits, constants except in tests
+	maxEntries, maxBytes int
 }
 
-func NewCache() *Cache { return &Cache{entries: map[string]*cacheEntry{}} }
+func NewCache() *Cache {
+	return &Cache{entries: map[string]*list.Element{}, lru: list.New(), validators: map[string]validator{},
+		maxEntries: maxCacheEntries, maxBytes: maxCacheBytes}
+}
+
+// get returns the entry for key and marks it used. c.mu must be held.
+func (c *Cache) get(key string) *cacheEntry {
+	element := c.entries[key]
+	if element == nil {
+		return nil
+	}
+	c.lru.MoveToFront(element)
+	return element.Value.(*cacheEntry)
+}
 
 // Peek returns the cached feed if its version snapshot is still current.
 func (c *Cache) Peek(feedID, origin string, version int64) *Rendered {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if e := c.entries[feedID]; e != nil && e.origin == origin && e.version == version {
+	if e := c.get(feedID); e != nil && e.origin == origin && e.version == version {
 		r := e.Rendered
 		return &r
 	}
@@ -65,7 +100,8 @@ func ETagFor(content string) string {
 func (c *Cache) Render(series *store.Series, origin string) Rendered {
 	key, version := series.ID, series.Version
 	c.mu.Lock()
-	cached := c.entries[key]
+	cached := c.get(key)
+	previous, known := c.validators[key]
 	c.mu.Unlock()
 	// an equal or newer render is already cached: never go back
 	if cached != nil && cached.origin == origin && cached.version >= version {
@@ -73,15 +109,22 @@ func (c *Cache) Render(series *store.Series, origin string) Rendered {
 	}
 
 	xml := AssembleFeed(series, origin)
+	etag := ETagFor(xml)
 	// Last-Modified must move whenever the XML changes (archive backfills
 	// add OLD episodes, so the newest episode date would stand still and
-	// If-Modified-Since clients would never fetch the update)
+	// If-Modified-Since clients would never fetch the update), and only
+	// then. HTTP dates have whole seconds: a change within the same second
+	// as the last one moves it a second on.
 	lastModified := clock.Now()
-	if cached != nil && cached.XML == xml {
-		lastModified = cached.LastModified
+	if known {
+		if previous.etag == etag {
+			lastModified = previous.lastModified
+		} else if last := previous.lastModified.Truncate(time.Second); !lastModified.Truncate(time.Second).After(last) {
+			lastModified = last.Add(time.Second)
+		}
 	}
-	entry := &cacheEntry{Rendered: Rendered{XML: xml, ETag: ETagFor(xml), LastModified: lastModified},
-		origin: origin, version: version}
+	entry := &cacheEntry{Rendered: Rendered{XML: xml, ETag: etag, LastModified: lastModified},
+		key: key, origin: origin, version: version}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -89,17 +132,33 @@ func (c *Cache) Render(series *store.Series, origin string) Rendered {
 		// not read from the store: serve it, but don't cache it
 		return entry.Rendered
 	}
-	if current := c.entries[key]; current != nil && current.origin == origin && current.version > version {
+	if current := c.get(key); current != nil && current.origin == origin && current.version > version {
 		// a newer render landed while this one was assembled
 		return current.Rendered
 	}
-	if _, exists := c.entries[key]; !exists {
-		if len(c.entries) >= maxCacheEntries && len(c.order) > 0 {
-			delete(c.entries, c.order[0])
-			c.order = c.order[1:]
-		}
-		c.order = append(c.order, key)
+	c.remember(key, entry)
+	if element := c.entries[key]; element != nil {
+		c.bytes -= len(element.Value.(*cacheEntry).XML)
+		element.Value = entry
+		c.lru.MoveToFront(element)
+	} else {
+		c.entries[key] = c.lru.PushFront(entry)
 	}
-	c.entries[key] = entry
+	c.bytes += len(xml)
+	for c.lru.Len() > 1 && (c.lru.Len() > c.maxEntries || c.bytes > c.maxBytes) {
+		oldest := c.lru.Back()
+		evicted := oldest.Value.(*cacheEntry)
+		c.lru.Remove(oldest)
+		delete(c.entries, evicted.key)
+		c.bytes -= len(evicted.XML)
+	}
 	return entry.Rendered
+}
+
+// remember keeps the feed's validators past eviction. c.mu must be held.
+func (c *Cache) remember(key string, entry *cacheEntry) {
+	if _, exists := c.validators[key]; !exists && len(c.validators) >= maxValidators {
+		c.validators = map[string]validator{}
+	}
+	c.validators[key] = validator{etag: entry.ETag, lastModified: entry.LastModified}
 }

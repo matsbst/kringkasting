@@ -153,8 +153,9 @@ func validOption(options []option, value string) string {
 
 func parseListQuery(values url.Values) listQuery {
 	query := strings.TrimSpace(values.Get("q"))
-	if len(query) > 100 {
-		query = query[:100]
+	// 100 characters, not bytes: a cut mid-character would garble the query
+	if runes := []rune(query); len(runes) > 100 {
+		query = string(runes[:100])
 	}
 	return listQuery{Query: query, Show: validOption(showOptions, values.Get("vis")), Sort: validOption(sortOptions, values.Get("sorter"))}
 }
