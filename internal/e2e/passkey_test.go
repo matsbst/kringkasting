@@ -155,7 +155,7 @@ func TestAdminPasskeys(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("register finish: %d %s", resp.StatusCode, body(resp))
 	}
-	dashboard := app.admin(t, "")
+	dashboard := app.admin(t, "/innstillinger")
 	if !strings.Contains(dashboard, "Testnøkkel") || !strings.Contains(dashboard, "sist brukt aldri") {
 		t.Fatal("the new passkey isn't listed")
 	}
@@ -176,7 +176,7 @@ func TestAdminPasskeys(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(session, "kringkasting_admin=") {
 		t.Fatalf("passkey login: %d %q %s", resp.StatusCode, session, body(resp))
 	}
-	if html := body(app.do(request{path: "/admin", headers: map[string]string{"Cookie": session}})); !strings.Contains(html, "Logg ut") ||
+	if html := body(app.do(request{path: "/admin/innstillinger", headers: map[string]string{"Cookie": session}})); !strings.Contains(html, "Logg ut") ||
 		strings.Contains(html, "sist brukt aldri") {
 		t.Error("the passkey session must sign in, and the passkey show its use")
 	}
@@ -215,7 +215,7 @@ func TestAdminPasskeys(t *testing.T) {
 	}
 
 	// removing the passkey brings token login back
-	html := body(strict.do(request{path: "/admin", headers: map[string]string{"Cookie": session}}))
+	html := body(strict.do(request{path: "/admin/innstillinger", headers: map[string]string{"Cookie": session}}))
 	id := html[strings.Index(html, `name="passkey" value="`)+len(`name="passkey" value="`):]
 	id = id[:strings.Index(id, `"`)]
 	strict.do(request{method: http.MethodPost, path: "/admin", body: url.Values{"action": {"passkey-delete"}, "passkey": {id}}.Encode(),
@@ -231,7 +231,7 @@ func TestAdminPasskeysNeedHTTPS(t *testing.T) {
 	env := adminEnv()
 	env["APP_ORIGIN"] = "http://192.168.1.20:8000"
 	app := start(t, options{env: env})
-	if !strings.Contains(app.admin(t, ""), "Passnøkler krever en fast https-adresse") {
+	if !strings.Contains(app.admin(t, "/innstillinger"), "Passnøkler krever en fast https-adresse") {
 		t.Error("the dashboard must explain why passkeys are missing")
 	}
 	resp := app.do(request{method: http.MethodPost, path: "/admin/passkey/login/begin", body: "{}"})
