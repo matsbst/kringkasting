@@ -3,7 +3,7 @@
 // full control over what leaves the process: no IP, no request bodies, no
 // query strings, only the error and a few non-identifying tags.
 //
-// Enabled by SENTRY_DSN; a no-op when unset.
+// Enabled by SENTRY_DSN or the admin settings; a no-op when unset.
 package report
 
 import (
@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/matsbst/kringkasting/internal/clock"
@@ -66,8 +67,12 @@ func scrub(text string) string {
 	return text
 }
 
+// ValidDSN reports whether raw is a DSN the reporter can send to.
+func ValidDSN(raw string) bool { return parseDSN(raw) != nil }
+
 type Reporter struct {
-	target      *dsn
+	// target can change while running (the admin settings); nil is off
+	target      atomic.Pointer[dsn]
 	release     string
 	environment string
 	client      *http.Client
@@ -80,15 +85,20 @@ func New(rawDSN, release string, production bool) *Reporter {
 		r.environment = "production"
 	}
 	if rawDSN != "" {
-		r.target = parseDSN(rawDSN)
-		if r.target == nil {
+		r.target.Store(parseDSN(rawDSN))
+		if !r.Enabled() {
 			log.Print("SENTRY_DSN is set but could not be parsed; error reporting disabled")
 		}
 	}
 	return r
 }
 
-func (r *Reporter) Enabled() bool { return r != nil && r.target != nil }
+// SetDSN points the reporter somewhere else; an empty DSN turns it off.
+func (r *Reporter) SetDSN(rawDSN string) {
+	r.target.Store(parseDSN(rawDSN))
+}
+
+func (r *Reporter) Enabled() bool { return r != nil && r.target.Load() != nil }
 
 type frame struct {
 	Function string `json:"function"`
@@ -99,12 +109,16 @@ type frame struct {
 // Capture reports an error, fire-and-forget: it never blocks or fails the
 // caller.
 func (r *Reporter) Capture(err error, tags map[string]string) {
-	if !r.Enabled() || err == nil {
+	if r == nil || err == nil {
+		return
+	}
+	target := r.target.Load()
+	if target == nil {
 		return
 	}
 	frames := stack(3)
 	go func() {
-		if sendErr := r.send(err, tags, frames); sendErr != nil {
+		if sendErr := r.send(target, err, tags, frames); sendErr != nil {
 			log.Printf("Error reporting failed: %v", sendErr)
 		}
 	}()
@@ -129,7 +143,7 @@ func stack(skip int) []frame {
 	return frames
 }
 
-func (r *Reporter) send(err error, tags map[string]string, frames []frame) error {
+func (r *Reporter) send(target *dsn, err error, tags map[string]string, frames []frame) error {
 	id := make([]byte, 16)
 	_, _ = rand.Read(id)
 	event := map[string]any{
@@ -150,9 +164,9 @@ func (r *Reporter) send(err error, tags map[string]string, frames []frame) error
 	body, _ := json.Marshal(event)
 	ctx, cancel := context.WithTimeout(context.Background(), reportTimeout)
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, r.target.endpoint, bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, target.endpoint, bytes.NewReader(body))
 	req.Header.Set("content-type", "application/json")
-	req.Header.Set("x-sentry-auth", "Sentry sentry_version=7, sentry_client=kringkasting/1.0, sentry_key="+r.target.publicKey)
+	req.Header.Set("x-sentry-auth", "Sentry sentry_version=7, sentry_client=kringkasting/1.0, sentry_key="+target.publicKey)
 	resp, err := r.client.Do(req)
 	if err != nil {
 		return err

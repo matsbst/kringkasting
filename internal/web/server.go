@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 
 	"github.com/matsbst/kringkasting/internal/catalog"
 	"github.com/matsbst/kringkasting/internal/config"
@@ -54,6 +55,8 @@ type Server struct {
 	limiter *limiter
 	// passkeys is nil when the origin can't hold passkeys
 	passkeys *passkeys
+	// stored: the analytics and error reporting set in admin
+	stored atomic.Pointer[integrations]
 }
 
 // New builds the HTTP handler.
@@ -75,6 +78,7 @@ func New(d Deps) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{Deps: d, pages: pages, static: files, limiter: newLimiter(d.Stats)}
+	s.loadIntegrations()
 	if s.adminEnabled() {
 		s.passkeys = newPasskeys(d.Config.Origin)
 		s.endSessionsIfTokenChanged()
@@ -219,12 +223,13 @@ func (s *Server) privacy(r *http.Request, p *page) *privacy {
 		host := u.Hostname()
 		return host != domain && !strings.HasSuffix(host, "."+domain)
 	}
+	dsn := s.integrations().SentryDSN
 	return &privacy{
 		Umami:                  p.Umami != nil,
 		UmamiSelfHosted:        p.Umami != nil && notHostedBy(p.Umami.Src, "umami.is"),
 		Cloudflare:             viaCloudflare(r),
-		ErrorReports:           s.Config.SentryDSN != "",
-		ErrorReportsSelfHosted: s.Config.SentryDSN != "" && notHostedBy(s.Config.SentryDSN, "sentry.io"),
+		ErrorReports:           dsn != "",
+		ErrorReportsSelfHosted: dsn != "" && notHostedBy(dsn, "sentry.io"),
 	}
 }
 
@@ -237,8 +242,8 @@ func (s *Server) page(r *http.Request, title string) *page {
 		Canonical: origin + r.URL.EscapedPath(), AssetVersion: s.static.version,
 	}
 	// optional cookieless Umami analytics; both values must be set
-	if s.Config.UmamiSrc != "" && s.Config.UmamiID != "" {
-		p.Umami = &umami{Src: s.Config.UmamiSrc, WebsiteID: s.Config.UmamiID}
+	if in := s.integrations(); in.UmamiSrc != "" && in.UmamiID != "" {
+		p.Umami = &umami{Src: in.UmamiSrc, WebsiteID: in.UmamiID}
 	}
 	return p
 }
