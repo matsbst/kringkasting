@@ -243,6 +243,11 @@ type appLink struct {
 	// Platforms the app exists on, space-separated ("ios android"). On a
 	// phone, app.js hides the others; computers list every app.
 	Platforms string
+	// Desktop is what the row does on a computer: "" opens the link,
+	// "copy" copies the feed URL to paste into the app (Apple Podcasts on
+	// a Mac opens its dialog empty), "phone" shows the QR code, as the app
+	// only exists on phones.
+	Desktop string
 }
 
 type card struct {
@@ -265,16 +270,16 @@ func withoutScheme(u string) string {
 func apps(feedURL string) []appLink {
 	encoded := nrk.EncodeURIComponent(feedURL)
 	links := []appLink{
-		{ID: "apple", Name: "Apple Podcasts", Href: template.URL("podcast://" + withoutScheme(feedURL)), Platforms: "ios"},
+		{ID: "apple", Name: "Apple Podcasts", Href: template.URL("podcast://" + withoutScheme(feedURL)), Platforms: "ios", Desktop: "copy"},
 		{ID: "overcast", Name: "Overcast", Href: template.URL("overcast://x-callback-url/add?url=" + encoded), Platforms: "ios"},
 		{ID: "pocketcasts", Name: "Pocket Casts", Href: template.URL("pktc://subscribe/" + withoutScheme(feedURL)), Platforms: "ios android"},
 		{ID: "castro", Name: "Castro", Href: template.URL("castro://subscribe/" + withoutScheme(feedURL)), Platforms: "ios"},
 		{ID: "downcast", Name: "Downcast", Href: template.URL("downcast://" + withoutScheme(feedURL)), Platforms: "ios"},
-		{ID: "podcastaddict", Name: "Podcast Addict", Href: template.URL("podcastaddict://" + withoutScheme(feedURL)), Platforms: "android"},
-		{ID: "antennapod", Name: "AntennaPod", Href: template.URL("https://antennapod.org/deeplink/subscribe?url=" + encoded), Platforms: "android"},
+		{ID: "podcastaddict", Name: "Podcast Addict", Href: template.URL("podcastaddict://" + withoutScheme(feedURL)), Platforms: "android", Desktop: "phone"},
+		{ID: "antennapod", Name: "AntennaPod", Href: template.URL("https://antennapod.org/deeplink/subscribe?url=" + encoded), Platforms: "android", Desktop: "phone"},
 		// open source, with chapters and video; its page opens the app or
 		// offers the stores
-		{ID: "anytime", Name: "Anytime Player", Href: template.URL("https://anytimeplayer.app/subscribe?url=" + feedURL), Platforms: "ios android"},
+		{ID: "anytime", Name: "Anytime Player", Href: template.URL("https://anytimeplayer.app/subscribe?url=" + feedURL), Platforms: "ios android", Desktop: "phone"},
 		// RFC 4648 §5 base64url, the encoding YouTube Music expects
 		{ID: "youtubemusic", Name: "YouTube Music", Href: template.URL("https://music.youtube.com/library/podcasts?addrssfeed=" +
 			base64.RawURLEncoding.EncodeToString([]byte(feedURL))), Platforms: "ios android"},
