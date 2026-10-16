@@ -118,7 +118,7 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		query := r.URL.Query()
-		s.adminPage(w, r, adminView{Dashboard: s.dashboard(query.Get("m"), query)})
+		s.adminPage(w, r, adminView{Dashboard: s.dashboard(query.Get("m"), query), Client: clientKey(r)})
 		return
 	}
 
@@ -130,12 +130,20 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		s.adminPage(w, r, adminView{Login: true})
 		return
 	}
-	// login, throttled: 5 attempts, then one per minute
+	// login, throttled: 5 failed attempts, then one per minute. Only
+	// failures count, and the client address can't be forged with
+	// headers, so others can't lock the admin out from one address.
 	if tokens, ok := r.PostForm["token"]; ok {
-		if !s.limiter.allowScoped("adminlogin", clientKey(r), 5, 1.0/60, 20, 1.0/30) || !s.tokenMatches(tokens[0]) {
+		client := clientKey(r)
+		if !s.limiter.allowScoped("adminlogin", client, 5, 1.0/60, 20, 1.0/30) {
+			s.adminPage(w, r, adminView{Login: true, Limited: true})
+			return
+		}
+		if !s.tokenMatches(tokens[0]) {
 			s.adminPage(w, r, adminView{Login: true, Failed: true})
 			return
 		}
+		s.limiter.refundScoped("adminlogin", client)
 		secure := ""
 		if s.isHTTPS(r) {
 			secure = " Secure;"

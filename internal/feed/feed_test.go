@@ -74,20 +74,31 @@ func TestRSSDropsInvalidXMLCharacters(t *testing.T) {
 // A render cached under a pre-write version heals on the next request.
 func TestCacheSelfHeals(t *testing.T) {
 	c := feed.NewCache()
-	s := &store.Series{ID: "c", Title: "Før", Episodes: []store.Episode{}}
-	first := c.Render(s, "o", 1)
+	s := &store.Series{ID: "c", Title: "Før", Episodes: []store.Episode{}, Version: 1}
+	first := c.Render(s, "o")
 	if c.Peek("c", "o", 1) == nil || c.Peek("c", "o", 2) != nil {
 		t.Fatal("peek must match the version exactly")
 	}
-	s.Title = "Etter"
-	second := c.Render(s, "o", 2)
+	s.Title, s.Version = "Etter", 2
+	second := c.Render(s, "o")
 	if second.ETag == first.ETag || !strings.Contains(second.XML, "Etter") {
 		t.Error("new version must re-render")
 	}
 	// identical XML under a new version keeps Last-Modified
-	third := c.Render(s, "o", 3)
+	s.Version = 3
+	third := c.Render(s, "o")
 	if !third.LastModified.Equal(second.LastModified) {
 		t.Error("unchanged XML must keep its Last-Modified")
+	}
+	// a slower request holding an older read never replaces a newer render
+	old := &store.Series{ID: "c", Title: "Før", Episodes: []store.Episode{}, Version: 2}
+	if got := c.Render(old, "o"); got.ETag != third.ETag || c.Peek("c", "o", 3) == nil {
+		t.Error("an older read replaced a newer render")
+	}
+	// a series that didn't come from the store is served but never cached
+	fetched := &store.Series{ID: "d", Title: "Ny", Episodes: []store.Episode{}}
+	if got := c.Render(fetched, "o"); !strings.Contains(got.XML, "Ny") || c.Peek("d", "o", 0) != nil || c.Peek("d", "o", 1) != nil {
+		t.Error("an unversioned series must not be cached")
 	}
 	if feed.ETagFor("x") != `"11f6ad8ec52a2984abaafd7c3b516503785c2072"` {
 		t.Errorf("ETag must be the quoted SHA-1: %s", feed.ETagFor("x"))
@@ -97,9 +108,9 @@ func TestCacheSelfHeals(t *testing.T) {
 // Request-derived origins must not multiply cached copies of a feed.
 func TestCacheKeepsOneOriginPerFeed(t *testing.T) {
 	c := feed.NewCache()
-	s := &store.Series{ID: "c", Title: "Serie", Episodes: []store.Episode{}}
-	c.Render(s, "https://a.example", 1)
-	second := c.Render(s, "https://b.example", 1)
+	s := &store.Series{ID: "c", Title: "Serie", Episodes: []store.Episode{}, Version: 1}
+	c.Render(s, "https://a.example")
+	second := c.Render(s, "https://b.example")
 	if !strings.Contains(second.XML, "https://b.example") {
 		t.Error("each origin renders its own URLs")
 	}
@@ -246,6 +257,42 @@ func TestPartialRefreshResumes(t *testing.T) {
 	}
 	if fake.Count("/episodes?page=1") != 1 || fake.Count("/episodes?page=2") != 1 {
 		t.Errorf("resume must revisit page 1 once for overlap, then page 2: %v", fake.Requests)
+	}
+}
+
+// A saved refresh cursor that NRK answers 404 for (here: the show moved
+// to the series catalog) is dropped, and the full fetch finds the show
+// in the other catalog instead of retrying the dead cursor forever.
+func TestDeadRefreshCursorFallsBackToFullFetch(t *testing.T) {
+	feeds, s, _, _ := env(t, func(method, url string) testutil.Reply {
+		if r, ok := manifestOK(url); ok {
+			return r
+		}
+		switch {
+		case strings.HasSuffix(url, "/radio/catalog/series/show/episodes"):
+			return reply(map[string]any{"_embedded": map[string]any{"episodes": []any{nrkEp("new", 0)}}})
+		case strings.HasSuffix(url, "/radio/catalog/series/show"):
+			return reply(map[string]any{"type": "series", "series": map[string]any{"id": "show", "titles": map[string]any{"title": "Show"}}})
+		}
+		return testutil.Reply{Status: 404}
+	})
+	kind := store.KindPodcast
+	s.WriteSeries(&store.Series{ID: "show", Title: "Show", Link: "l", LastFetchedAt: clock.Now(),
+		CatalogKind: &kind, Episodes: []store.Episode{{ID: "old", Title: "old", URL: "https://x/o.m3u8", ShareLink: "s",
+			Date: clock.Now().Add(-30 * 24 * time.Hour), DurationInSeconds: 1}}})
+	s.WriteState("refresh-progress:show", map[string]any{"cursor": "/radio/catalog/podcast/show/episodes?page=3&pageSize=50",
+		"stopEpisodeIds": []string{"old"}})
+	s.ExpireSeries("show")
+
+	got, err := feeds.GetSeries("show")
+	if err != nil || got == nil || len(got.Episodes) != 2 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if s.HasState("refresh-progress:show") {
+		t.Error("the dead cursor must be dropped")
+	}
+	if got.CatalogKind == nil || *got.CatalogKind != store.KindSeries {
+		t.Errorf("catalog kind %v, want series", got.CatalogKind)
 	}
 }
 

@@ -35,7 +35,7 @@ Chapter responses allow one day of browser/CDN caching. On an upstream outage, a
 
 The initial archive crawl runs one series at a time, with a one-second pause between pages and at most 200 pages per run. Known episode IDs skip repeated manifest and file-size lookups. Progress is saved in SQLite. Resuming revisits the last completed page to provide overlap if pagination shifted.
 
-Incremental refreshes have their own durable checkpoint and original episode boundary. If a page/manifest fails or the ten-page batch limit is reached, the next eligible feed request resumes that checkpoint with one page of overlap. It does not reopen a full archive scan. The boundary is recorded before new episodes are persisted, so a restart cannot mistake a partially saved batch for a complete refresh.
+Incremental refreshes have their own durable checkpoint and original episode boundary. If a page/manifest fails or the ten-page batch limit is reached, the next eligible feed request resumes that checkpoint with one page of overlap. It does not reopen a full archive scan. The boundary is recorded before new episodes are persisted, so a restart cannot mistake a partially saved batch for a complete refresh. If NRK answers 404 or 410 for the first page, the checkpoint is dropped and a full fetch runs instead; it tries both catalogs, so a show NRK has moved is found again.
 
 ## Failure backoff
 
@@ -43,7 +43,7 @@ Refresh jobs, archive jobs, catalog loads, chapter loads, and failed upstream UR
 
 HTTP 429/5xx responses honor `Retry-After` as either seconds or an HTTP date. An explicit future deadline also pauses new requests to that upstream origin for exactly that long, without escalating; requests already in flight may finish. Deadlines are capped at 24 hours. Restarts preserve these deadlines. Queued requests recheck them before starting.
 
-Definitively unavailable playback manifests retain the separate existing episode backoff of 1, 2, 4, … up to 30 days. Those episode IDs become eligible when encountered again; this is not a separate scheduled retry crawler.
+Definitively unavailable playback manifests (a 4xx other than 408 or 429, or no playable media) retain the separate existing episode backoff of 1, 2, 4, … up to 30 days. A manifest that fails transiently five times in a row is treated the same way, so one episode can't hold back the rest of its page. Those episode IDs become eligible when encountered again; this is not a separate scheduled retry crawler.
 
 The global limit remains 12 active upstream requests and 64 queued requests. Interactive episode work uses up to 6 workers and backlog work up to 3. Fetch timeouts are 15 seconds after acquiring a slot.
 

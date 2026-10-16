@@ -22,6 +22,7 @@ const (
 // versions is an in-memory per-series data version, bumped on every
 // content write. It lets the feed cache know its rendered XML is out of
 // date without touching the database. Resets on restart, as the cache does.
+// Versions start at 1, so 0 never matches a current version.
 type versions struct {
 	mu sync.Mutex
 	m  map[string]int64
@@ -39,7 +40,7 @@ func (v *versions) bump(id string) {
 func (v *versions) get(id string) int64 {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	return v.m[id]
+	return v.m[id] + 1
 }
 
 // DataVersion is the series' in-memory content version.
@@ -80,6 +81,9 @@ func (s *Store) FullReadCount() int64 { return s.fullReads.Load() }
 // ReadSeries reads a series with all its episodes, newest first.
 func (s *Store) ReadSeries(id string) (*Series, error) {
 	s.fullReads.Add(1)
+	// snapshot before reading: a write landing during the read moves the
+	// version past it, so a render of this read can't pass for newer data
+	version := s.versions.get(id)
 	var (
 		series                          Series
 		subtitle, cursor, kind          sql.NullString
@@ -141,6 +145,7 @@ func (s *Store) ReadSeries(id string) (*Series, error) {
 		}
 		series.Episodes = append(series.Episodes, e)
 	}
+	series.Version = version
 	return &series, rows.Err()
 }
 

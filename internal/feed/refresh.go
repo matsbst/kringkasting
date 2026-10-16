@@ -182,6 +182,14 @@ func (f *Feeds) updateFetch(existing *store.Series) *store.Series {
 			opts.CursorHref = &saved.Cursor
 		}
 		result := f.nrk.GetNewEpisodes(id, *existing.CatalogKind, opts)
+		if result != nil && result.Gone {
+			// the saved cursor is dead, or NRK moved the series to the
+			// other catalog: start over with the full fetch, which tries
+			// both catalogs and stores the one that answers
+			log.Printf("Refresh listing for %s is gone, falling back to a full fetch", id)
+			f.store.DeleteState(progressKey)
+			return f.fullRefresh(existing, skip, onFailure)
+		}
 		if result == nil {
 			f.retry.Defer("refresh:"+id, 0)
 			return existing
@@ -200,7 +208,12 @@ func (f *Feeds) updateFetch(existing *store.Series) *store.Series {
 		}
 		return f.readOr(id, existing)
 	}
+	return f.fullRefresh(existing, skip, onFailure)
+}
 
+// fullRefresh fetches metadata and the newest episodes in one go.
+func (f *Feeds) fullRefresh(existing *store.Series, skip map[string]bool, onFailure nrk.OnEpisodeFailure) *store.Series {
+	id := existing.ID
 	update, outcome := f.fetchFromNrk(id, nrk.FetchOptions{
 		SkipEpisodeIDs: skip, OnEpisodeFailure: onFailure, CatalogKind: existing.CatalogKind,
 		OnClipIDs: f.onClipIDs(id),

@@ -56,17 +56,19 @@ func ETagFor(content string) string {
 	return `"` + hex.EncodeToString(sum[:]) + `"`
 }
 
-// Render renders (or reuses) the feed. version must be snapshotted BEFORE
-// the series was read: a write landing between snapshot and read then
-// caches stale XML under the OLD version, which no longer matches and
-// heals on the next request, instead of stale XML being cached under the
-// newest version and served indefinitely.
-func (c *Cache) Render(series *store.Series, origin string, version int64) Rendered {
-	key := series.ID
+// Render renders (or reuses) the feed, cached under series.Version: the
+// data version snapshotted before the series was read. A write landing
+// during that read leaves the render under the OLD version, which no
+// longer matches and heals on the next request; stale XML is never cached
+// under the newest version. (A request that joined another's fetch gets
+// that fetch's series, so its own, later snapshot must not be used.)
+func (c *Cache) Render(series *store.Series, origin string) Rendered {
+	key, version := series.ID, series.Version
 	c.mu.Lock()
 	cached := c.entries[key]
 	c.mu.Unlock()
-	if cached != nil && cached.origin == origin && cached.version == version {
+	// an equal or newer render is already cached: never go back
+	if cached != nil && cached.origin == origin && cached.version >= version {
 		return cached.Rendered
 	}
 
@@ -83,6 +85,14 @@ func (c *Cache) Render(series *store.Series, origin string, version int64) Rende
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if version == 0 {
+		// not read from the store: serve it, but don't cache it
+		return entry.Rendered
+	}
+	if current := c.entries[key]; current != nil && current.origin == origin && current.version > version {
+		// a newer render landed while this one was assembled
+		return current.Rendered
+	}
 	if _, exists := c.entries[key]; !exists {
 		if len(c.entries) >= maxCacheEntries && len(c.order) > 0 {
 			delete(c.entries, c.order[0])

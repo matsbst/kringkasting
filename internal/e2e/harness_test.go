@@ -173,6 +173,7 @@ type request struct {
 	headers map[string]string
 	body    string
 	host    string
+	remote  string // the client's address, when it matters
 }
 
 func (i *instance) do(r request) *http.Response {
@@ -184,6 +185,9 @@ func (i *instance) do(r request) *http.Response {
 	req.RequestURI = r.path
 	if r.host != "" {
 		req.Host = r.host
+	}
+	if r.remote != "" {
+		req.RemoteAddr = r.remote + ":1234"
 	}
 	for k, v := range r.headers {
 		req.Header.Set(k, v)

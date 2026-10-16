@@ -120,6 +120,8 @@ kringkasting.example.com {
 
 This example assumes Caddy runs directly on the same host. A proxy in another container must reach Kringkasting through its container network and port `8000`; `localhost` inside the proxy refers to the proxy itself. With a host-based proxy, you can restrict the published port to `127.0.0.1:8000:8000`; leave the LAN binding only when LAN clients or your NAS proxy need it.
 
+Search, new feeds and admin logins are rate-limited per client address. Kringkasting reads the client address from `X-Forwarded-For` or `X-Real-IP` only when the request comes from a local or private address (a proxy on the same host or network). It reads `CF-Connecting-IP` only when the request comes from Cloudflare. A proxy on a public address counts as one client for every request. To check what Kringkasting sees, look at “din adresse” at the top of the admin dashboard. If it shows your proxy's address, configure the proxy to send `X-Forwarded-For`.
+
 For a CDN such as Cloudflare (edge-caching the feeds), see [Cloudflare configuration](cloudflare.md).
 
 ## 🔄 Updating
