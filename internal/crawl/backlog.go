@@ -29,6 +29,8 @@ const (
 	// maxPagesPerRun is a hard stop per feed per crawl round.
 	maxPagesPerRun = 200
 	maxEvents      = 20
+	// pageLimitPause is the break after a round that hit maxPagesPerRun
+	pageLimitPause = 5 * time.Minute
 )
 
 // Event is a recent crawl event for the admin dashboard.
@@ -255,7 +257,9 @@ func (c *Crawler) crawl(feedID string) {
 		}
 	}
 
-	c.retry.Defer("backlog:"+feedID, 0)
+	// nothing failed: a fixed pause, without the escalating backoff (which
+	// would grow to a day for a long archive)
+	c.retry.SetDeadline("backlog:"+feedID, clock.NowMs()+pageLimitPause.Milliseconds())
 	log.Printf("Backlog crawl for %s hit the per-run page limit, will resume later", feedID)
 }
 

@@ -19,6 +19,10 @@ import (
 
 const requestTimeout = 15 * time.Second
 
+// maxBody bounds what is read from one NRK response; real ones (a page of
+// 50 episodes) are well under a megabyte.
+const maxBody = 16 << 20
+
 const (
 	// maxConcurrentUpstream caps concurrent NRK requests across ALL
 	// operations. Per-operation pools bound their own fan-out, but many
@@ -39,6 +43,10 @@ type upstream struct {
 	client *http.Client
 	retry  *retry.Retry
 	stats  *stats.Stats
+	// ctx ends on shutdown: requests in flight are cancelled, so
+	// background work stops promptly instead of outliving the database
+	ctx  context.Context
+	stop context.CancelFunc
 
 	mu       sync.Mutex
 	inFlight int
@@ -105,7 +113,7 @@ func (u *upstream) getJSON(rawURL string, dst any) (status int, ok bool) {
 		return 503, false
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(u.ctx, requestTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -113,6 +121,10 @@ func (u *upstream) getJSON(rawURL string, dst any) (status int, ok bool) {
 	}
 	req.Header.Set("accept", "application/json")
 	resp, err := u.client.Do(req)
+	if err != nil && u.ctx.Err() != nil {
+		// shutting down: not NRK's fault, so no stats and no backoff
+		return 0, false
+	}
 	if err != nil {
 		log.Printf("GET %s failed: %v", rawURL, err)
 		u.stats.RecordUpstreamRequest(rawURL, "GET", 0)
@@ -120,19 +132,22 @@ func (u *upstream) getJSON(rawURL string, dst any) (status int, ok bool) {
 		return 0, false
 	}
 	defer resp.Body.Close()
+	body := io.LimitReader(resp.Body, maxBody)
 
-	u.stats.RecordUpstreamRequest(rawURL, "GET", resp.StatusCode)
 	u.recordOutcome(rawURL, "GET", resp)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		u.stats.RecordUpstreamRequest(rawURL, "GET", resp.StatusCode)
+		_, _ = io.Copy(io.Discard, body)
 		return resp.StatusCode, false
 	}
-	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
+	// counted once: as its status when usable, as a failure when not
+	if err := json.NewDecoder(body).Decode(dst); err != nil {
 		log.Printf("GET %s failed: %v", rawURL, err)
 		u.stats.RecordUpstreamRequest(rawURL, "GET", 0)
 		u.retry.Defer("GET:"+rawURL, 0)
 		return 0, false
 	}
+	u.stats.RecordUpstreamRequest(rawURL, "GET", resp.StatusCode)
 	return resp.StatusCode, true
 }
 
@@ -150,23 +165,30 @@ func (u *upstream) head(rawURL string) (status int, contentLength *int64) {
 		return 503, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(u.ctx, requestTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
 	if err != nil {
 		return 0, nil
 	}
 	resp, err := u.client.Do(req)
+	if err != nil && u.ctx.Err() != nil {
+		return 0, nil
+	}
 	if err != nil {
 		log.Printf("HEAD %s failed: %v", rawURL, err)
 		u.stats.RecordUpstreamRequest(rawURL, "HEAD", 0)
 		u.retry.Defer("HEAD:"+rawURL, 0)
 		return 0, nil
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxBody))
 	resp.Body.Close()
 	u.stats.RecordUpstreamRequest(rawURL, "HEAD", resp.StatusCode)
 	u.recordOutcome(rawURL, "HEAD", resp)
+	// an error page's length isn't the file's size
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return resp.StatusCode, nil
+	}
 	if raw := resp.Header.Get("content-length"); raw != "" {
 		if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
 			contentLength = &n

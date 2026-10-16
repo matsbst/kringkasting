@@ -22,7 +22,9 @@ func (c *Client) VideoForClip(clipID string) (*ClipVideo, Outcome) {
 	switch {
 	case isTransient(status):
 		return nil, Unavailable
-	case status == http.StatusNotFound:
+	case status >= 400 && status < 500 && status != http.StatusRequestTimeout:
+		// gone or refused: checked again on the no-video schedule, not
+		// retried daily
 		return nil, NotFound
 	case status != http.StatusOK || !ok:
 		log.Printf("Unexpected clip manifest status %d for %s", status, clipID)

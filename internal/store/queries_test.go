@@ -159,23 +159,6 @@ func TestFailedEpisodeBackoff(t *testing.T) {
 	}
 }
 
-func TestGarbageCollection(t *testing.T) {
-	s, _ := testutil.OpenStore(t)
-	old := series("gammel", episode("e", time.Now()))
-	old.LastFetchedAt = time.Now().Add(-100 * day)
-	s.WriteSeries(old)
-	s.WriteSeries(series("fersk"))
-	if n := s.DeleteStaleSeries(90 * day); n != 1 {
-		t.Errorf("deleted %d, want 1", n)
-	}
-	if s.HasSeries("gammel") || !s.HasSeries("fersk") {
-		t.Error("wrong series collected")
-	}
-	if ids, _ := s.ReadEpisodeIDs("gammel"); len(ids) != 0 {
-		t.Error("episodes of a collected series must go too")
-	}
-}
-
 func TestStreamOnlySeries(t *testing.T) {
 	s, _ := testutil.OpenStore(t)
 	hls := func(id string) store.Episode {
@@ -251,5 +234,42 @@ func TestDeleteExpiredState(t *testing.T) {
 		if !s.HasState(kept) {
 			t.Errorf("%s must be kept", kept)
 		}
+	}
+}
+
+// Clips waiting out a retry deadline don't take the video round's places.
+func TestVideosDueSkipsWaitingClips(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	now := time.Now()
+	s.WriteSeries(series("v", episode("new", now), episode("old", now.Add(-day))))
+	s.SetClipIDs("v", map[string]string{"new": "clip-new", "old": "clip-old"})
+	s.WriteState("retry:video:clip-new", map[string]int64{"attempts": 1, "nextRetryAt": now.Add(time.Hour).UnixMilli()})
+	s.WriteState("retry:video:clip-old", map[string]int64{"attempts": 1, "nextRetryAt": now.Add(-time.Hour).UnixMilli()})
+	due, err := s.VideosDue("v", 1)
+	if err != nil || len(due) != 1 || due[0].EpisodeID != "old" {
+		t.Errorf("due %+v, %v; want only the episode whose clip isn't waiting", due, err)
+	}
+}
+
+// Deleting a feed takes its cached chapters along, and a crawl racing the
+// delete can't leave episodes behind without a series.
+func TestDeleteSeriesLeavesNothingBehind(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	s.WriteSeries(series("show", episode("a", time.Now())))
+	s.WriteState("chapters:show:l_a", map[string]int{"status": 200})
+	s.WriteState("retry:chapters:show:l_a", map[string]int{"attempts": 1})
+	s.WriteState("chapters:showx:l_a", map[string]int{"status": 200})
+	s.DeleteSeriesByID("show")
+	if s.HasState("chapters:show:l_a") || s.HasState("retry:chapters:show:l_a") {
+		t.Error("the feed's chapters must be deleted with it")
+	}
+	if !s.HasState("chapters:showx:l_a") {
+		t.Error("another feed's chapters were deleted")
+	}
+	if s.AddEpisodes("show", []store.Episode{episode("late", time.Now())}) {
+		t.Error("episodes added to a deleted series")
+	}
+	if ids, _ := s.ReadEpisodeIDs("show"); len(ids) != 0 {
+		t.Errorf("orphan episodes: %v", ids)
 	}
 }

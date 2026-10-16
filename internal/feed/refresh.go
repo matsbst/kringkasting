@@ -23,6 +23,8 @@ const (
 	notFoundTTL = 10 * time.Minute
 	// cheap refreshes treat the newest 50 stored episodes as the boundary
 	stopBoundary = 50
+	// staleAge is older than every refresh interval (a week at most)
+	staleAge = 9 * 24 * time.Hour
 )
 
 // ErrUpstream means NRK was unavailable for a feed we have nothing stored
@@ -83,7 +85,9 @@ func (f *Feeds) onClipIDs(feedID string) func(map[string]string) {
 }
 
 func (f *Feeds) initialFetch(id string) (*store.Series, error) {
-	series, outcome := f.fetchFromNrk(id, nrk.FetchOptions{OnEpisodeFailure: f.onFailure(id), OnClipIDs: f.onClipIDs(id)})
+	incomplete := false
+	series, outcome := f.fetchFromNrk(id, nrk.FetchOptions{OnEpisodeFailure: f.onFailure(id), OnClipIDs: f.onClipIDs(id),
+		OnIncomplete: func() { incomplete = true }})
 	switch outcome {
 	case nrk.Unavailable:
 		// surface the outage (502) instead of letting the negative cache
@@ -94,12 +98,21 @@ func (f *Feeds) initialFetch(id string) (*store.Series, error) {
 		f.retry.Clear("refresh:" + id)
 		return nil, nil
 	}
+	if incomplete {
+		// a season failed: stored as stale, so it refreshes once the
+		// retry deadline passes instead of a full interval later
+		series.LastFetchedAt = clock.Now().Add(-staleAge)
+	}
 	if !f.store.WriteSeries(series) {
 		// still serve the fetched data; only persisting failed
 		log.Printf("Failed to store series %s", id)
 		return series, nil
 	}
-	f.retry.Clear("refresh:" + id)
+	if incomplete {
+		f.retry.Defer("refresh:"+id, 0)
+	} else {
+		f.retry.Clear("refresh:" + id)
+	}
 	return f.readOr(id, series), nil
 }
 
@@ -214,9 +227,10 @@ func (f *Feeds) updateFetch(existing *store.Series) *store.Series {
 // fullRefresh fetches metadata and the newest episodes in one go.
 func (f *Feeds) fullRefresh(existing *store.Series, skip map[string]bool, onFailure nrk.OnEpisodeFailure) *store.Series {
 	id := existing.ID
+	incomplete := false
 	update, outcome := f.fetchFromNrk(id, nrk.FetchOptions{
 		SkipEpisodeIDs: skip, OnEpisodeFailure: onFailure, CatalogKind: existing.CatalogKind,
-		OnClipIDs: f.onClipIDs(id),
+		OnClipIDs: f.onClipIDs(id), OnIncomplete: func() { incomplete = true },
 	})
 	if outcome != nrk.Found {
 		// NRK outage or rate limiting: serve the stale copy rather than
@@ -225,6 +239,11 @@ func (f *Feeds) fullRefresh(existing *store.Series, skip map[string]bool, onFail
 		f.retry.Defer("refresh:"+id, 0)
 		return existing
 	}
+	if incomplete {
+		// a season failed: keep the old freshness, so the refresh runs
+		// again once the retry deadline passes
+		update.LastFetchedAt = existing.LastFetchedAt
+	}
 	// upserts metadata + new episodes and renews last_fetched_at; existing
 	// episodes are kept, so the archive accumulates
 	if !f.store.WriteSeries(update) {
@@ -232,7 +251,12 @@ func (f *Feeds) fullRefresh(existing *store.Series, skip map[string]bool, onFail
 		f.retry.Defer("refresh:"+id, 0)
 		return existing
 	}
-	f.retry.Clear("refresh:" + id)
+	if incomplete {
+		log.Printf("Refresh of %s missed a season, retrying soon", id)
+		f.retry.Defer("refresh:"+id, 0)
+	} else {
+		f.retry.Clear("refresh:" + id)
+	}
 	return f.readOr(id, existing)
 }
 
