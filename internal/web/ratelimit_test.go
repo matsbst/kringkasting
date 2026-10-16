@@ -139,3 +139,32 @@ func TestSameOrigin(t *testing.T) {
 		}
 	}
 }
+
+// Without APP_ORIGIN, X-Forwarded-Proto decides the scheme only when a
+// proxy sent it; a configured origin decides the admin cookie's Secure flag.
+func TestRequestScheme(t *testing.T) {
+	for _, c := range []struct {
+		name, remote, proto, configured, origin string
+		secure                                  bool
+	}{
+		{"local proxy with https", "10.0.0.2", "https", "", "https://k.example", true},
+		{"cloudflare with https", "172.70.1.1", "https", "", "https://k.example", true},
+		{"direct client claiming https", "203.0.113.9", "https", "", "http://k.example", false},
+		{"no proxy header", "10.0.0.2", "", "", "http://k.example", false},
+		{"configured https wins over a plain hop", "10.0.0.2", "http", "https://kringkast.example", "https://kringkast.example", true},
+	} {
+		s := &Server{}
+		s.Config.Origin = c.configured
+		r := httptest.NewRequest(http.MethodGet, "http://k.example/", nil)
+		r.RemoteAddr = net.JoinHostPort(c.remote, "1234")
+		if c.proto != "" {
+			r.Header.Set("X-Forwarded-Proto", c.proto)
+		}
+		if got := s.origin(r); got != c.origin {
+			t.Errorf("%s: origin %q, want %q", c.name, got, c.origin)
+		}
+		if got := s.isHTTPS(r); got != c.secure {
+			t.Errorf("%s: secure %v, want %v", c.name, got, c.secure)
+		}
+	}
+}

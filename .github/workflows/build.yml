@@ -31,6 +31,33 @@ jobs:
       - run: go test -race ./...
       - run: go build ./cmd/kringkasting
 
+  image:
+    # pull requests (Dependabot image bumps too) build the image and start
+    # it once before merge; nothing is pushed
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: kringkasting:test
+          cache-from: type=gha
+      - name: Start the container
+        run: |
+          docker run -d --name kringkasting -p 8000:8000 -v kringkasting-data:/app/data kringkasting:test
+          for _ in $(seq 30); do
+            curl -fs -o /dev/null http://localhost:8000/ && break
+            sleep 1
+          done
+          docker logs kringkasting
+          curl -fsS -o /dev/null http://localhost:8000/
+          docker exec kringkasting /app/code/kringkasting healthcheck
+
   docker:
     # only publish images from main; PRs and manual runs on other
     # branches just run tests, and version tags reuse the image built for

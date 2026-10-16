@@ -128,24 +128,9 @@ func (l *limiter) refundScoped(scope, client string) {
 // server usually gets whole. Only well-formed IPs are used, so header
 // values cannot bloat the limiter's keys.
 func clientKey(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	peer := parseAddr(host)
+	peer := nearestPublic(r)
 	if !peer.IsValid() {
 		return "unknown"
-	}
-	var hops []string
-	for _, value := range r.Header.Values("x-forwarded-for") {
-		hops = append(hops, strings.Split(value, ",")...)
-	}
-	for i := len(hops) - 1; i >= 0 && isLocal(peer); i-- {
-		hop := parseAddr(hops[i])
-		if !hop.IsValid() {
-			break
-		}
-		peer = hop
 	}
 	if isLocal(peer) {
 		if real := parseAddr(r.Header.Get("x-real-ip")); real.IsValid() {
@@ -158,6 +143,51 @@ func clientKey(r *http.Request) string {
 		}
 	}
 	return keyFor(peer)
+}
+
+// nearestPublic is the connection's address, or, behind local proxies,
+// the first public address in X-Forwarded-For read from the right: the
+// one the outermost local proxy saw. Invalid when the connection's
+// address is.
+func nearestPublic(r *http.Request) netip.Addr {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer := parseAddr(host)
+	if !peer.IsValid() {
+		return peer
+	}
+	var hops []string
+	for _, value := range r.Header.Values("x-forwarded-for") {
+		hops = append(hops, strings.Split(value, ",")...)
+	}
+	for i := len(hops) - 1; i >= 0 && isLocal(peer); i-- {
+		hop := parseAddr(hops[i])
+		if !hop.IsValid() {
+			break
+		}
+		peer = hop
+	}
+	return peer
+}
+
+// fromProxy reports whether the connection comes from a proxy whose
+// forwarding headers can be believed: a local one, or Cloudflare.
+func fromProxy(r *http.Request) bool {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer := parseAddr(host)
+	return peer.IsValid() && (isLocal(peer) || isCloudflare(peer))
+}
+
+// viaCloudflare reports whether the request reached this server through
+// Cloudflare (directly, or behind local proxies).
+func viaCloudflare(r *http.Request) bool {
+	peer := nearestPublic(r)
+	return peer.IsValid() && isCloudflare(peer)
 }
 
 func parseAddr(value string) netip.Addr {

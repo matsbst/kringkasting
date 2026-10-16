@@ -151,13 +151,24 @@ function feedUrlOf(element) {
     element.closest("[data-subscribe]")?.dataset.feedUrl ?? "";
 }
 
+// screen readers only announce changes to a live region that already
+// exists, so it is added up front; the visible toast stays out of the
+// accessibility tree to avoid announcing twice
+const hintStatus = document.createElement("p");
+hintStatus.setAttribute("role", "status");
+hintStatus.className = "sr-only";
+document.body.append(hintStatus);
+
 let hintTimer;
 function showHint(text) {
+  // cleared first, so the same message repeated is announced again
+  hintStatus.textContent = "";
+  setTimeout(() => (hintStatus.textContent = text), 50);
   let hint = document.getElementById("hint");
   if (!hint) {
     hint = document.createElement("div");
     hint.id = "hint";
-    hint.setAttribute("role", "status");
+    hint.setAttribute("aria-hidden", "true");
     hint.className =
       "fixed inset-x-0 bottom-4 z-50 mx-auto w-fit max-w-[90vw] rounded-xl bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark px-4 py-3 text-sm shadow-lg text-center";
     document.body.append(hint);
@@ -177,6 +188,13 @@ function showHint(text) {
 function activate(appId, href, feedUrl, event) {
   if (appId !== "apple" || navigator.maxTouchPoints !== 0) return;
   event.preventDefault();
+  if (!navigator.clipboard) {
+    // plain HTTP (a home server) has no clipboard API: offer the URL to
+    // copy, then open the app
+    prompt("Kopier RSS-lenken (⌘C) og lim den inn i «Følg et program via URL» i Podkaster:", feedUrl);
+    location.href = href;
+    return;
+  }
   navigator.clipboard.writeText(feedUrl).catch(() => {}).finally(() => {
     showHint("Lenken er kopiert. Lim den inn i «Følg et program via URL» i Podkaster (⌘V).");
     location.href = href;
@@ -255,7 +273,8 @@ async function share(button) {
       button.querySelector("[data-share-label]").textContent = "Del";
     }, 1500);
   } catch {
-    console.error("clipboard unavailable");
+    // clipboard unavailable (plain HTTP): offer the link to copy
+    prompt("Kopier lenken:", url);
   }
 }
 

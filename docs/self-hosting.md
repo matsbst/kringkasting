@@ -55,7 +55,7 @@ For a NAS or a visible host folder, replace the service's volume mapping with a 
       - /absolute/path/to/kringkasting/data:/app/data
 ```
 
-Create that folder first and replace the example with its real absolute path. Mount only Kringkasting's data folder, not a shared-folder root: startup recursively changes ownership to UID/GID `1000:1000` before running as that user. Keep the default startup user so that step can run. `PUID` and `PGID` are not supported. If a platform requires a non-root startup user, preconfigure its data-directory permissions for that numeric user instead.
+Create that folder first and replace the example with its real absolute path. Mount only Kringkasting's data folder, not a shared-folder root: startup recursively changes ownership of the database's folder to UID/GID `1000:1000` before running as that user. If the share refuses the change (ACLs or root squash on some NAS models), startup logs a warning and continues as long as that user can write to the folder; otherwise it stops with an error that names the folder. Keep the default startup user so that step can run. `PUID` and `PGID` are not supported. If a platform requires a non-root startup user, preconfigure its data-directory permissions for that numeric user instead.
 
 Keep the database on local storage attached to the machine running the container. Do not mount a remote SMB/NFS share as its live database directory; [SQLite WAL relies on same-host shared memory](https://www.sqlite.org/wal.html).
 
@@ -97,6 +97,7 @@ All configuration is via environment variables (see [`.env.example`](../.env.exa
 | `SENTRY_DSN`                     | Optional. Sentry-protocol DSN (works with self-hosted Bugsink) for server-side error reporting, scrubbed of IP/query/body. Unset = disabled.                                                   |
 | `UMAMI_SRC` / `UMAMI_WEBSITE_ID` | Optional. Load a cookieless [Umami](https://umami.is) analytics script (script URL + website id). Both must be set to enable; point them at your own Umami instance.                           |
 | `KRINGKASTING_DB_PATH`           | SQLite database path. Defaults to `/app/data/kringkasting.sqlite3`; change only if you mount the volume elsewhere.                                                                             |
+| `LISTEN_ADDR`                    | Address and port the server listens on inside the container. Defaults to `0.0.0.0:8000`; change only if port 8000 is taken in your setup. |
 | `CLOUDRON_APP_ORIGIN`            | Set automatically on Cloudron; used as `APP_ORIGIN` if the latter is unset.                                                                                                                    |
 | `GOMEMLIMIT`                     | Optional. Soft memory limit for the Go runtime; the image defaults to `256MiB`. Raise it if you give the container more memory and follow very many large archives.                           |
 
@@ -270,6 +271,8 @@ Kringkasting ships a `CloudronManifest.json`, so it installs as a [custom Cloudr
 ```sh
 npm install -g cloudron
 cloudron login my.example.com
+# `cloudron install` reads the manifest from the current folder
+curl -fsSLO https://raw.githubusercontent.com/matsbst/kringkasting/main/CloudronManifest.json
 cloudron install --image ghcr.io/matsbst/kringkasting:latest --location kringkasting
 ```
 
