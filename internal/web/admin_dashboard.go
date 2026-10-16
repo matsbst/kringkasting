@@ -96,17 +96,28 @@ type cleanupView struct {
 	Hash          string
 }
 
+type tabLink struct {
+	Href, Label string
+	Current     bool
+}
+
 type dashboard struct {
 	Version, StartedAt, Notice string
-	Health                     healthView
-	Tiles                      []tile
-	Charts                     []chartView
-	TrafficTiles               []tile
-	Upstream                   []upstreamRow
-	QueueLength                int
-	Running                    bool
-	Events                     []eventRow
-	Failed                     []failedRow
+	// Tab is the tab shown ("" for the overview); Tabs link them all
+	Tab  string
+	Tabs []tabLink
+	// Client is the visitor's address as the rate limits see it, so a
+	// self-hoster can check that their proxy passes it on
+	Client       string
+	Health       healthView
+	Tiles        []tile
+	Charts       []chartView
+	TrafficTiles []tile
+	Upstream     []upstreamRow
+	QueueLength  int
+	Running      bool
+	Events       []eventRow
+	Failed       []failedRow
 	// the feed list, filtered and sorted
 	Query       string
 	Show, Sort  []option
@@ -126,10 +137,7 @@ type adminView struct {
 	// the right token, but token login is off (ADMIN_PASSKEY_ONLY)
 	Login, Failed, Limited, TokenOff bool
 	Dashboard                        *dashboard
-	// Client is the visitor's address as the rate limits see it, so a
-	// self-hoster can check that their proxy passes it on
-	Client   string
-	Passkeys passkeyView
+	Passkeys                         passkeyView
 }
 
 // passkeyView is what the login page and the dashboard show of passkeys.
@@ -400,7 +408,7 @@ func unusedFeeds(series []store.SeriesOverview, activity map[string]*store.FeedA
 	return unused
 }
 
-func (s *Server) dashboard(notice string, values url.Values) *dashboard {
+func (s *Server) dashboard(tab, notice string, values url.Values) *dashboard {
 	now := clock.Now()
 	snap := s.Stats.Snapshot()
 	series, _ := s.Store.ListSeriesOverview()
@@ -432,7 +440,7 @@ func (s *Server) dashboard(notice string, values url.Values) *dashboard {
 		version = version[:10]
 	}
 	d := &dashboard{
-		Version: version, StartedAt: formatTime(snap.StartedAt), Notice: notice,
+		Version: version, StartedAt: formatTime(snap.StartedAt), Notice: notice, Tab: tab,
 		Health:      s.health(snap, daily[today], now),
 		Charts:      s.charts(daily, days),
 		QueueLength: status.QueueLength, Running: status.Running,
@@ -443,6 +451,9 @@ func (s *Server) dashboard(notice string, values url.Values) *dashboard {
 	}
 	if measured {
 		d.MeasureFrom = formatDate(since)
+	}
+	for _, t := range adminTabs {
+		d.Tabs = append(d.Tabs, tabLink{Href: adminTabHref(t.Name), Label: t.Label, Current: t.Name == tab})
 	}
 
 	titles := map[string]string{}
@@ -510,7 +521,7 @@ func (s *Server) dashboard(notice string, values url.Values) *dashboard {
 		for key, v := range mustParseQuery(d.Back) {
 			values[key] = v
 		}
-		d.Rows[i].DeleteHref = template.URL("/admin?" + values.Encode())
+		d.Rows[i].DeleteHref = template.URL(adminFeeds + "?" + values.Encode())
 	}
 
 	// sort; ties by title
@@ -543,10 +554,10 @@ func (s *Server) dashboard(notice string, values url.Values) *dashboard {
 	}
 	d.Tiles = []tile{
 		{formatInt(len(series)), followed, ""},
-		{formatInt(usedRecently), "brukt siste 30 dager", "/admin?vis=brukt"},
-		{subscriberTile, "abonnenter, minst", "#abonnenter"},
+		{formatInt(usedRecently), "brukt siste 30 dager", adminFeeds + "?vis=brukt"},
+		{subscriberTile, "abonnenter, minst", adminFeeds + "#abonnenter"},
 		{formatInt(s.Store.CountEpisodes()), "episoder i arkiv", ""},
-		{formatInt(incomplete), "arkiv under innhenting", "/admin?vis=henter"},
+		{formatInt(incomplete), "arkiv under innhenting", adminFeeds + "?vis=henter"},
 		{formatBytes(s.Store.DatabaseSizeBytes()), "database", ""},
 	}
 	d.TrafficTiles = []tile{
@@ -577,7 +588,7 @@ func (s *Server) dashboard(notice string, values url.Values) *dashboard {
 			if row.ID == id {
 				d.Confirm = &confirmView{ID: row.ID, Title: row.Title, Episodes: row.Episodes,
 					LastUsed: row.LastUsed, Apps: row.Apps, Subscribers: row.Subscribers,
-					CancelHref: template.URL("/admin?" + d.Back)}
+					CancelHref: template.URL(adminFeeds + "?" + d.Back)}
 			}
 		}
 	}

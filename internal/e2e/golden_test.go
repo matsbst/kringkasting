@@ -171,7 +171,7 @@ func TestAdmin(t *testing.T) {
 		}
 	}
 	dashboard := compare(t, "admin_dashboard", app.do(request{path: "/admin", headers: map[string]string{"Cookie": cookie}}), statusOnly)
-	mustContain(t, "admin_dashboard", dashboard, "Siste 30 dager", "Strømmer (", "Rydd opp")
+	mustContain(t, "admin_dashboard", dashboard, "Siste 30 dager", `aria-current="page">Oversikt`, `href="/admin/strommer"`)
 	compare(t, "admin_action_unauthenticated", app.do(request{method: "POST", path: "/admin", headers: form,
 		body: "action=refresh&seriesId=supertroett"}), statusOnly)
 	compare(t, "admin_action_unknown", app.do(request{method: "POST", path: "/admin", headers: withCookie,

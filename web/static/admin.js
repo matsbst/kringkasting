@@ -52,7 +52,7 @@ async function register(form) {
     for (const excluded of publicKey.excludeCredentials ?? []) excluded.id = fromB64(excluded.id);
     const credential = await navigator.credentials.create({ publicKey });
     const result = await post("/admin/passkey/register/finish", serialize(credential));
-    location.href = "/admin?m=" + encodeURIComponent(result.message);
+    location.href = "/admin/innstillinger?m=" + encodeURIComponent(result.message);
   } catch (error) {
     if (error?.name === "InvalidStateError") say("Denne enheten har allerede en passnøkkel her.");
     else if (!cancelled(error)) say(error.message);
@@ -67,7 +67,8 @@ async function login() {
     for (const allowed of publicKey.allowCredentials ?? []) allowed.id = fromB64(allowed.id);
     const credential = await navigator.credentials.get({ publicKey });
     await post("/admin/passkey/login/finish", serialize(credential));
-    location.href = "/admin";
+    // back to the tab the login was asked for on
+    location.href = location.pathname;
   } catch (error) {
     if (!cancelled(error)) say(error.message);
   }

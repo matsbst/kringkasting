@@ -27,11 +27,12 @@ func (i *instance) adminCookie(t *testing.T) string {
 	return i.session
 }
 
-func (i *instance) admin(t *testing.T, query string) string {
+// admin fetches an admin page: path is the tab and query after /admin.
+func (i *instance) admin(t *testing.T, path string) string {
 	t.Helper()
-	resp := i.do(request{path: "/admin" + query, headers: map[string]string{"Cookie": i.adminCookie(t)}})
+	resp := i.do(request{path: "/admin" + path, headers: map[string]string{"Cookie": i.adminCookie(t)}})
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("/admin%s: status %d", query, resp.StatusCode)
+		t.Fatalf("/admin%s: status %d", path, resp.StatusCode)
 	}
 	return body(resp)
 }
@@ -69,10 +70,13 @@ func TestAdminActivity(t *testing.T) {
 	poll("doemt", "AntennaPod/3.5.0")
 	app.Flush()
 
-	html := app.admin(t, "")
-	for _, want := range []string{"Overcast", "Feedly", "≈ 19", "AntennaPod", "Sesong i «musikkhistorier»", "Siste 30 dager"} {
+	if html := app.admin(t, ""); !strings.Contains(html, "≈ 19") || !strings.Contains(html, "Siste 30 dager") {
+		t.Error("the overview lacks the subscriber total or the history")
+	}
+	html := app.admin(t, "/strommer")
+	for _, want := range []string{"Overcast", "Feedly", "≈ 19", "AntennaPod", "Sesong i «musikkhistorier»"} {
 		if !strings.Contains(html, want) {
-			t.Errorf("dashboard lacks %q", want)
+			t.Errorf("feed list lacks %q", want)
 		}
 	}
 	if strings.Contains(html, "Mozilla") || strings.Contains(html, "feed-id") {
@@ -109,7 +113,7 @@ func TestAdminListFilters(t *testing.T) {
 		"?vis=henter":                    nil,
 		"?vis=finnes-ikke&sorter=tittel": {"Dømt", "Miles Davis – bak mytene", "Musikkhistorier", "Supertrøtt"},
 	} {
-		html := app.admin(t, query)
+		html := app.admin(t, "/strommer"+query)
 		if got := feedTitles(html); strings.Join(got, "|") != strings.Join(want, "|") {
 			t.Errorf("%s: %v, want %v", query, got, want)
 		}
@@ -117,7 +121,7 @@ func TestAdminListFilters(t *testing.T) {
 			t.Errorf("%s: empty result should say so", query)
 		}
 	}
-	if html := app.admin(t, "?vis=sesonger"); !strings.Contains(html, "Strømmer (1 av 4)") {
+	if html := app.admin(t, "/strommer?vis=sesonger"); !strings.Contains(html, "Strømmer (1 av 4)") {
 		t.Error("a filtered list should say how many of all it shows")
 	}
 }
@@ -128,13 +132,13 @@ func TestAdminDeleteNeedsConfirmation(t *testing.T) {
 
 	// a delete without confirmation only leads to the confirmation
 	resp := app.adminPost(t, url.Values{"action": {"delete"}, "seriesId": {"doemt"}, "back": {"vis=brukt"}})
-	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin?slett=doemt&vis=brukt" {
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin/strommer?slett=doemt&vis=brukt" {
 		t.Fatalf("unconfirmed delete: %d %s", resp.StatusCode, resp.Header.Get("Location"))
 	}
 	if !app.Store.HasSeries("doemt") {
 		t.Fatal("deleted without confirmation")
 	}
-	html := app.admin(t, "?slett=doemt")
+	html := app.admin(t, "/strommer?slett=doemt")
 	if !strings.Contains(html, "Slette «Dømt»?") || !strings.Contains(html, `name="confirm" value="doemt"`) {
 		t.Fatal("confirmation missing")
 	}
@@ -154,7 +158,7 @@ func TestAdminCleanup(t *testing.T) {
 	app.warmFeed(t, "doemt")
 	app.warmFeed(t, "supertroett")
 	app.Flush()
-	if html := app.admin(t, ""); !strings.Contains(html, "Tilgjengelig fra") || strings.Contains(html, `value="cleanup"`) {
+	if html := app.admin(t, "/strommer"); !strings.Contains(html, "Tilgjengelig fra") || strings.Contains(html, `value="cleanup"`) {
 		t.Fatal("cleanup must wait until use has been measured for 180 days")
 	}
 	if resp := app.adminPost(t, url.Values{"action": {"cleanup"}, "count": {"0"}, "hash": {"x"}}); !strings.Contains(resp.Header.Get("Location"), "ikke%20tilgjengelig") {
@@ -167,7 +171,7 @@ func TestAdminCleanup(t *testing.T) {
 	later := start(t, options{env: adminEnv(), dbPath: dbPath, offset: 200 * 24 * time.Hour})
 	later.do(request{path: "/api/feeds/supertroett"})
 	later.Flush()
-	html := later.admin(t, "")
+	html := later.admin(t, "/strommer")
 	m := regexp.MustCompile(`name="count" value="(\d+)"/><input type="hidden" name="hash" value="([0-9a-f]+)"`).FindStringSubmatch(html)
 	if m == nil || m[1] != "1" || !strings.Contains(html, "<li>Dømt</li>") {
 		t.Fatalf("cleanup preview: %v", m)
@@ -272,5 +276,48 @@ func TestAdminSession(t *testing.T) {
 	changed := start(t, options{env: env, dbPath: app.dbPath})
 	if strings.Contains(body(changed.do(request{path: "/admin", headers: map[string]string{"Cookie": kept}})), "Logg ut") {
 		t.Error("a changed token must end existing sessions")
+	}
+}
+
+// The dashboard is four tabs, each its own page; the feed list's old
+// links on /admin still lead to it, and actions lead back to their tab.
+func TestAdminTabs(t *testing.T) {
+	app := start(t, options{env: adminEnv()})
+	app.warmFeed(t, "doemt")
+	for path, want := range map[string]string{
+		"":               "Siste 30 dager",
+		"/strommer":      "Rydd opp",
+		"/drift":         "Innhentingskø",
+		"/innstillinger": "Passnøkler",
+	} {
+		html := app.admin(t, path)
+		current := regexp.MustCompile(`<a href="([^"]+)"[^>]*aria-current="page">`).FindStringSubmatch(html)
+		if !strings.Contains(html, want) || current == nil || current[1] != "/admin"+path {
+			t.Errorf("/admin%s: lacks %q or marks %v as current", path, want, current)
+		}
+	}
+	if html := app.admin(t, "/drift"); strings.Contains(html, "Siste 30 dager") || strings.Contains(html, "Rydd opp") {
+		t.Error("a tab shows only its own sections")
+	}
+
+	resp := app.do(request{path: "/admin?vis=brukt&sorter=tittel", headers: map[string]string{"Cookie": app.adminCookie(t)}})
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin/strommer?vis=brukt&sorter=tittel" {
+		t.Errorf("old feed list link: %d %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	if resp := app.adminPost(t, url.Values{"action": {"refresh"}, "seriesId": {"doemt"}}); !strings.HasPrefix(resp.Header.Get("Location"), "/admin/strommer?m=") {
+		t.Errorf("a feed action leads back to the feed list: %s", resp.Header.Get("Location"))
+	}
+
+	// signed out, a tab shows the login, and logging in stays on the tab
+	if html := body(app.do(request{path: "/admin/drift"})); !strings.Contains(html, `name="token"`) {
+		t.Error("a tab must ask for login")
+	}
+	login := app.do(request{method: http.MethodPost, path: "/admin/drift", remote: "203.0.113.251",
+		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"}, body: url.Values{"token": {adminToken}}.Encode()})
+	if login.StatusCode != http.StatusSeeOther || login.Header.Get("Location") != "/admin/drift" {
+		t.Errorf("login on a tab: %d %s", login.StatusCode, login.Header.Get("Location"))
+	}
+	if resp := app.do(request{path: "/admin/finnes-ikke", headers: map[string]string{"Cookie": app.adminCookie(t)}}); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("unknown tab: %d", resp.StatusCode)
 	}
 }

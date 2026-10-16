@@ -67,11 +67,51 @@ func noStore(w http.ResponseWriter) {
 	w.Header().Set("X-Robots-Tag", "noindex")
 }
 
+// The dashboard's tabs, each its own page under /admin, so they work
+// without JavaScript and can be bookmarked. Name "" is /admin itself.
+var adminTabs = []struct{ Name, Label string }{
+	{"", "Oversikt"}, {"strommer", "Strømmer"}, {"drift", "Drift"}, {"innstillinger", "Innstillinger"},
+}
+
+// adminFeeds is the feed list's tab, where its actions lead back to.
+const adminFeeds = "/admin/strommer"
+
+func adminTabHref(name string) string {
+	if name == "" {
+		return "/admin"
+	}
+	return "/admin/" + name
+}
+
+// adminTab is the tab a path names, if any.
+func adminTab(path string) (string, bool) {
+	for _, tab := range adminTabs {
+		if path == adminTabHref(tab.Name) {
+			return tab.Name, true
+		}
+	}
+	return "", false
+}
+
+func adminTabPath(path string) bool {
+	_, ok := adminTab(path)
+	return ok
+}
+
 func (s *Server) adminPage(w http.ResponseWriter, r *http.Request, view adminView) {
 	noStore(w)
 	view.Passkeys = s.passkeyView(view.Dashboard != nil)
-	data := s.page(r, "Admin – Kringkasting")
+	title := "Admin – Kringkasting"
+	if d := view.Dashboard; d != nil {
+		for _, tab := range d.Tabs {
+			if tab.Current && tab.Href != "/admin" {
+				title = tab.Label + " – " + title
+			}
+		}
+	}
+	data := s.page(r, title)
 	data.Robots = "noindex"
+	data.AdminPage = true
 	data.Admin = view
 	s.render(w, r, http.StatusOK, "admin", data)
 }
@@ -87,13 +127,21 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		s.errorPage(w, r, http.StatusNotFound)
 		return
 	}
+	tab, _ := adminTab(r.URL.EscapedPath())
 	if r.Method != http.MethodPost {
 		if !s.authenticated(r) {
 			s.adminPage(w, r, adminView{Login: true})
 			return
 		}
 		query := r.URL.Query()
-		s.adminPage(w, r, adminView{Dashboard: s.dashboard(query.Get("m"), query), Client: clientKey(r)})
+		// the feed list used to live on /admin: keep its old links working
+		if tab == "" && (query.Has("q") || query.Has("vis") || query.Has("sorter") || query.Has("slett")) {
+			redirectAdmin(w, adminFeeds+"?"+r.URL.RawQuery)
+			return
+		}
+		d := s.dashboard(tab, query.Get("m"), query)
+		d.Client = clientKey(r)
+		s.adminPage(w, r, adminView{Dashboard: d})
 		return
 	}
 
@@ -128,7 +176,8 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			s.adminPage(w, r, adminView{Login: true, Failed: true})
 			return
 		}
-		redirectAdmin(w, "/admin")
+		// back to the tab the login was asked for on
+		redirectAdmin(w, adminTabHref(tab))
 		return
 	}
 	if r.PostForm.Get("action") == "logout" {
@@ -158,11 +207,18 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		redirectAdmin(w, "/admin")
 		return
 	case "passkey-delete":
-		redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(s.deletePasskey(r.PostForm.Get("passkey")))+back)
+		redirectAdmin(w, "/admin/innstillinger?m="+nrk.EncodeURIComponent(s.deletePasskey(r.PostForm.Get("passkey"))))
 		return
 	}
 	if r.PostForm.Get("action") == "cleanup" {
-		redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(s.cleanup(r.PostForm))+back)
+		redirectAdmin(w, adminFeeds+"?m="+nrk.EncodeURIComponent(s.cleanup(r.PostForm))+back)
+		return
+	}
+	switch r.PostForm.Get("action") {
+	case "refresh", "recrawl", "delete":
+	default:
+		// no tab of its own: back where it was posted from
+		redirectAdmin(w, adminTabHref(tab)+"?m="+nrk.EncodeURIComponent(notice))
 		return
 	}
 	// season feeds have composite "{seriesId}/sesong/{seasonId}" ids
@@ -183,14 +239,14 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			// only from the confirmation, which names the feed it deletes;
 			// anything else (an old tab, a stray post) shows it first
 			if r.PostForm.Get("confirm") != seriesID {
-				redirectAdmin(w, "/admin?slett="+nrk.EncodeURIComponent(seriesID)+back)
+				redirectAdmin(w, adminFeeds+"?slett="+nrk.EncodeURIComponent(seriesID)+back)
 				return
 			}
 			s.Store.DeleteSeriesByID(seriesID)
 			notice = seriesID + " slettet"
 		}
 	}
-	redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(notice)+back)
+	redirectAdmin(w, adminFeeds+"?m="+nrk.EncodeURIComponent(notice)+back)
 }
 
 // cleanup deletes the unused feeds the admin was shown, and only those:

@@ -116,7 +116,7 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		p := s.page(r, "Personvern – Kringkasting")
 		p.Privacy = s.privacy(r, p)
 		s.render(w, r, http.StatusOK, "personvern", p)
-	case path == "/admin" && (readMethod(r) || r.Method == http.MethodPost):
+	case adminTabPath(path) && (readMethod(r) || r.Method == http.MethodPost):
 		s.admin(w, r)
 	case strings.HasPrefix(path, "/admin/passkey/"):
 		s.passkeyRoutes(w, r, strings.TrimPrefix(path, "/admin/passkey/"))
@@ -192,7 +192,9 @@ type page struct {
 	Search                                       searchView
 	NotFound                                     bool
 	Admin                                        adminView
-	Privacy                                      *privacy
+	// AdminPage: the admin login or dashboard (wide layout, admin.js)
+	AdminPage bool
+	Privacy   *privacy
 }
 
 // privacy is what the privacy page says about this instance: every

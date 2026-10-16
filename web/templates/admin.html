@@ -19,21 +19,16 @@
 </section>{{else}}{{with .Admin.Dashboard}}{{$d := .}}<div class="pt-12 pb-8">
 <div class="flex items-baseline justify-between flex-wrap gap-2">
 <h1 class="text-3xl font-bold tracking-tight">Admin</h1>
-<p class="text-sm text-ink-3 dark:text-ink-3-dark">versjon {{.Version}} · oppe siden {{.StartedAt}} · <span title="Adressen grensene for søk og innlogging teller per. Står det en lokal adresse her, sender ikke proxyen klientens adresse videre.">din adresse {{$.Admin.Client}}</span> · <form method="post" class="inline"><input type="hidden" name="action" value="logout"/><button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut</button></form></p>
+<div class="text-sm text-ink-3 dark:text-ink-3-dark">versjon {{.Version}} · oppe siden {{.StartedAt}} · <form method="post" class="inline"><input type="hidden" name="action" value="logout"/><button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut</button></form></div>
 </div>
-{{if .Notice}}<p role="status" class="mt-4 rounded-2xl bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm">{{.Notice}}</p>{{end}}
-{{with .Health}}<section aria-label="NRK-status" class="mt-6 flex items-start gap-3 rounded-2xl px-4 py-3 {{if eq .Level "down"}}border-2 border-brand bg-brand/10{{else}}bg-ink/5 dark:bg-ink-dark/8{{end}}">
+<nav aria-label="Admin" class="mt-6 border-b border-line dark:border-line-dark"><ul class="-mb-px flex gap-6 overflow-x-auto">{{range .Tabs}}<li><a href="{{.Href}}" class="inline-block whitespace-nowrap pb-3 text-sm font-medium border-b-2 {{if .Current}}border-brand text-ink dark:text-ink-dark{{else}}border-transparent text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark{{end}}"{{if .Current}} aria-current="page"{{end}}>{{.Label}}</a></li>{{end}}</ul></nav>
+{{if .Notice}}<p role="status" class="mt-6 rounded-2xl bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm">{{.Notice}}</p>{{end}}
+{{with .Health}}{{if or (eq $d.Tab "") (eq .Level "down")}}<section aria-label="NRK-status" class="mt-6 flex items-start gap-3 rounded-2xl px-4 py-3 {{if eq .Level "down"}}border-2 border-brand bg-brand/10{{else}}bg-ink/5 dark:bg-ink-dark/8{{end}}">
 <span aria-hidden="true" class="mt-1.5 size-2.5 shrink-0 rounded-full {{if eq .Level "ok"}}bg-green-600{{else if eq .Level "warn"}}bg-amber-500{{else if eq .Level "down"}}bg-brand{{else}}bg-ink/30 dark:bg-ink-dark/30{{end}}"></span>
 <div><p class="font-semibold">{{.Title}}</p><p class="text-sm text-ink-2 dark:text-ink-2-dark">{{.Detail}}</p></div>
-</section>{{end}}
-{{with .Confirm}}<section aria-labelledby="slett-tittel" class="mt-6 rounded-2xl border-2 border-brand p-5">
-<h2 id="slett-tittel" class="text-lg font-semibold">Slette «{{.Title}}»?</h2>
-<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">{{.Episodes}} episoder i arkivet og innhentingsstatusen slettes. Sist brukt {{.LastUsed}}{{if .Apps}} av {{.Apps}}{{end}}{{if ne .Subscribers "–"}} ({{.Subscribers}} abonnenter){{end}}. Ber en app om strømmen igjen, opprettes den på nytt, men arkivet må da hentes fra NRK på nytt.</p>
-<form method="post" class="mt-4 flex items-center gap-4"><input type="hidden" name="action" value="delete"/><input type="hidden" name="seriesId" value="{{.ID}}"/><input type="hidden" name="confirm" value="{{.ID}}"/><input type="hidden" name="back" value="{{$d.Back}}"/>
-<button type="submit" class="rounded-lg bg-[#b3430a] text-white text-sm font-semibold px-4 py-2 cursor-pointer hover:bg-[#9a3908]">Slett for godt</button>
-<a href="{{.CancelHref}}" class="text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Avbryt</a></form>
-</section>{{end}}
-<section aria-label="Oversikt" class="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+</section>{{end}}{{end}}
+{{if eq .Tab ""}}
+<section aria-label="Oversikt" class="mt-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
 {{range .Tiles}}{{if .Href}}<a href="{{.Href}}" class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-4 hover:bg-ink/8 dark:hover:bg-ink-dark/12 transition-colors">{{else}}<div class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-4">{{end}}<p class="text-3xl font-bold tabular-nums tracking-tight">{{.Value}}</p><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">{{.Label}}</p>{{if .Href}}</a>{{else}}</div>{{end}}
 {{end}}</section>
 <section class="mt-12">
@@ -44,17 +39,25 @@
 <p class="mt-2 text-xs tabular-nums text-ink-3 dark:text-ink-3-dark">{{.Total}}</p></figure>
 {{end}}</div>
 </section>
-<section class="mt-12" aria-labelledby="strommer-tittel">
+{{else if eq .Tab "strommer"}}
+{{with .Confirm}}<section aria-labelledby="slett-tittel" class="mt-8 rounded-2xl border-2 border-brand p-5">
+<h2 id="slett-tittel" class="text-lg font-semibold">Slette «{{.Title}}»?</h2>
+<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">{{.Episodes}} episoder i arkivet og innhentingsstatusen slettes. Sist brukt {{.LastUsed}}{{if .Apps}} av {{.Apps}}{{end}}{{if ne .Subscribers "–"}} ({{.Subscribers}} abonnenter){{end}}. Ber en app om strømmen igjen, opprettes den på nytt, men arkivet må da hentes fra NRK på nytt.</p>
+<form method="post" class="mt-4 flex items-center gap-4"><input type="hidden" name="action" value="delete"/><input type="hidden" name="seriesId" value="{{.ID}}"/><input type="hidden" name="confirm" value="{{.ID}}"/><input type="hidden" name="back" value="{{$d.Back}}"/>
+<button type="submit" class="rounded-lg bg-[#b3430a] text-white text-sm font-semibold px-4 py-2 cursor-pointer hover:bg-[#9a3908]">Slett for godt</button>
+<a href="{{.CancelHref}}" class="text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Avbryt</a></form>
+</section>{{end}}
+<section class="mt-8" aria-labelledby="strommer-tittel">
 <div class="flex items-baseline justify-between flex-wrap gap-2">
 <h2 id="strommer-tittel" class="text-xl font-semibold">Strømmer ({{if .Filtered}}{{len .Rows}} av {{end}}{{.Total}})</h2>
 <p class="text-sm text-ink-2 dark:text-ink-2-dark">Arkiver beholdes til de slettes.</p>
 </div>
-<form method="get" action="/admin" class="mt-4 flex flex-wrap items-end gap-3">
+<form method="get" action="/admin/strommer" class="mt-4 flex flex-wrap items-end gap-3">
 <label class="flex flex-col gap-1 text-sm text-ink-2 dark:text-ink-2-dark">Søk<input type="search" name="q" value="{{.Query}}" placeholder="Tittel eller id" class="h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark w-56 text-ink dark:text-ink-dark"/></label>
 <label class="flex flex-col gap-1 text-sm text-ink-2 dark:text-ink-2-dark">Vis<select name="vis" class="h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark text-ink dark:text-ink-dark">{{range .Show}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
 <label class="flex flex-col gap-1 text-sm text-ink-2 dark:text-ink-2-dark">Sorter<select name="sorter" class="h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark text-ink dark:text-ink-dark">{{range .Sort}}<option value="{{.Value}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>{{end}}</select></label>
 <button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:bg-ink/80 dark:hover:bg-ink-dark/85 text-sm font-semibold px-4 py-2 cursor-pointer">Vis</button>
-{{if .Filtered}}<a href="/admin" class="pb-2 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Nullstill</a>{{end}}
+{{if .Filtered}}<a href="/admin/strommer" class="pb-2 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Nullstill</a>{{end}}
 </form>
 {{if .Rows}}<table class="mt-5 w-full text-sm">
 <thead class="hidden sm:table-header-group"><tr class="text-left text-ink-2 dark:text-ink-2-dark"><th class="py-2 pr-3 font-medium">Strøm</th><th class="py-2 pr-3 font-medium">Sist brukt</th><th class="py-2 pr-3 font-medium text-right">Abonnenter</th><th class="py-2 pr-3 font-medium text-right">Episoder</th><th class="py-2 pr-3 font-medium">Arkiv</th><th class="py-2 font-medium text-right"><span class="sr-only">Handlinger</span></th></tr></thead>
@@ -67,7 +70,7 @@
 <td class="block sm:table-cell sm:py-2.5 align-top sm:text-right whitespace-nowrap pt-1 sm:pt-2.5">{{$id := .ID}}{{range $d.Actions}}<form method="post" class="inline"><input type="hidden" name="action" value="{{.Action}}"/><input type="hidden" name="seriesId" value="{{$id}}"/><input type="hidden" name="back" value="{{$d.Back}}"/><button type="submit" class="mr-3 sm:mr-0 sm:ml-3 text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">{{.Label}}</button></form>{{end}}<a href="{{.DeleteHref}}" class="sm:ml-3 text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Slett</a></td>
 </tr>
 {{end}}</tbody>
-</table>{{else}}<p class="mt-6 text-ink-2 dark:text-ink-2-dark">Ingen strømmer passer. <a href="/admin" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Vis alle</a></p>{{end}}
+</table>{{else}}<p class="mt-6 text-ink-2 dark:text-ink-2-dark">Ingen strømmer passer. <a href="/admin/strommer" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">Vis alle</a></p>{{end}}
 <p id="abonnenter" class="mt-4 text-xs text-ink-3 dark:text-ink-3-dark">«Sist brukt» og apper kommer fra forespørslene som når serveren; bak et CDN som Cloudflare skjer det omtrent én gang i timen per strøm. Abonnenter er et minimum: summen av det appene selv oppgir de siste 14 dagene (bl.a. Overcast, Feedly og Inoreader). Apper som ikke oppgir antall, som Apple Podcasts og Pocket Casts, er ikke med. Tallene er appenes egne og kan ikke kontrolleres, så hvem som helst kan blåse dem opp. {{if .Measured}}Bruk måles fra {{.MeasureFrom}}.{{else}}Bruk måles fra første forespørsel etter denne oppdateringen.{{end}}</p>
 </section>
 <section class="mt-12" aria-labelledby="rydd-tittel">
@@ -78,23 +81,8 @@
 {{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Ingen strømmer har stått ubrukt i 180 dager.</p>{{end}}
 {{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Strømmer ingen app har brukt på 180 dager kan slettes herfra. Tilgjengelig fra {{.AvailableFrom}} – til da vet vi ikke sikkert hva som er ubrukt.</p>{{end}}{{end}}
 </section>
-{{with $.Admin.Passkeys}}<section class="mt-12" aria-labelledby="passnokler-tittel">
-<h2 id="passnokler-tittel" class="text-xl font-semibold">Passnøkler</h2>
-{{if .Available}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Logg inn med Face ID, Touch ID eller en sikkerhetsnøkkel i stedet for tokenet. Passnøkler i iCloud-nøkkelringen eller en passordbehandler følger deg til alle enhetene dine.{{if .TokenLoginOff}} Innlogging med token er slått av (ADMIN_PASSKEY_ONLY).{{else}} Tokenet virker fortsatt, som reserve.{{end}}</p>
-{{if .List}}<ul class="mt-4 divide-y divide-line dark:divide-line-dark border-y border-line dark:border-line-dark text-sm">
-{{range .List}}<li class="flex flex-wrap items-center gap-x-3 py-2.5"><span class="font-medium">{{.Name}}</span><span class="text-ink-3 dark:text-ink-3-dark">lagt til {{.Created}} · sist brukt {{.LastUsed}}</span>
-<form method="post" class="ml-auto"><input type="hidden" name="action" value="passkey-delete"/><input type="hidden" name="passkey" value="{{.ID}}"/><button type="submit" class="underline underline-offset-2 text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark cursor-pointer">Fjern</button></form></li>
-{{end}}</ul>{{end}}
-<form class="mt-4 flex flex-wrap gap-2" data-passkey-register>
-<label class="sr-only" for="passkey-name">Navn på passnøkkelen</label>
-<input id="passkey-name" name="name" maxlength="60" placeholder="Navn, f.eks. iPhone" class="flex-1 min-w-48 h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark"/>
-<button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Legg til passnøkkel</button>
-</form>
-<p role="status" class="mt-2 text-sm" data-passkey-status hidden></p>
-{{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Passnøkler krever en fast https-adresse: sett APP_ORIGIN til den, for eksempel https://kringkasting.example.no.</p>{{end}}
-<form method="post" class="mt-6 text-sm text-ink-2 dark:text-ink-2-dark"><input type="hidden" name="action" value="logout-all"/>{{.Sessions}} {{if eq .Sessions 1}}innlogget nettleser{{else}}innloggede nettlesere{{end}}. <button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut overalt</button></form>
-</section>{{end}}
-<section class="mt-12">
+{{else if eq .Tab "drift"}}
+<section class="mt-8">
 <h2 class="text-xl font-semibold">Drift <span class="text-sm font-normal text-ink-3 dark:text-ink-3-dark">siden omstart</span></h2>
 <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
 {{range .TrafficTiles}}<div class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-4"><p class="text-2xl font-bold tabular-nums tracking-tight">{{.Value}}</p><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">{{.Label}}</p></div>
@@ -112,5 +100,24 @@
 <thead><tr class="text-left text-ink-2 dark:text-ink-2-dark"><th class="py-1.5 font-medium">Strøm</th><th class="py-1.5 font-medium">Episode</th><th class="py-1.5 font-medium text-right">Forsøk</th><th class="py-1.5 font-medium text-right">Neste forsøk</th></tr></thead>
 <tbody>{{range .Failed}}<tr class="border-t border-line dark:border-line-dark"><td class="py-1.5">{{.SeriesID}}</td><td class="py-1.5 truncate max-w-40">{{.EpisodeID}}</td><td class="py-1.5 text-right tabular-nums">{{.Attempts}}</td><td class="py-1.5 text-right tabular-nums">{{.NextRetryAt}}</td></tr>{{end}}</tbody>
 </table>{{end}}
+<p class="mt-6 text-sm text-ink-2 dark:text-ink-2-dark">Din adresse: <span class="tabular-nums text-ink dark:text-ink-dark">{{.Client}}</span>. Grensene for søk og innlogging teller per adresse. Står det en lokal adresse her, sender ikke proxyen klientens adresse videre.</p>
 </section>
+{{else if eq .Tab "innstillinger"}}
+{{with $.Admin.Passkeys}}<section class="mt-8" aria-labelledby="passnokler-tittel">
+<h2 id="passnokler-tittel" class="text-xl font-semibold">Passnøkler</h2>
+{{if .Available}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Logg inn med Face ID, Touch ID eller en sikkerhetsnøkkel i stedet for tokenet. Passnøkler i iCloud-nøkkelringen eller en passordbehandler følger deg til alle enhetene dine.{{if .TokenLoginOff}} Innlogging med token er slått av (ADMIN_PASSKEY_ONLY).{{else}} Tokenet virker fortsatt, som reserve.{{end}}</p>
+{{if .List}}<ul class="mt-4 divide-y divide-line dark:divide-line-dark border-y border-line dark:border-line-dark text-sm">
+{{range .List}}<li class="flex flex-wrap items-center gap-x-3 py-2.5"><span class="font-medium">{{.Name}}</span><span class="text-ink-3 dark:text-ink-3-dark">lagt til {{.Created}} · sist brukt {{.LastUsed}}</span>
+<form method="post" class="ml-auto"><input type="hidden" name="action" value="passkey-delete"/><input type="hidden" name="passkey" value="{{.ID}}"/><button type="submit" class="underline underline-offset-2 text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark cursor-pointer">Fjern</button></form></li>
+{{end}}</ul>{{end}}
+<form class="mt-4 flex flex-wrap gap-2" data-passkey-register>
+<label class="sr-only" for="passkey-name">Navn på passnøkkelen</label>
+<input id="passkey-name" name="name" maxlength="60" placeholder="Navn, f.eks. iPhone" class="flex-1 min-w-48 h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark"/>
+<button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Legg til passnøkkel</button>
+</form>
+<p role="status" class="mt-2 text-sm" data-passkey-status hidden></p>
+{{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Passnøkler krever en fast https-adresse: sett APP_ORIGIN til den, for eksempel https://kringkasting.example.no.</p>{{end}}
+<form method="post" class="mt-6 text-sm text-ink-2 dark:text-ink-2-dark"><input type="hidden" name="action" value="logout-all"/>{{.Sessions}} {{if eq .Sessions 1}}innlogget nettleser{{else}}innloggede nettlesere{{end}}. <button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut overalt</button></form>
+</section>{{end}}
+{{end}}
 </div>{{end}}{{end}}{{end}}
