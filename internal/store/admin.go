@@ -54,6 +54,16 @@ func (s *Store) AdminSessionValid(tokenHash string) bool {
 		tokenHash, clock.NowMs()).Scan(&one) == nil
 }
 
+// AdminSessionStarted is when a valid session signed in.
+func (s *Store) AdminSessionStarted(tokenHash string) (time.Time, bool) {
+	var ms int64
+	if s.read.QueryRow("SELECT created_at FROM admin_sessions WHERE token_hash = ? AND expires_at > ?",
+		tokenHash, clock.NowMs()).Scan(&ms) != nil {
+		return time.Time{}, false
+	}
+	return time.UnixMilli(ms), true
+}
+
 // DeleteAdminSession ends one session.
 func (s *Store) DeleteAdminSession(tokenHash string) error {
 	_, err := s.write.Exec("DELETE FROM admin_sessions WHERE token_hash = ?", tokenHash)

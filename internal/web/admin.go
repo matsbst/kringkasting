@@ -141,7 +141,11 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		}
 		d := s.dashboard(tab, query.Get("m"), query)
 		d.Client = clientKey(r)
-		s.adminPage(w, r, adminView{Dashboard: d})
+		view := adminView{Dashboard: d}
+		if tab == "innstillinger" {
+			view.Integrations = s.integrationsView(r)
+		}
+		s.adminPage(w, r, view)
 		return
 	}
 
@@ -205,6 +209,14 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 		}
 		s.setSession(w, r, "", 0)
 		redirectAdmin(w, "/admin")
+		return
+	case "integrations":
+		redirectAdmin(w, "/admin/innstillinger?m="+nrk.EncodeURIComponent(s.saveIntegrations(r)))
+		return
+	case "reauth":
+		// signs out; logging in again comes back to the settings
+		s.endSession(w, r)
+		redirectAdmin(w, "/admin/innstillinger")
 		return
 	case "passkey-delete":
 		redirectAdmin(w, "/admin/innstillinger?m="+nrk.EncodeURIComponent(s.deletePasskey(r.PostForm.Get("passkey"))))

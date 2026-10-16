@@ -138,6 +138,7 @@ type adminView struct {
 	Login, Failed, Limited, TokenOff bool
 	Dashboard                        *dashboard
 	Passkeys                         passkeyView
+	Integrations                     integrationsView
 }
 
 // passkeyView is what the login page and the dashboard show of passkeys.
