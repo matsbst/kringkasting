@@ -28,7 +28,7 @@ The subscribe chooser includes Apple Podcasts, Overcast, Pocket Casts, Castro, D
 - **Season subscriptions:** subscribe to an individual season where NRK publishes one separately.
 - **NRK's chapter markers:** available in supporting players when NRK provides them.
 - **NRK's video, where available:** players that support video podcasts, such as Pocket Casts and Podcast Addict, can show the video NRK publishes for an episode. Other players keep the audio.
-- **Your choice of app:** the website remembers your selection in your browser. Search and subscription links also work without JavaScript.
+- **Your choice of app:** the website remembers your selection in your browser. Search also works without JavaScript; each result then shows its RSS link to add in your app.
 - **No media hosting:** audio, video and artwork come directly from NRK. Kringkasting provides the feeds and stores podcast metadata.
 - **Your own instance, if you want one:** a small Go app in one container, with SQLite and no required external services.
  
@@ -53,7 +53,7 @@ Open <http://localhost:8000>. The supplied Compose file retains the database in 
 ## ℹ️ Good to know
 
 - **Archives build in the background.** A new feed may initially contain only the latest episodes while older ones are fetched.
-- **Availability comes from NRK.** Kringkasting cannot restore media that NRK no longer serves. Kringkasting stores nothing.
+- **Availability comes from NRK.** Kringkasting cannot restore media that NRK no longer serves: it stores episode details and links, never the audio itself.
 - **Some shows are stream-only.** These use HLS, which not every podcast app supports. The subscribe dialog flags stream-only shows.
 - **Requests are cached and limited.** The service reuses metadata and adapts refresh frequency to avoid unnecessary requests to NRK. [How the API is used](docs/nrk-api-usage.md).
 

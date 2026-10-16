@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html"
 	"io"
 	"log"
 	"net/http"
@@ -125,7 +126,8 @@ func (s *Server) chapters(w http.ResponseWriter, r *http.Request, seriesID, epis
 var sitemapPaths = []string{"/", "/personvern"}
 
 func (s *Server) sitemap(w http.ResponseWriter, r *http.Request) {
-	origin := s.origin(r)
+	// without APP_ORIGIN the host comes from the request: escape it
+	origin := html.EscapeString(s.origin(r))
 	var urls strings.Builder
 	for _, path := range sitemapPaths {
 		urls.WriteString("<url><loc>" + origin + path + "</loc></url>")

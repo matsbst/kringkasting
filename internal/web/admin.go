@@ -62,13 +62,12 @@ func (s *Server) authenticated(r *http.Request) bool {
 // so trust the forwarded proto or the configured origin for the cookie's
 // Secure flag; only genuinely local HTTP development skips it.
 func (s *Server) isHTTPS(r *http.Request) bool {
-	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-		return strings.TrimSpace(strings.Split(proto, ",")[0]) == "https"
-	}
+	// a configured https origin wins: a proxy hop that speaks plain HTTP
+	// (Cloudflare's Flexible mode) must not drop the cookie's Secure flag
 	if configured, https := s.Config.ConfiguredOriginHTTPS(); configured {
 		return https
 	}
-	return r.TLS != nil
+	return requestHTTPS(r)
 }
 
 const adminMaxBody = 16 << 10
