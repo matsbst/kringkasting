@@ -68,6 +68,10 @@ var migrations = []string{
 	"ALTER TABLE episodes ADD COLUMN clip_id TEXT",
 	"ALTER TABLE episodes ADD COLUMN video_url TEXT",
 	"ALTER TABLE episodes ADD COLUMN video_next_check_at INTEGER",
+	// lookups by clip (KnownVideo) and video counts per feed, which would
+	// otherwise read every episode; partial, so they stay small
+	"CREATE INDEX IF NOT EXISTS episodes_clip ON episodes(clip_id) WHERE clip_id IS NOT NULL",
+	"CREATE INDEX IF NOT EXISTS episodes_video ON episodes(series_id) WHERE video_url IS NOT NULL",
 }
 
 const readPoolSize = 4

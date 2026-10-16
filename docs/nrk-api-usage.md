@@ -41,7 +41,7 @@ Incremental refreshes have their own durable checkpoint and original episode bou
 
 Refresh jobs, archive jobs, catalog loads, chapter loads, and failed upstream URLs have persistent retry deadlines. Repeated failures wait 5 minutes, 10 minutes, 20 minutes, and so on, capped at one day. Successful work clears its retry state. Retry eligibility does not start a background timer: another relevant request is needed after the deadline.
 
-HTTP 429/5xx responses honor `Retry-After` as either seconds or an HTTP date. An explicit future deadline also pauses new requests to that upstream origin; requests already in flight may finish. Restarts preserve these deadlines. Queued requests recheck them before starting.
+HTTP 429/5xx responses honor `Retry-After` as either seconds or an HTTP date. An explicit future deadline also pauses new requests to that upstream origin for exactly that long, without escalating; requests already in flight may finish. Deadlines are capped at 24 hours. Restarts preserve these deadlines. Queued requests recheck them before starting.
 
 Definitively unavailable playback manifests retain the separate existing episode backoff of 1, 2, 4, … up to 30 days. Those episode IDs become eligible when encountered again; this is not a separate scheduled retry crawler.
 
