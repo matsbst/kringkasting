@@ -29,6 +29,7 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 <span class="inline-flex" data-subscribe data-feed-url="{{.FeedURL}}">
 <button type="button" data-open-dialog="{{.DialogID}}" class="relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer px-3 py-2">{{template "icon-podcast"}} Abonner i app</button>
 </span>
+{{/* without JavaScript the app list can't open: offer the feed itself */}}<noscript><a href="{{.FeedURL}}" class="inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors px-3 py-2">{{template "icon-podcast"}} RSS-lenke</a></noscript>
 <dialog id="{{.DialogID}}" aria-labelledby="{{.DialogID}}-title" class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark">
 <div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]" data-dialog-main>
 <h2 id="{{.DialogID}}-title" class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Velg podkast-app</h2>

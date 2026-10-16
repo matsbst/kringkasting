@@ -106,7 +106,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 	case path == "/" && readMethod(r):
 		s.home(w, r)
 	case path == "/personvern" && readMethod(r):
-		s.render(w, r, http.StatusOK, "personvern", s.page(r, "Personvern – Kringkasting"))
+		p := s.page(r, "Personvern – Kringkasting")
+		p.Privacy = s.privacy(r, p)
+		s.render(w, r, http.StatusOK, "personvern", p)
 	case path == "/admin" && (readMethod(r) || r.Method == http.MethodPost):
 		s.admin(w, r)
 	case path == "/sitemap.xml" && readMethod(r):
@@ -153,10 +155,21 @@ func (s *Server) origin(r *http.Request) string {
 		return s.Config.Origin
 	}
 	scheme := "http"
-	if r.TLS != nil {
+	if requestHTTPS(r) {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
+}
+
+// requestHTTPS reports whether the visitor used HTTPS: TLS here, or
+// X-Forwarded-Proto from a proxy that sets it (a local one, or
+// Cloudflare). Clients connecting directly can't claim it.
+func requestHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	proto := r.Header.Get("X-Forwarded-Proto")
+	return proto != "" && fromProxy(r) && strings.TrimSpace(strings.Split(proto, ",")[0]) == "https"
 }
 
 type umami struct{ Src, WebsiteID string }
@@ -170,6 +183,38 @@ type page struct {
 	Search                                  searchView
 	NotFound                                bool
 	Admin                                   adminView
+	Privacy                                 *privacy
+}
+
+// privacy is what the privacy page says about this instance: every
+// installation describes its own setup, not the public one's.
+type privacy struct {
+	// Umami: analytics are configured; UmamiSelfHosted unless the script
+	// comes from Umami's cloud
+	Umami, UmamiSelfHosted bool
+	// Cloudflare: this request came through Cloudflare
+	Cloudflare bool
+	// ErrorReports: SENTRY_DSN is set; ErrorReportsSelfHosted unless it
+	// points at sentry.io
+	ErrorReports, ErrorReportsSelfHosted bool
+}
+
+func (s *Server) privacy(r *http.Request, p *page) *privacy {
+	notHostedBy := func(raw, domain string) bool {
+		u, err := url.Parse(raw)
+		if err != nil {
+			return false
+		}
+		host := u.Hostname()
+		return host != domain && !strings.HasSuffix(host, "."+domain)
+	}
+	return &privacy{
+		Umami:                  p.Umami != nil,
+		UmamiSelfHosted:        p.Umami != nil && notHostedBy(p.Umami.Src, "umami.is"),
+		Cloudflare:             viaCloudflare(r),
+		ErrorReports:           s.Config.SentryDSN != "",
+		ErrorReportsSelfHosted: s.Config.SentryDSN != "" && notHostedBy(s.Config.SentryDSN, "sentry.io"),
+	}
 }
 
 const defaultTitle = "Kringkasting – NRK-podkaster som RSS"

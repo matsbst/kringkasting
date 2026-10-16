@@ -14,7 +14,7 @@ By default Cloudflare only caches responses by file extension, so `/api/feeds/..
 
 - **Rule name:** `Kringkasting feeds`
 - **When incoming requests match:** Custom filter expression
-  - Field `Hostname` equals `kringkast.ing`
+  - Field `Hostname` equals your Kringkasting hostname
   - AND field `URI Path` starts with `/api/feeds/`
 - **Then:**
   - **Cache eligibility:** Eligible for cache
@@ -42,5 +42,5 @@ Also make sure no managed challenge / security rule covers `/api/*`.
 
 ## Notes
 
-- Static assets (`/assets/*.css|js`, `/fonts/*.woff2`) are cached by Cloudflare automatically (default cached extensions); the app marks fonts `immutable` and vite content-hashes the assets, so no purging is ever needed.
+- Static assets (`/assets/*.css|js`, `/fonts/*.woff2`) are cached by Cloudflare automatically (default cached extensions); the app marks fonts `immutable`, and stylesheet and script URLs carry the build revision (`?v=…`), so no purging is needed after an update.
 - After deploying a new app version, feeds may be served from the edge for up to an hour before the new XML shows. That is by design; purge the cache manually in the dashboard if you ever need it immediately.
