@@ -87,17 +87,50 @@ const PLATFORM = /Android/i.test(navigator.userAgent)
   ? "ios"
   : null;
 
-// a computer: some apps work differently there (data-desktop on the row)
+// a computer: most apps work differently there (data-desktop on the row)
 const COMPUTER = PLATFORM === null;
 const MAC = /Mac/.test(navigator.userAgent);
+const SYSTEM = MAC ? "mac" : /Windows/.test(navigator.userAgent) ? "windows" : "linux";
+const PASTE_KEYS = MAC ? "⌘V" : "Ctrl+V";
 
 function availableHere(app) {
   return COMPUTER || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
 }
 
-/** what an app's row does here: open the link, "copy" or "phone" */
-function desktopKind(app) {
-  return COMPUTER ? app.dataset.desktop ?? "" : "";
+/**
+ * What an app's row does here: "open" follows the link, "copy" and
+ * "copy-open" copy the feed link and explain where to paste it, "phone"
+ * (an app only on phones) shows the QR code. Phones always open.
+ */
+function desktopAction(app) {
+  if (!COMPUTER) return "open";
+  const rules = Object.fromEntries((app.dataset.desktop ?? "").split(" ").filter(Boolean).map((rule) => rule.split(":")));
+  return rules[SYSTEM] ?? rules["*"] ?? "phone";
+}
+
+const copies = (app) => desktopAction(app).startsWith("copy");
+
+/** where to paste the link, per app */
+function pasteSteps(app) {
+  const name = app.dataset.appName;
+  switch (app.dataset.app) {
+    case "apple":
+      return MAC
+        ? ["Åpne Podkaster. Vinduet «Følg et program via URL» åpnes.", `Lim inn lenken (${PASTE_KEYS}) og velg Følg.`]
+        : ["Åpne Apple Podcasts og velg Fil › Følg et program via URL.", `Lim inn lenken (${PASTE_KEYS}) og velg Følg.`];
+    case "pocketcasts":
+      return [
+        "Åpne Pocket Casts på nett eller i appen på datamaskinen, og gå til Oppdag.",
+        `Lim inn lenken (${PASTE_KEYS}) i søkefeltet, velg podkasten og abonner.`,
+      ];
+  }
+  return [`Åpne ${name} og legg til en podkast via URL.`, `Lim inn lenken (${PASTE_KEYS}).`];
+}
+
+/** the paste panel's button: opens the app or its website */
+function openLabel(app) {
+  if (app.dataset.app === "apple" && MAC) return "Åpne Podkaster";
+  return app.dataset.desktopHref?.startsWith("https:") ? `Åpne ${app.dataset.appName} på nett` : `Åpne ${app.dataset.appName}`;
 }
 
 /** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
@@ -108,7 +141,7 @@ function renderControl(control) {
   // a choice made on another platform (e.g. synced) counts as none here
   let chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
   // an app that only exists on phones is no choice on a computer
-  if (chosen && (!availableHere(chosen) || desktopKind(chosen) === "phone")) chosen = null;
+  if (chosen && (!availableHere(chosen) || desktopAction(chosen) === "phone")) chosen = null;
   const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
 
   if (!chosen) {
@@ -125,9 +158,9 @@ function renderControl(control) {
   icon.setAttribute("height", "15");
   // says what it does: an app that needs the link pasted gets a copy
   // button, the others a link that opens the app
-  const copies = desktopKind(chosen) === "copy";
-  const link = document.createElement(copies ? "button" : "a");
-  if (copies) link.type = "button";
+  const copying = copies(chosen);
+  const link = document.createElement(copying ? "button" : "a");
+  if (copying) link.type = "button";
   else link.href = chosen.getAttribute("href");
   link.dataset.chosenApp = chosen.dataset.app;
   link.dataset.pulse = "";
@@ -135,7 +168,7 @@ function renderControl(control) {
   link.dataset.umamiEventApp = chosen.dataset.appName;
   link.dataset.umamiEventHandling = "aapne";
   link.className = `${PRIMARY_BUTTON} rounded-r-none px-3 py-2`;
-  link.append(icon, copies ? ` Kopier lenke til ${chosen.dataset.appName}` : ` Åpne i ${chosen.dataset.appName}`);
+  link.append(icon, copying ? ` Kopier lenke til ${chosen.dataset.appName}` : ` Åpne i ${chosen.dataset.appName}`);
   link.insertAdjacentHTML("beforeend", pulse);
   const switcher = document.createElement("button");
   switcher.type = "button";
@@ -258,18 +291,23 @@ async function startPaste(dialog, app) {
   // copy first, while this is still the click
   const copying = copyText(feedUrl, dialog.open ? dialog : document.body);
   const panel = pastePanel(dialog);
-  // Apple's app is «Podkaster» on a Norwegian Mac
-  const appName = app.dataset.app === "apple" && MAC ? "Podkaster" : app.dataset.appName;
   panel.querySelector("h2").textContent = app.dataset.appName;
   panel.querySelector("[data-paste-url]").value = feedUrl;
-  panel.querySelector("[data-paste-step-open]").textContent =
-    `Åpne ${appName}. Vinduet «Følg et program via URL» åpnes.`;
-  panel.querySelector("[data-paste-step-paste]").textContent =
-    `Lim inn lenken (${MAC ? "⌘V" : "Ctrl+V"}) og velg Følg.`;
+  const [first, second] = pasteSteps(app);
+  panel.querySelector("[data-paste-step-open]").textContent = first;
+  panel.querySelector("[data-paste-step-paste]").textContent = second;
+  // a button to open the app or site, where a link can
   const open = panel.querySelector("[data-paste-open]");
-  open.href = app.getAttribute("href");
+  open.hidden = desktopAction(app) !== "copy-open";
+  open.href = app.dataset.desktopHref ?? app.getAttribute("href");
+  if (open.href.startsWith("https:")) {
+    open.target = "_blank";
+    open.rel = "noopener";
+  } else {
+    open.removeAttribute("target");
+  }
   open.dataset.pasteApp = app.dataset.app;
-  open.textContent = `Åpne ${appName}`;
+  open.textContent = openLabel(app);
   const status = panel.querySelector("[data-paste-status]");
   status.textContent = "";
   if (!dialog.open) openDialog(dialog);
@@ -277,7 +315,7 @@ async function startPaste(dialog, app) {
   if (await copying) {
     status.innerHTML = ICONS.checkDraw;
     status.append("RSS-lenken er kopiert");
-    open.focus();
+    (open.hidden ? panel.querySelector("[data-close-dialog]") : open).focus();
   } else {
     status.textContent = `Kunne ikke kopiere automatisk. Marker lenken og kopier den (${MAC ? "⌘C" : "Ctrl+C"}):`;
     const field = panel.querySelector("[data-paste-url]");
@@ -306,7 +344,13 @@ function openDialog(dialog) {
   showView(dialog, "main");
   dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
   // on a computer, rows that don't simply open the app say what they do
-  dialog.querySelectorAll("[data-desktop-note]").forEach((note) => (note.hidden = !COMPUTER));
+  dialog.querySelectorAll("a[data-app]").forEach((app) => {
+    const note = app.querySelector("[data-desktop-note]");
+    if (!note) return;
+    const action = desktopAction(app);
+    note.textContent = action === "phone" ? "på mobilen" : action.startsWith("copy") ? "kopierer lenken" : "";
+    note.hidden = !note.textContent;
+  });
   dialog.querySelectorAll("a[data-app]").forEach((app) => (app.closest("li").hidden = !availableHere(app)));
   dialog.showModal();
 }
@@ -388,7 +432,7 @@ document.addEventListener("click", (event) => {
     pulse(chosen);
     const dialog = chosen.closest("[data-subscribe]").nextElementSibling;
     const app = dialog.querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
-    if (app && desktopKind(app) === "copy") {
+    if (app && copies(app)) {
       startPaste(dialog, app);
       return;
     }
@@ -410,7 +454,7 @@ document.addEventListener("click", (event) => {
   if (target.closest("[data-paste-back]")) {
     const dialog = target.closest("dialog");
     showView(dialog, "main");
-    dialog.querySelector("a[data-desktop=copy]")?.focus();
+    dialog.querySelector(`a[data-app="${CSS.escape(dialog.querySelector("[data-paste-open]").dataset.pasteApp)}"]`)?.focus();
     return;
   }
 
@@ -420,13 +464,13 @@ document.addEventListener("click", (event) => {
     const control = dialog.previousElementSibling;
     // on a computer: an app only on phones goes there by QR code, one
     // that needs the link pasted gets it copied first
-    if (desktopKind(app) === "phone") {
+    if (desktopAction(app) === "phone") {
       event.preventDefault();
       showView(dialog, "qr");
       dialog.querySelector("[data-qr-back]").focus();
       return;
     }
-    if (desktopKind(app) === "copy") {
+    if (copies(app)) {
       event.preventDefault();
       writeChoice(app.dataset.app);
       startPaste(dialog, app);
