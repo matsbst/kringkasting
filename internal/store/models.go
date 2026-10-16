@@ -48,6 +48,10 @@ type Series struct {
 	// MetadataRefreshedAt is when title/artwork was last fetched.
 	MetadataRefreshedAt *time.Time
 	Episodes            []Episode
+	// Version is the data version ReadSeries saw before reading, so a
+	// render can be cached under exactly the content it shows. 0 for a
+	// series that didn't come from the store (never a current version).
+	Version int64
 }
 
 // SeriesMeta is freshness data, read without the episode list.
