@@ -2,11 +2,20 @@
 <h1 class="text-3xl font-bold tracking-tight">Admin</h1>
 {{if .Admin.Failed}}<p role="alert" class="mt-4 text-sm">Feil token, prøv igjen.</p>{{end}}
 {{if .Admin.Limited}}<p role="alert" class="mt-4 text-sm">For mange forsøk. Vent et minutt og prøv igjen.</p>{{end}}
+{{if .Admin.TokenOff}}<p role="alert" class="mt-4 text-sm">Innlogging med token er slått av. Bruk en passnøkkel.</p>{{end}}
+<p role="alert" class="mt-4 text-sm" data-passkey-status hidden></p>
+{{with .Admin.Passkeys}}{{if .Ready}}<button type="button" data-passkey-login class="mt-6 w-full h-11 rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Logg inn med passnøkkel</button>
+{{if not .TokenLoginOff}}<details class="mt-4 text-sm"><summary class="cursor-pointer text-ink-2 dark:text-ink-2-dark">Logg inn med token</summary>
 <form method="post" class="mt-6 flex gap-2">
 <label class="sr-only" for="token">Admin-token</label>
 <input type="password" id="token" name="token" autocomplete="current-password" class="flex-1 h-11 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 focus:outline-none focus:border-ink dark:focus:border-ink-dark"/>
 <button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Logg inn</button>
 </form>
+</details>{{end}}{{else}}<form method="post" class="mt-6 flex gap-2">
+<label class="sr-only" for="token">Admin-token</label>
+<input type="password" id="token" name="token" autocomplete="current-password" class="flex-1 h-11 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 focus:outline-none focus:border-ink dark:focus:border-ink-dark"/>
+<button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Logg inn</button>
+</form>{{end}}{{end}}
 </section>{{else}}{{with .Admin.Dashboard}}{{$d := .}}<div class="pt-12 pb-8">
 <div class="flex items-baseline justify-between flex-wrap gap-2">
 <h1 class="text-3xl font-bold tracking-tight">Admin</h1>
@@ -69,6 +78,22 @@
 {{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Ingen strømmer har stått ubrukt i 180 dager.</p>{{end}}
 {{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Strømmer ingen app har brukt på 180 dager kan slettes herfra. Tilgjengelig fra {{.AvailableFrom}} – til da vet vi ikke sikkert hva som er ubrukt.</p>{{end}}{{end}}
 </section>
+{{with $.Admin.Passkeys}}<section class="mt-12" aria-labelledby="passnokler-tittel">
+<h2 id="passnokler-tittel" class="text-xl font-semibold">Passnøkler</h2>
+{{if .Available}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Logg inn med Face ID, Touch ID eller en sikkerhetsnøkkel i stedet for tokenet. Passnøkler i iCloud-nøkkelringen eller en passordbehandler følger deg til alle enhetene dine.{{if .TokenLoginOff}} Innlogging med token er slått av (ADMIN_PASSKEY_ONLY).{{else}} Tokenet virker fortsatt, som reserve.{{end}}</p>
+{{if .List}}<ul class="mt-4 divide-y divide-line dark:divide-line-dark border-y border-line dark:border-line-dark text-sm">
+{{range .List}}<li class="flex flex-wrap items-center gap-x-3 py-2.5"><span class="font-medium">{{.Name}}</span><span class="text-ink-3 dark:text-ink-3-dark">lagt til {{.Created}} · sist brukt {{.LastUsed}}</span>
+<form method="post" class="ml-auto"><input type="hidden" name="action" value="passkey-delete"/><input type="hidden" name="passkey" value="{{.ID}}"/><button type="submit" class="underline underline-offset-2 text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark cursor-pointer">Fjern</button></form></li>
+{{end}}</ul>{{end}}
+<form class="mt-4 flex flex-wrap gap-2" data-passkey-register>
+<label class="sr-only" for="passkey-name">Navn på passnøkkelen</label>
+<input id="passkey-name" name="name" maxlength="60" placeholder="Navn, f.eks. iPhone" class="flex-1 min-w-48 h-10 rounded-lg border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-3 text-sm focus:outline-none focus:border-ink dark:focus:border-ink-dark"/>
+<button type="submit" class="rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark text-sm font-semibold px-4 cursor-pointer">Legg til passnøkkel</button>
+</form>
+<p role="status" class="mt-2 text-sm" data-passkey-status hidden></p>
+{{else}}<p class="mt-2 text-sm text-ink-2 dark:text-ink-2-dark">Passnøkler krever en fast https-adresse: sett APP_ORIGIN til den, for eksempel https://kringkasting.example.no.</p>{{end}}
+<form method="post" class="mt-6 text-sm text-ink-2 dark:text-ink-2-dark"><input type="hidden" name="action" value="logout-all"/>{{.Sessions}} {{if eq .Sessions 1}}innlogget nettleser{{else}}innloggede nettlesere{{end}}. <button type="submit" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark cursor-pointer">Logg ut overalt</button></form>
+</section>{{end}}
 <section class="mt-12">
 <h2 class="text-xl font-semibold">Drift <span class="text-sm font-normal text-ink-3 dark:text-ink-3-dark">siden omstart</span></h2>
 <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">

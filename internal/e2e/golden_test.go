@@ -151,7 +151,7 @@ func TestOriginTextFiles(t *testing.T) {
 func TestAdmin(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
 	form := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
-	cookie := adminCookie["Cookie"]
+	cookie := app.adminCookie(t)
 	withCookie := map[string]string{"Content-Type": "application/x-www-form-urlencoded", "Cookie": cookie}
 
 	login := compare(t, "admin_login_page", app.do(request{path: "/admin"}), statusOnly)
@@ -159,14 +159,14 @@ func TestAdmin(t *testing.T) {
 	wrong := compare(t, "admin_login_wrong", app.do(request{method: "POST", path: "/admin", headers: form, body: "token=wrong-token-123"}), statusOnly)
 	mustContain(t, "admin_login_wrong", wrong, "Feil token, prøv igjen.")
 	// the Deno version stored the token itself in the cookie; it now holds
-	// a session value derived from it, otherwise unchanged
+	// a random session value, otherwise unchanged
 	for name, headers := range map[string]map[string]string{
 		"admin_login_ok":                 form,
 		"admin_login_ok_forwarded_https": {"Content-Type": "application/x-www-form-urlencoded", "X-Forwarded-Proto": "https"},
 	} {
 		resp := app.do(request{method: "POST", path: "/admin", headers: headers, body: "token=" + adminToken})
-		want := cookie + "; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000"
-		if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin" || resp.Header.Get("Set-Cookie") != want {
+		want := regexp.MustCompile(`^kringkasting_admin=[A-Za-z0-9_-]{43}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000$`)
+		if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/admin" || !want.MatchString(resp.Header.Get("Set-Cookie")) {
 			t.Errorf("%s: %d %q %q", name, resp.StatusCode, resp.Header.Get("Location"), resp.Header.Get("Set-Cookie"))
 		}
 	}

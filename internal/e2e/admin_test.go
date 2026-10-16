@@ -1,9 +1,6 @@
 package e2e
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,18 +10,26 @@ import (
 	"time"
 )
 
-// adminCookie is the session a login with adminToken sets
-var adminCookie = map[string]string{"Cookie": "kringkasting_admin=" + adminSession()}
-
-func adminSession() string {
-	mac := hmac.New(sha256.New, []byte(adminToken))
-	mac.Write([]byte("kringkasting admin session v1"))
-	return hex.EncodeToString(mac.Sum(nil))
+// adminCookie logs in with adminToken once per instance and returns the
+// session cookie it got.
+func (i *instance) adminCookie(t *testing.T) string {
+	t.Helper()
+	if i.session == "" {
+		resp := i.do(request{method: http.MethodPost, path: "/admin", remote: "203.0.113.250",
+			headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
+			body:    url.Values{"token": {adminToken}}.Encode()})
+		cookie, _, _ := strings.Cut(resp.Header.Get("Set-Cookie"), ";")
+		if resp.StatusCode != http.StatusSeeOther || !strings.HasPrefix(cookie, "kringkasting_admin=") {
+			t.Fatalf("admin login: %d %q", resp.StatusCode, cookie)
+		}
+		i.session = cookie
+	}
+	return i.session
 }
 
 func (i *instance) admin(t *testing.T, query string) string {
 	t.Helper()
-	resp := i.do(request{path: "/admin" + query, headers: adminCookie})
+	resp := i.do(request{path: "/admin" + query, headers: map[string]string{"Cookie": i.adminCookie(t)}})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("/admin%s: status %d", query, resp.StatusCode)
 	}
@@ -34,7 +39,7 @@ func (i *instance) admin(t *testing.T, query string) string {
 func (i *instance) adminPost(t *testing.T, form url.Values) *http.Response {
 	t.Helper()
 	return i.do(request{method: http.MethodPost, path: "/admin", body: form.Encode(), headers: map[string]string{
-		"Content-Type": "application/x-www-form-urlencoded", "Cookie": adminCookie["Cookie"]}})
+		"Content-Type": "application/x-www-form-urlencoded", "Cookie": i.adminCookie(t)}})
 }
 
 // feedTitles are the feed list's titles, in order.
@@ -221,26 +226,51 @@ func TestAdminLoginLimit(t *testing.T) {
 	}
 }
 
-// The cookie holds a session value, never the token; the raw token is no
-// longer accepted as a cookie, and logging out clears the session.
+// Sessions are stored server side: the cookie holds a random value, never
+// the token; logging out ends the session for real, "log out everywhere"
+// ends them all, and a changed ADMIN_TOKEN ends them at startup.
 func TestAdminSession(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
-	resp := app.do(request{method: http.MethodPost, path: "/admin", remote: "203.0.113.1",
-		headers: map[string]string{"Content-Type": "application/x-www-form-urlencoded"},
-		body:    url.Values{"token": {adminToken}}.Encode()})
-	cookie := resp.Header.Get("Set-Cookie")
-	if strings.Contains(cookie, adminToken) || !strings.Contains(cookie, "kringkasting_admin="+adminSession()) {
-		t.Fatalf("login cookie %q", cookie)
+	cookie := app.adminCookie(t)
+	if strings.Contains(cookie, adminToken) {
+		t.Fatalf("the cookie holds the token: %q", cookie)
 	}
-	raw := body(app.do(request{path: "/admin", headers: map[string]string{"Cookie": "kringkasting_admin=" + adminToken}}))
-	if !strings.Contains(raw, `name="token"`) {
-		t.Error("the raw token must not work as a session")
+	loggedIn := func(cookie string) bool {
+		return strings.Contains(body(app.do(request{path: "/admin", headers: map[string]string{"Cookie": cookie}})), "Logg ut")
 	}
-	if !strings.Contains(app.admin(t, ""), "Logg ut") {
-		t.Error("logout button missing")
+	if !loggedIn(cookie) || loggedIn("kringkasting_admin="+adminToken) {
+		t.Fatal("only the session cookie may sign in")
 	}
-	resp = app.adminPost(t, url.Values{"action": {"logout"}})
+	resp := app.adminPost(t, url.Values{"action": {"logout"}})
 	if c := resp.Header.Get("Set-Cookie"); resp.StatusCode != http.StatusSeeOther || !strings.Contains(c, "kringkasting_admin=;") || !strings.Contains(c, "Max-Age=0") {
 		t.Errorf("logout: %d %q", resp.StatusCode, c)
+	}
+	if loggedIn(cookie) {
+		t.Error("a logged-out session still works")
+	}
+
+	app.session = ""
+	first, second := app.adminCookie(t), ""
+	app.session = ""
+	second = app.adminCookie(t)
+	app.adminPost(t, url.Values{"action": {"logout-all"}})
+	if loggedIn(first) || loggedIn(second) {
+		t.Error("log out everywhere left a session")
+	}
+
+	// a new token at startup ends the sessions started under the old one
+	app.session = ""
+	kept := app.adminCookie(t)
+	app.stop(t)
+	same := start(t, options{env: adminEnv(), dbPath: app.dbPath})
+	if !strings.Contains(body(same.do(request{path: "/admin", headers: map[string]string{"Cookie": kept}})), "Logg ut") {
+		t.Fatal("a restart with the same token must keep the session")
+	}
+	same.stop(t)
+	env := adminEnv()
+	env["ADMIN_TOKEN"] = "another-admin-token"
+	changed := start(t, options{env: env, dbPath: app.dbPath})
+	if strings.Contains(body(changed.do(request{path: "/admin", headers: map[string]string{"Cookie": kept}})), "Logg ut") {
+		t.Error("a changed token must end existing sessions")
 	}
 }

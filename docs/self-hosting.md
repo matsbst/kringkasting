@@ -94,6 +94,7 @@ All configuration is via environment variables (see [`.env.example`](../.env.exa
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `APP_ORIGIN`                     | **Recommended.** Public origin (scheme + host) of your instance, used for absolute URLs in feeds and page metadata. Set it behind a proxy so URLs aren't built from the internal request Host. |
 | `ADMIN_TOKEN`                    | Enables the admin dashboard at `/admin` (NRK health, history, feed use and subscribers, archive progress, feed actions). Unset = disabled. Use a long random string (at least 8 characters). |
+| `ADMIN_PASSKEY_ONLY`             | Optional. `true` turns token login off once a passkey is registered, so only passkeys sign in. Unset it to sign in with the token again. |
 | `SENTRY_DSN`                     | Optional. Sentry-protocol DSN (works with self-hosted Bugsink) for server-side error reporting, scrubbed of IP/query/body. Unset = disabled.                                                   |
 | `UMAMI_SRC` / `UMAMI_WEBSITE_ID` | Optional. Load a cookieless [Umami](https://umami.is) analytics script (script URL + website id). Both must be set to enable; point them at your own Umami instance.                           |
 | `KRINGKASTING_DB_PATH`           | SQLite database path. Defaults to `/app/data/kringkasting.sqlite3`; change only if you mount the volume elsewhere.                                                                             |
@@ -104,6 +105,8 @@ All configuration is via environment variables (see [`.env.example`](../.env.exa
 With the supplied Compose file, set `APP_ORIGIN`, `ADMIN_TOKEN`, `SENTRY_DSN` and the Umami settings in `.env`. To override `KRINGKASTING_DB_PATH` or `GOMEMLIMIT`, also add the variable to the service's `environment` section in `compose.yaml`; placing it in `.env` alone does not pass it into the container.
 
 To enable the optional admin dashboard, set a long random `ADMIN_TOKEN` and open `/admin`. Leave it unset to keep the dashboard disabled.
+
+With `APP_ORIGIN` set to an `https://` address, the dashboard can also register passkeys (Face ID, Touch ID, a password manager or a security key): sign in with the token once, then use **Legg til passnøkkel**. The login page then offers **Logg inn med passnøkkel**, and the token remains a fallback unless `ADMIN_PASSKEY_ONLY` is set. Passkeys belong to the address they were created on: after moving Kringkasting to a new address, sign in with the token and register them again. Sessions last 30 days. **Logg ut overalt** ends them all, and so does changing `ADMIN_TOKEN`.
 
 The dashboard shows NRK's health, 30 days of history, and per feed when an app last requested it, which apps do, and the subscriber counts those apps report (Overcast, Feedly and Inoreader include one; Apple Podcasts and Pocket Casts don't). Only feed IDs, app names, counts and times are stored, never IP addresses or user agents. Behind a CDN that caches feeds, the server sees roughly one request per feed per hour, so these numbers are lower bounds. Without a CDN they cover every poll. Feeds no app has used for 180 days can be deleted from the dashboard once use has been measured that long.
 

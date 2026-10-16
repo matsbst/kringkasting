@@ -16,10 +16,13 @@ type Config struct {
 	// AdminToken enables /admin; tokens shorter than 8 characters are
 	// treated as unset.
 	AdminToken string
-	SentryDSN  string
-	UmamiSrc   string
-	UmamiID    string
-	DBPath     string
+	// AdminPasskeyOnly turns token login off once a passkey exists
+	// (ADMIN_PASSKEY_ONLY); the token stays the way back in when unset.
+	AdminPasskeyOnly bool
+	SentryDSN        string
+	UmamiSrc         string
+	UmamiID          string
+	DBPath           string
 	// BuildID identifies the release (error reports, admin, asset URLs).
 	BuildID string
 	Addr    string
@@ -60,12 +63,16 @@ func FromLookup(get func(string) string) Config {
 	return Config{
 		Origin:     strings.TrimSuffix(origin, "/"),
 		AdminToken: token,
-		SentryDSN:  get("SENTRY_DSN"),
-		UmamiSrc:   get("UMAMI_SRC"),
-		UmamiID:    get("UMAMI_WEBSITE_ID"),
-		DBPath:     dbPath,
-		BuildID:    buildID,
-		Addr:       addr,
+		AdminPasskeyOnly: func() bool {
+			v := strings.ToLower(strings.TrimSpace(get("ADMIN_PASSKEY_ONLY")))
+			return v == "true" || v == "1" || v == "yes"
+		}(),
+		SentryDSN: get("SENTRY_DSN"),
+		UmamiSrc:  get("UMAMI_SRC"),
+		UmamiID:   get("UMAMI_WEBSITE_ID"),
+		DBPath:    dbPath,
+		BuildID:   buildID,
+		Addr:      addr,
 	}
 }
 

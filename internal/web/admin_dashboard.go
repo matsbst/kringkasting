@@ -122,12 +122,26 @@ type dashboard struct {
 }
 
 type adminView struct {
-	// Failed: wrong token; Limited: too many failed attempts
-	Login, Failed, Limited bool
-	Dashboard              *dashboard
+	// Failed: wrong token; Limited: too many failed attempts; TokenOff:
+	// the right token, but token login is off (ADMIN_PASSKEY_ONLY)
+	Login, Failed, Limited, TokenOff bool
+	Dashboard                        *dashboard
 	// Client is the visitor's address as the rate limits see it, so a
 	// self-hoster can check that their proxy passes it on
-	Client string
+	Client   string
+	Passkeys passkeyView
+}
+
+// passkeyView is what the login page and the dashboard show of passkeys.
+type passkeyView struct {
+	// Available: the origin can hold passkeys; Ready: one is registered
+	Available, Ready, TokenLoginOff bool
+	List                            []passkeyRow
+	Sessions                        int
+}
+
+type passkeyRow struct {
+	ID, Name, Created, LastUsed string
 }
 
 // the feed list's filters and sort orders; the first is the default

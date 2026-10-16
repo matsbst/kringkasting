@@ -1,11 +1,8 @@
 package web
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -35,45 +32,6 @@ func formatBytes(bytes int64) string {
 }
 
 func (s *Server) adminEnabled() bool { return s.Config.AdminToken != "" }
-
-// tokenMatches compares hashes, so the comparison takes constant time.
-func (s *Server) tokenMatches(candidate string) bool {
-	if !s.adminEnabled() {
-		return false
-	}
-	a, b := sha256.Sum256([]byte(candidate)), sha256.Sum256([]byte(s.Config.AdminToken))
-	return subtle.ConstantTimeCompare(a[:], b[:]) == 1
-}
-
-// sessionValue is what the admin cookie holds: an HMAC under ADMIN_TOKEN,
-// so the token itself is never stored in the browser, and changing the
-// token ends every session.
-func (s *Server) sessionValue() string {
-	mac := hmac.New(sha256.New, []byte(s.Config.AdminToken))
-	mac.Write([]byte("kringkasting admin session v1"))
-	return hex.EncodeToString(mac.Sum(nil))
-}
-
-func (s *Server) authenticated(r *http.Request) bool {
-	if !s.adminEnabled() {
-		return false
-	}
-	cookie, err := r.Cookie(adminCookie)
-	if err != nil {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(s.sessionValue())) == 1
-}
-
-// setSession sets (maxAge > 0) or clears (maxAge 0) the admin cookie.
-func (s *Server) setSession(w http.ResponseWriter, r *http.Request, value string, maxAge int) {
-	secure := ""
-	if s.isHTTPS(r) {
-		secure = " Secure;"
-	}
-	w.Header().Set("Set-Cookie", fmt.Sprintf("%s=%s; Path=/admin; HttpOnly;%s SameSite=Strict; Max-Age=%d",
-		adminCookie, value, secure, maxAge))
-}
 
 // isHTTPS: behind Cloudron/Cloudflare the upstream request is plain HTTP,
 // so trust the forwarded proto or the configured origin for the cookie's
@@ -111,6 +69,7 @@ func noStore(w http.ResponseWriter) {
 
 func (s *Server) adminPage(w http.ResponseWriter, r *http.Request, view adminView) {
 	noStore(w)
+	view.Passkeys = s.passkeyView(view.Dashboard != nil)
 	data := s.page(r, "Admin – Kringkasting")
 	data.Robots = "noindex"
 	data.Admin = view
@@ -160,12 +119,20 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.limiter.refundScoped("adminlogin", client)
-		s.setSession(w, r, s.sessionValue(), 30*24*60*60)
+		if s.tokenLoginOff() {
+			s.adminPage(w, r, adminView{Login: true, TokenOff: true})
+			return
+		}
+		if err := s.startSession(w, r, "token"); err != nil {
+			log.Printf("start admin session: %v", err)
+			s.adminPage(w, r, adminView{Login: true, Failed: true})
+			return
+		}
 		redirectAdmin(w, "/admin")
 		return
 	}
 	if r.PostForm.Get("action") == "logout" {
-		s.setSession(w, r, "", 0)
+		s.endSession(w, r)
 		redirectAdmin(w, "/admin")
 		return
 	}
@@ -181,6 +148,18 @@ func (s *Server) admin(w http.ResponseWriter, r *http.Request) {
 	back := parseListQuery(func() url.Values { v, _ := url.ParseQuery(r.PostForm.Get("back")); return v }()).encode()
 	if back != "" {
 		back = "&" + back
+	}
+	switch r.PostForm.Get("action") {
+	case "logout-all":
+		if err := s.Store.DeleteAdminSessions(); err != nil {
+			log.Printf("end admin sessions: %v", err)
+		}
+		s.setSession(w, r, "", 0)
+		redirectAdmin(w, "/admin")
+		return
+	case "passkey-delete":
+		redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(s.deletePasskey(r.PostForm.Get("passkey")))+back)
+		return
 	}
 	if r.PostForm.Get("action") == "cleanup" {
 		redirectAdmin(w, "/admin?m="+nrk.EncodeURIComponent(s.cleanup(r.PostForm))+back)

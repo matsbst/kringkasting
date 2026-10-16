@@ -118,6 +118,8 @@ type instance struct {
 	cancel context.CancelFunc
 	nrk    *replay
 	dbPath string
+	// session is the admin cookie, once logged in
+	session string
 }
 
 type options struct {

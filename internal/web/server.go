@@ -52,6 +52,8 @@ type Server struct {
 	pages   map[string]*template.Template
 	static  *staticFiles
 	limiter *limiter
+	// passkeys is nil when the origin can't hold passkeys
+	passkeys *passkeys
 }
 
 // New builds the HTTP handler.
@@ -72,7 +74,12 @@ func New(d Deps) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Server{Deps: d, pages: pages, static: files, limiter: newLimiter(d.Stats)}, nil
+	s := &Server{Deps: d, pages: pages, static: files, limiter: newLimiter(d.Stats)}
+	if s.adminEnabled() {
+		s.passkeys = newPasskeys(d.Config.Origin)
+		s.endSessionsIfTokenChanged()
+	}
+	return s, nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +118,8 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "personvern", p)
 	case path == "/admin" && (readMethod(r) || r.Method == http.MethodPost):
 		s.admin(w, r)
+	case strings.HasPrefix(path, "/admin/passkey/"):
+		s.passkeyRoutes(w, r, strings.TrimPrefix(path, "/admin/passkey/"))
 	case path == "/sitemap.xml" && readMethod(r):
 		s.sitemap(w, r)
 	case path == "/api/search" && readMethod(r):
