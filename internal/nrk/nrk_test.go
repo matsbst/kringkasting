@@ -192,6 +192,35 @@ func TestRetryAfterBlocksOrigin(t *testing.T) {
 	}
 }
 
+// A burst of 429s pauses the origin only as long as NRK asked: the
+// escalating backoff applies to each URL, not to all of NRK.
+func TestRetryAfterBurstDoesNotEscalateOrigin(t *testing.T) {
+	s, _ := testutil.OpenStore(t)
+	r := retry.New(s)
+	gate := make(chan struct{})
+	fake := &testutil.FakeNRK{Gate: gate, Handle: func(string, string) testutil.Reply {
+		return testutil.Reply{Status: 429, Headers: map[string]string{"retry-after": "30"}}
+	}}
+	c := New(fake, r, stats.New())
+	var wg sync.WaitGroup
+	for i := range 10 {
+		wg.Go(func() {
+			var v any
+			c.GetJSON(fmt.Sprintf("%s/burst%d", API, i), &v)
+		})
+	}
+	time.Sleep(200 * time.Millisecond)
+	close(gate)
+	wg.Wait()
+	if len(fake.Requests) != 10 {
+		t.Fatalf("%d requests, want 10 in flight together", len(fake.Requests))
+	}
+	wait := time.Duration(r.At("origin:"+originOf(API))-time.Now().UnixMilli()) * time.Millisecond
+	if wait <= 0 || wait > 31*time.Second {
+		t.Errorf("origin paused for %v, want about 30s", wait)
+	}
+}
+
 // At most 12 NRK requests run at once across all operations, and the
 // queue behind them is capped at 64.
 func TestGlobalConcurrencyCap(t *testing.T) {

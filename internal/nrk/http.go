@@ -180,8 +180,11 @@ func (u *upstream) recordOutcome(rawURL, method string, resp *http.Response) {
 	if resp.StatusCode == 429 || resp.StatusCode >= 500 {
 		deadline := retry.ParseRetryAfter(resp.Header.Get("retry-after"), clock.NowMs())
 		u.retry.Defer(key, deadline)
+		// the origin pauses exactly as long as NRK asked, without the
+		// escalating backoff: a burst of 429s must not stop all traffic
+		// for a day
 		if deadline > clock.NowMs() {
-			u.retry.Defer("origin:"+originOf(rawURL), deadline)
+			u.retry.SetDeadline("origin:"+originOf(rawURL), deadline)
 		}
 		return
 	}

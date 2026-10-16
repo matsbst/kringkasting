@@ -16,9 +16,23 @@ type tag struct {
 }
 
 var (
-	textEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
-	attrEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;")
+	textEscaper = escaper("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	attrEscaper = escaper("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;")
 )
+
+// escaper also drops the characters XML 1.0 doesn't allow (control
+// characters other than tab and newlines, U+FFFE, U+FFFF): one of them in
+// an NRK text would make the whole feed unreadable for strict players.
+// Valid text is unchanged, so feed bodies and ETags stay the same.
+func escaper(pairs ...string) *strings.Replacer {
+	for c := rune(0); c < 0x20; c++ {
+		if c != '\t' && c != '\n' && c != '\r' {
+			pairs = append(pairs, string(c), "")
+		}
+	}
+	pairs = append(pairs, "\uFFFE", "", "\uFFFF", "")
+	return strings.NewReplacer(pairs...)
+}
 
 func text(name, value string, attrs ...attr) tag { return tag{name: name, text: value, attrs: attrs} }
 

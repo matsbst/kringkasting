@@ -29,6 +29,19 @@ updates:
       docker-images:
         patterns: ["*"]
 
+  # the Cloudron CLI the deploy job runs (tools/cloudron)
+  - package-ecosystem: npm
+    directory: /tools/cloudron
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/Oslo
+    open-pull-requests-limit: 5
+    groups:
+      cloudron-cli:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

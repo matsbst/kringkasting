@@ -25,3 +25,4 @@ web/static/assets/
 docs/plans/
 docs/*research*.md
 docs/*review*.md
+tools/cloudron/node_modules/

@@ -8,6 +8,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# jobs that need more ask for it themselves
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -96,18 +100,24 @@ jobs:
   deploy:
     # the maintainer's own auto-deploy to kringkast.ing — scoped to this
     # repository so forks get test + build + image publish but never a
-    # deploy job wired to someone else's server. Set CLOUDRON_SERVER /
-    # CLOUDRON_TOKEN secrets to point it at your own Cloudron.
+    # deploy job wired to someone else's server
     if: github.repository == 'matsbst/kringkasting' && github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: docker
     runs-on: ubuntu-latest
+    # one deploy at a time, in push order: a quick second push must not
+    # finish first and then be overwritten by the older image
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     steps:
       # `cloudron update` reads CloudronManifest.json from the working directory
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v4
         with:
           node-version: 22
-      - run: npm install -g cloudron
+      # the CLI gets the Cloudron token: install exactly the locked
+      # versions, without install scripts
+      - run: npm ci --ignore-scripts --prefix tools/cloudron
       - name: Deploy to Cloudron
         env:
           CLOUDRON_SERVER: ${{ secrets.CLOUDRON_SERVER }}
@@ -117,7 +127,7 @@ jobs:
             echo "CLOUDRON_SERVER / CLOUDRON_TOKEN secrets not set — skipping deploy."
             exit 0
           fi
-          cloudron \
+          tools/cloudron/node_modules/.bin/cloudron \
             --server "$CLOUDRON_SERVER" \
             --token "$CLOUDRON_TOKEN" \
             update \

@@ -192,10 +192,17 @@ func TestReadNrkEpisodeID(t *testing.T) {
 	s.WriteSeries(series("show", episode("hash1", time.Now())))
 	s.WriteSeries(series("show/sesong/s1", episode("hash2", time.Now())))
 	s.WriteSeries(series("showx", episode("hash3", time.Now())))
-	for id, want := range map[string]string{"hash1": "l_hash1", "hash2": "l_hash2", "hash3": "", "nope": ""} {
+	s.WriteSeries(series("showx/sesong/s1", episode("hash4", time.Now())))
+	s.WriteSeries(series("show/sesongx", episode("hash5", time.Now())))
+	for id, want := range map[string]string{"hash1": "l_hash1", "hash2": "l_hash2", "hash3": "", "hash4": "", "hash5": "", "nope": ""} {
 		if got := s.ReadNrkEpisodeID("show", id); got != want {
 			t.Errorf("ReadNrkEpisodeID(show, %s) = %q, want %q", id, got, want)
 		}
+	}
+	// "_" is an ordinary character in a series id, not a wildcard
+	s.WriteSeries(series("a_b/sesong/s1", episode("hash6", time.Now())))
+	if got := s.ReadNrkEpisodeID("axb", "hash6"); got != "" {
+		t.Errorf("ReadNrkEpisodeID(axb, hash6) = %q, want no match", got)
 	}
 }
 
