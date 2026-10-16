@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -163,5 +164,49 @@ func TestAdminCleanup(t *testing.T) {
 	later.adminPost(t, url.Values{"action": {"cleanup"}, "count": {m[1]}, "hash": {m[2]}})
 	if later.Store.HasSeries("doemt") || !later.Store.HasSeries("supertroett") {
 		t.Error("cleanup must delete exactly the previewed feeds")
+	}
+}
+
+// Failed logins are limited per client address, which headers can't
+// forge: one address guessing can't lock the admin out elsewhere, and
+// a correct token is never refused for earlier successes.
+func TestAdminLoginLimit(t *testing.T) {
+	app := start(t, options{env: adminEnv()})
+	login := func(remote, token string, headers map[string]string) string {
+		h := map[string]string{"Content-Type": "application/x-www-form-urlencoded"}
+		for k, v := range headers {
+			h[k] = v
+		}
+		resp := app.do(request{method: http.MethodPost, path: "/admin", remote: remote, headers: h,
+			body: url.Values{"token": {token}}.Encode()})
+		if resp.StatusCode == http.StatusSeeOther {
+			return "ok"
+		}
+		html := body(resp)
+		switch {
+		case strings.Contains(html, "For mange forsøk"):
+			return "limited"
+		case strings.Contains(html, "Feil token"):
+			return "wrong"
+		}
+		return "?"
+	}
+	for range 10 {
+		if got := login("203.0.113.1", adminToken, nil); got != "ok" {
+			t.Fatalf("correct token: %s", got)
+		}
+	}
+	for i := range 5 {
+		// a forged header doesn't give the guesser fresh identities
+		forged := map[string]string{"CF-Connecting-IP": fmt.Sprintf("198.51.100.%d", i), "X-Forwarded-For": fmt.Sprintf("198.51.100.%d", i)}
+		if got := login("203.0.113.66", "gjett", forged); got != "wrong" {
+			t.Fatalf("attempt %d: %s, want wrong", i, got)
+		}
+	}
+	if got := login("203.0.113.66", adminToken, nil); got != "limited" {
+		t.Errorf("sixth attempt from the guessing address: %s, want limited", got)
+	}
+	if got := login("203.0.113.1", adminToken, nil); got != "ok" {
+		t.Errorf("admin elsewhere: %s, want ok", got)
 	}
 }

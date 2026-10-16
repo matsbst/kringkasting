@@ -122,8 +122,12 @@ type dashboard struct {
 }
 
 type adminView struct {
-	Login, Failed bool
-	Dashboard     *dashboard
+	// Failed: wrong token; Limited: too many failed attempts
+	Login, Failed, Limited bool
+	Dashboard              *dashboard
+	// Client is the visitor's address as the rate limits see it, so a
+	// self-hoster can check that their proxy passes it on
+	Client string
 }
 
 // the feed list's filters and sort orders; the first is the default

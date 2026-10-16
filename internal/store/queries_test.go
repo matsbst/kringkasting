@@ -122,6 +122,14 @@ func TestDataVersionBumpsOnContentWritesOnly(t *testing.T) {
 	if s.DataVersion("dv") == v1 {
 		t.Error("adding episodes must bump the version")
 	}
+	// versions start at 1: 0 marks a series that wasn't read from the store
+	if v0 == 0 {
+		t.Error("an unwritten feed must not have version 0")
+	}
+	read, _ := s.ReadSeries("dv")
+	if read.Version != s.DataVersion("dv") {
+		t.Errorf("ReadSeries saw version %d, current is %d", read.Version, s.DataVersion("dv"))
+	}
 }
 
 // Failed episodes back off 1, 2, 4 … days, capped at 30, and are blocked

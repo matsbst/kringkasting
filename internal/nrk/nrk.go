@@ -42,7 +42,17 @@ type Client struct {
 	searchOrder []string // insertion order, for oldest-first eviction
 
 	resolved resolveCache
+
+	// manifest lookups that failed transiently, per episode, so one
+	// episode NRK never answers for can't hold a page back forever
+	manifestMu       sync.Mutex
+	manifestFailures map[string]int
 }
+
+// maxManifestFailures: after this many transient failures in a row
+// (requests that reached NRK), an episode counts as failed and gets the
+// failed-episode backoff (a day, then longer) instead of blocking its page.
+const maxManifestFailures = 5
 
 type searchEntry struct {
 	expires time.Time
@@ -57,7 +67,31 @@ func New(transport http.RoundTripper, r *retry.Retry, s *stats.Stats) *Client {
 	return &Client{
 		up:          &upstream{client: &http.Client{Transport: transport}, retry: r, stats: s},
 		searchCache: map[string]searchEntry{},
+
+		manifestFailures: map[string]int{},
 	}
+}
+
+// manifestFailed counts a transient manifest failure and reports whether
+// the episode has now failed too often.
+func (c *Client) manifestFailed(episodeID string) bool {
+	c.manifestMu.Lock()
+	defer c.manifestMu.Unlock()
+	if len(c.manifestFailures) >= 10_000 {
+		c.manifestFailures = map[string]int{}
+	}
+	c.manifestFailures[episodeID]++
+	if c.manifestFailures[episodeID] >= maxManifestFailures {
+		delete(c.manifestFailures, episodeID)
+		return true
+	}
+	return false
+}
+
+func (c *Client) manifestSucceeded(episodeID string) {
+	c.manifestMu.Lock()
+	defer c.manifestMu.Unlock()
+	delete(c.manifestFailures, episodeID)
 }
 
 // GetJSON fetches any NRK API URL (the catalog loader uses it).
@@ -209,16 +243,22 @@ const (
 )
 
 // episodeWithDownloadLink resolves the episode's download link. Gone when
-// NRK definitively has no playable manifest (404, or 200 with
-// playable=null: geo-blocked, expired, removed), transient on timeouts
-// and 5xx.
+// NRK definitively has no playable manifest (200 with playable=null:
+// geo-blocked, expired, removed; or a 4xx other than 408 and 429),
+// transient on timeouts, 5xx and rate limits, until the same episode has
+// failed transiently too often.
 func (c *Client) episodeWithDownloadLink(e Episode, kind string) (episodeWithMedia, mediaResult) {
 	endpoint := "podcast"
 	if kind == "series" {
 		endpoint = "program"
 	}
+	manifestURL := API + "/playback/manifest/" + endpoint + "/" + e.EpisodeID
+	// waiting for a retry deadline isn't a failure of this episode
+	if !c.up.allowed("GET", manifestURL) {
+		return episodeWithMedia{}, mediaTransient
+	}
 	var m manifest
-	status, _ := c.up.getJSON(API+"/playback/manifest/"+endpoint+"/"+e.EpisodeID, &m)
+	status, _ := c.up.getJSON(manifestURL, &m)
 
 	// prefer a progressive download (MP3) over an HLS stream: some radio
 	// programs offer both, and only the file works as a podcast enclosure
@@ -240,11 +280,15 @@ func (c *Client) episodeWithDownloadLink(e Episode, kind string) (episodeWithMed
 		if !IsHLS(url) {
 			_, bytes = c.up.head(url)
 		}
+		c.manifestSucceeded(e.ID)
 		return episodeWithMedia{Episode: e, URL: url, Bytes: bytes}, mediaOK
 	}
 
 	log.Printf("No playable manifest for episode %s (status %d)", e.EpisodeID, status)
-	if status == http.StatusNotFound || status == http.StatusOK {
+	definitive := status == http.StatusOK ||
+		(status >= 400 && status < 500 && status != http.StatusRequestTimeout && status != http.StatusTooManyRequests)
+	if definitive || c.manifestFailed(e.ID) {
+		c.manifestSucceeded(e.ID)
 		return episodeWithMedia{}, mediaGone
 	}
 	return episodeWithMedia{}, mediaTransient
@@ -450,12 +494,15 @@ type NewEpisodesResult struct {
 	SawAllPages bool
 	// ResumeHref is the last safe page to revisit (one page of overlap).
 	ResumeHref *string
+	// Gone: NRK answered 404 or 410 for the first page. The saved cursor
+	// is dead, or the series moved to the other catalog.
+	Gone bool
 }
 
 // GetNewEpisodes is the cheap refresh for non-umbrella series with fresh
 // metadata: it walks the newest-first listing until a page contains a
 // known episode, resolving manifests only for new ones. nil means the
-// first page failed.
+// first page failed transiently.
 func (c *Client) GetNewEpisodes(seriesID string, kind store.CatalogKind, opts FetchOptions) *NewEpisodesResult {
 	episodes := []episodeWithMedia{}
 	href := "/radio/catalog/" + string(kind) + "/" + seriesID + "/episodes?page=1&pageSize=50"
@@ -472,6 +519,9 @@ func (c *Client) GetNewEpisodes(seriesID string, kind store.CatalogKind, opts Fe
 		var body episodesPage
 		status, ok := c.up.getJSON(API+href, &body)
 		if status != http.StatusOK || !ok {
+			if p == 0 && (status == http.StatusNotFound || status == http.StatusGone) {
+				return &NewEpisodesResult{Gone: true}
+			}
 			if p == 0 {
 				return nil
 			}
@@ -549,6 +599,13 @@ func (c *Client) GetEpisodePage(feedID, cursorHref string, skip map[string]bool,
 	kind *store.CatalogKind) *EpisodePage {
 	body, href, ok := c.listPage(feedID, cursorHref, kind)
 	if !ok {
+		return nil
+	}
+	// a later page that is empty and ends the listing is more likely a
+	// hiccup than the true end: completing on it would stop the archive
+	// crawl for good
+	if cursorHref != "" && len(body.Embedded.Episodes) == 0 && body.Links.Next == nil {
+		log.Printf("Empty archive page for %s at %s", feedID, cursorHref)
 		return nil
 	}
 

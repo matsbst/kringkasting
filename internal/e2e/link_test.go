@@ -67,7 +67,7 @@ func linkApp(t *testing.T) (*app.App, *testutil.FakeNRK) {
 func fetch(t *testing.T, a *app.App, path string, client string) (*http.Response, string) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("cf-connecting-ip", client)
+	req.RemoteAddr = client + ":1234"
 	rec := httptest.NewRecorder()
 	a.Handler.ServeHTTP(rec, req)
 	return rec.Result(), rec.Body.String()

@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/matsbst/kringkasting/internal/clock"
 	"github.com/matsbst/kringkasting/internal/retry"
 	"github.com/matsbst/kringkasting/internal/stats"
+	"github.com/matsbst/kringkasting/internal/store"
 	"github.com/matsbst/kringkasting/internal/testutil"
 )
 
@@ -117,6 +119,74 @@ func TestEpisodePagePaginationAndTransientFailures(t *testing.T) {
 	second := c.GetEpisodePage("arkiv", first.NextHref, map[string]bool{}, nil, nil)
 	if second == nil || len(second.Episodes) != 1 || second.TransientFailures != 1 || second.NextHref != "" {
 		t.Errorf("second page %+v", second)
+	}
+}
+
+// A manifest NRK refuses (4xx) fails at once; one that keeps failing
+// transiently fails after five real attempts, so its page can move on.
+// Waiting for a retry deadline doesn't count as an attempt.
+func TestManifestFailuresGiveUp(t *testing.T) {
+	defer clock.Unpin()
+	now := time.Now()
+	clock.Pin(now)
+	c, fake := newClient(t, func(method, url string) testutil.Reply {
+		switch {
+		case strings.HasSuffix(url, "/l_forbidden"):
+			return testutil.Reply{Status: 403}
+		case strings.HasSuffix(url, "/l_flaky"):
+			return testutil.Reply{Status: 500}
+		}
+		return testutil.Reply{Status: 404}
+	})
+	resolve := func(id string) mediaResult {
+		_, result := c.episodeWithDownloadLink(Episode{ID: id, EpisodeID: "l_" + id}, "podcast")
+		return result
+	}
+	if resolve("forbidden") != mediaGone {
+		t.Error("a 403 manifest must count as gone")
+	}
+	for attempt := 1; attempt < maxManifestFailures; attempt++ {
+		if resolve("flaky") != mediaTransient {
+			t.Fatalf("attempt %d: want transient", attempt)
+		}
+		// inside the URL's retry deadline: no request, no attempt counted
+		before := len(fake.Requests)
+		if resolve("flaky") != mediaTransient || len(fake.Requests) != before {
+			t.Fatal("a pending deadline must not cost a request or an attempt")
+		}
+		now = now.Add(25 * time.Hour)
+		clock.Pin(now)
+	}
+	if resolve("flaky") != mediaGone {
+		t.Errorf("attempt %d: want gone", maxManifestFailures)
+	}
+}
+
+// The first page of a cheap refresh answering 404 is reported as gone
+// (dead cursor or moved series), unlike an outage.
+func TestNewEpisodesFirstPageGone(t *testing.T) {
+	status := 404
+	c, _ := newClient(t, func(string, string) testutil.Reply { return testutil.Reply{Status: status} })
+	if r := c.GetNewEpisodes("show", store.KindPodcast, FetchOptions{}); r == nil || !r.Gone {
+		t.Errorf("404: %+v, want gone", r)
+	}
+	status = 503
+	if r := c.GetNewEpisodes("other", store.KindPodcast, FetchOptions{}); r != nil {
+		t.Errorf("503: %+v, want nil", r)
+	}
+}
+
+// An empty page that ends the listing mid-crawl is retried, not taken as
+// the end of the archive.
+func TestEmptyArchivePageIsNotTheEnd(t *testing.T) {
+	c, _ := newClient(t, func(method, url string) testutil.Reply {
+		if strings.Contains(url, "/episodes?page=7") {
+			return jsonReply(map[string]any{"_embedded": map[string]any{"episodes": []any{}}})
+		}
+		return testutil.Reply{Status: 404}
+	})
+	if page := c.GetEpisodePage("arkiv", "/radio/catalog/podcast/arkiv/episodes?page=7&pageSize=50", map[string]bool{}, nil, nil); page != nil {
+		t.Errorf("empty mid-crawl page: %+v, want nil", page)
 	}
 }
 

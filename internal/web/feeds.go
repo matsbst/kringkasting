@@ -65,7 +65,7 @@ func (s *Server) serveFeed(w http.ResponseWriter, r *http.Request, feedID string
 		writeJSON(w, http.StatusNotFound, message{"Series not found"})
 		return
 	}
-	s.respondFeed(w, r, feedID, s.Cache.Render(series, origin, version))
+	s.respondFeed(w, r, feedID, s.Cache.Render(series, origin))
 }
 
 func (s *Server) respondFeed(w http.ResponseWriter, r *http.Request, feedID string, rendered feed.Rendered) {
