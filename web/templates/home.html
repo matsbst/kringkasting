@@ -1,17 +1,10 @@
-{{define "main"}}<section class="relative pt-20 pb-12">
-<h1 class="relative text-5xl sm:text-6xl font-bold tracking-tight leading-[1.02]">NRK-podkaster, i appen <span class="text-brand">du</span> velger</h1>
-<p class="relative mt-5 text-lg text-ink-2 dark:text-ink-2-dark text-pretty">NRK låser podkastene sine inne i sin egen app og støtter ikke lenger <a href="https://podstandards.org" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">åpne standarder</a>. Det bør ikke en kringkaster finansiert av deg og meg gjøre. Kringkasting er en <a href="https://github.com/matsbst/kringkasting" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">åpen kildekode app</a> du kan hoste selv som åpner podkastene opp igjen som helt vanlige RSS-strømmer slik at du kan bruke den i appen du selv velger.</p>
+{{define "main"}}{{/* once a search is made the pitch steps aside, so the results are on the first screen */}}<section data-hero{{if .Search.Input}} data-compact{{end}} class="group relative pt-20 pb-12 data-compact:pt-10 data-compact:pb-8">
+<h1 class="relative text-5xl sm:text-6xl group-data-compact:text-3xl sm:group-data-compact:text-4xl font-bold tracking-tight leading-[1.02]">NRK-podkaster, i appen <span class="text-brand">du</span> velger</h1>
+<p class="relative mt-5 text-lg text-ink-2 dark:text-ink-2-dark text-pretty group-data-compact:hidden">NRK låser podkastene sine inne i sin egen app og støtter ikke lenger <a href="https://podstandards.org" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">åpne standarder</a>. Det bør ikke en kringkaster finansiert av deg og meg gjøre. Kringkasting er en <a href="https://github.com/matsbst/kringkasting" class="underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark">åpen kildekode app</a> du kan hoste selv som åpner podkastene opp igjen som helt vanlige RSS-strømmer slik at du kan bruke den i appen du selv velger.</p>
 </section>
 <div data-search>
 {{/* announces search progress and outcomes without moving focus */}}
 <p role="status" class="sr-only" data-search-status>{{.Search.Status}}</p>
-<form action="/" method="get" class="w-full" data-search-form>
-<label class="sr-only" for="query">Søk etter NRK-podkast</label>
-<div class="relative">
-<span class="absolute left-4 top-1/2 -translate-y-1/2 text-ink-3 dark:text-ink-3-dark pointer-events-none" data-search-icon>{{template "icon-search"}}</span>
-<input type="search" id="query" name="query" placeholder="Søk etter en NRK-podkast" value="{{.Search.Input}}" autocomplete="off" class="w-full h-14 rounded-xl border-2 border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark pl-11 pr-24 text-lg placeholder:text-ink-3 dark:placeholder:text-ink-3-dark focus:outline-none focus:border-ink dark:focus:border-ink-dark transition-colors"/>
-<button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-ink text-canvas dark:bg-ink-dark dark:text-canvas-dark hover:bg-ink/80 dark:hover:bg-ink-dark/85 text-sm font-semibold px-5 py-2.5 transition-colors cursor-pointer">Søk</button>
-</div>
-</form>
+{{template "search-form" .Search.Input}}
 {{template "search-results" .Search}}
 </div>{{end}}
