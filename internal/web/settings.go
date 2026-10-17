@@ -130,8 +130,9 @@ type integrationsView struct {
 	UmamiSrc, UmamiID, SentryDSN string
 	// set in the environment: shown, not editable
 	UmamiSrcEnv, UmamiIDEnv, SentryDSNEnv bool
-	// SentryHost is all that's shown of a DSN from the environment
-	SentryHost string
+	// UmamiHost and SentryHost say where each sends its data; empty when
+	// it's off. SentryHost is all that's shown of a DSN from the environment
+	UmamiHost, SentryHost string
 	// Fresh: signed in recently enough to change them
 	Fresh bool
 }
@@ -143,11 +144,20 @@ func (s *Server) integrationsView(r *http.Request) integrationsView {
 		UmamiSrcEnv: s.Config.UmamiSrc != "", UmamiIDEnv: s.Config.UmamiID != "", SentryDSNEnv: s.Config.SentryDSN != "",
 		Fresh: s.freshSession(r),
 	}
+	host := func(raw string) string {
+		if u, err := url.Parse(raw); err == nil {
+			return u.Host
+		}
+		return ""
+	}
+	if effective.UmamiSrc != "" && effective.UmamiID != "" {
+		v.UmamiHost = host(effective.UmamiSrc)
+	}
+	if effective.SentryDSN != "" {
+		v.SentryHost = host(effective.SentryDSN)
+	}
 	if v.SentryDSNEnv {
 		v.SentryDSN = ""
-		if u, err := url.Parse(s.Config.SentryDSN); err == nil {
-			v.SentryHost = u.Host
-		}
 	}
 	return v
 }

@@ -23,6 +23,12 @@ func (i *instance) saveIntegrations(t *testing.T, fields map[string]string) stri
 // security header and the privacy page at once, and survive a restart.
 func TestAdminIntegrations(t *testing.T) {
 	app := start(t, options{env: adminEnv()})
+	html := app.admin(t, "/innstillinger")
+	for _, want := range []string{`data-status="umami"><span class="font-medium">Av</span>`, `data-status="sentry"><span class="font-medium">Av</span>`, "Ingen passnøkler ennå", "Logg ut overalt"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("settings before saving: missing %q", want)
+		}
+	}
 
 	for fields, want := range map[*map[string]string]string{
 		{"umami-src": "http://stats.example.org/script.js", "umami-id": "abc"}:         "https-adresse",
@@ -57,6 +63,12 @@ func TestAdminIntegrations(t *testing.T) {
 		}
 	}
 	check(app, "after saving")
+	html = app.admin(t, "/innstillinger")
+	for _, want := range []string{"teller besøk uten informasjonskapsler via stats.example.org", "sendes til errors.example.org"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("settings after saving: missing status %q", want)
+		}
+	}
 
 	// a restart keeps them; ten minutes on, changing them needs a new login
 	dbPath := app.dbPath
@@ -65,7 +77,7 @@ func TestAdminIntegrations(t *testing.T) {
 	later := start(t, options{env: adminEnv(), dbPath: dbPath, offset: 11 * time.Minute})
 	later.session = session
 	check(later, "after a restart")
-	if html := later.admin(t, "/innstillinger"); !strings.Contains(html, "Logg inn på nytt") || !strings.Contains(html, `<fieldset class="space-y-4" disabled>`) {
+	if html := later.admin(t, "/innstillinger"); !strings.Contains(html, "Logg inn på nytt") || !strings.Contains(html, `<fieldset class="space-y-8" disabled>`) {
 		t.Error("a stale session must be asked to log in again")
 	}
 	if notice := later.saveIntegrations(t, map[string]string{}); !strings.Contains(notice, "Logg inn på nytt") {
