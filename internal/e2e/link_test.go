@@ -279,3 +279,17 @@ func TestAppDesktopActions(t *testing.T) {
 		t.Error("the subscribe dialog must directly follow its button")
 	}
 }
+
+// The app sheet covers the page on a phone, so it names the podcast itself.
+func TestDialogNamesPodcast(t *testing.T) {
+	a, _ := linkApp(t)
+	_, html := fetch(t, a, "/?query=radio.nrk.no/podkast/sentralbordet", "desktop")
+	card := regexp.MustCompile(`<h3[^>]*>([^<]+)</h3>`).FindStringSubmatch(html)
+	heading := regexp.MustCompile(`<h2 id="[^"]+-title"[^>]*><span[^>]*>([^<]+)</span> <span[^>]*>Velg podkast-app</span></h2>`).FindStringSubmatch(html)
+	if card == nil || heading == nil || heading[1] != card[1] {
+		t.Fatalf("dialog heading %q, want the card title %q", heading, card)
+	}
+	if !regexp.MustCompile(`<dialog [^>]*>\s*<div[^>]*data-dialog-main>\s*<div[^>]*>\s*<img src="[^"]+" alt=""`).MatchString(html) {
+		t.Error("the dialog heading shows the podcast image")
+	}
+}
