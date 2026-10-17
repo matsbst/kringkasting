@@ -257,7 +257,10 @@ type card struct {
 	FeedURL, ShareURL, NrkURL, DialogID string
 	ImageURL, Description               string
 	// Label says what a link result subscribes to ("Hele podkasten")
-	Label       string
+	Label string
+	// Quiet: one of several results, so its subscribe button steps back
+	// and the titles and artwork lead
+	Quiet       bool
 	Apps        []appLink
 	SpotifyIcon template.HTML
 }
@@ -353,6 +356,7 @@ func (s *Server) applyFound(view *searchView, origin string, f found) {
 			if i < len(f.labels) {
 				view.Cards[i].Label = f.labels[i]
 			}
+			view.Cards[i].Quiet = len(view.Cards) > 1
 		}
 		if f.episode {
 			view.Notice = "Lenken går til én episode. Abonnerer du, får du alle episodene."

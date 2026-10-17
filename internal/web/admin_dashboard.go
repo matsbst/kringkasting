@@ -57,7 +57,13 @@ type healthView struct{ Level, Title, Detail string }
 type chartView struct {
 	Title, Today, Total string
 	SVG                 template.HTML
+	// Young: under youngDays days with any traffic, too little to draw
+	Young bool
 }
+
+// youngDays: a chart with fewer days of data says it is filling up rather
+// than drawing a flat line that reads as broken
+const youngDays = 3
 
 type feedRow struct {
 	ID, Title string
@@ -375,19 +381,28 @@ func (s *Server) charts(daily map[string]map[string]int, days []string) []chartV
 		return total
 	}
 	last := len(days) - 1
+	active := 0
+	for _, day := range days {
+		for _, v := range daily[day] {
+			if v > 0 {
+				active++
+				break
+			}
+		}
+	}
 	nrk, nrkErrors := series(stats.DayNRK), series(stats.DayNRKErrors)
 	feeds, searches, limited := series(stats.DayFeeds200, stats.DayFeeds304), series(stats.DaySearches), series(stats.DayRateLimited)
 	chart := func(title string, values, overlay []int, todayNote string) chartView {
 		today := formatInt(values[last]) + " i dag" + todayNote
 		total := formatInt(sum(values)) + " siste 30 dager"
-		return chartView{Title: title, Today: today, Total: total,
+		return chartView{Title: title, Today: today, Total: total, Young: active < youngDays,
 			SVG: barChart(title+" siste 30 dager: "+today+", "+total, days, values, overlay)}
 	}
 	return []chartView{
 		chart("Forespørsler til NRK", nrk, nrkErrors, fmt.Sprintf(" (%s feil)", formatInt(nrkErrors[last]))),
 		chart("Strømmer levert", feeds, nil, ""),
 		chart("Søk", searches, nil, ""),
-		chart("Avvist (429)", limited, nil, ""),
+		chart("Avvist, for mange forespørsler", limited, nil, ""),
 	}
 }
 
@@ -447,7 +462,7 @@ func (s *Server) dashboard(tab, notice string, values url.Values) *dashboard {
 		QueueLength: status.QueueLength, Running: status.Running,
 		Query: list.Query, Show: selected(showOptions, list.Show), Sort: selected(sortOptions, list.Sort),
 		Back:     list.encode(),
-		Actions:  []action{{"refresh", "Oppdater"}, {"recrawl", "Re-crawl"}},
+		Actions:  []action{{"refresh", "Oppdater"}, {"recrawl", "Hent alt på nytt"}},
 		Measured: measured,
 	}
 	if measured {
@@ -564,8 +579,8 @@ func (s *Server) dashboard(tab, notice string, values url.Values) *dashboard {
 	d.TrafficTiles = []tile{
 		{formatInt(snap.UpstreamTotal), "forespørsler til NRK", ""},
 		{formatInt(snap.UpstreamErrors), "NRK-feil", ""},
-		{fmt.Sprintf("%s / %s", formatInt(snap.Feeds200), formatInt(snap.Feeds304)), "strøm 200 / 304", ""},
-		{formatInt(snap.RateLimited), "429 servert", ""},
+		{fmt.Sprintf("%s / %s", formatInt(snap.Feeds200), formatInt(snap.Feeds304)), "strømmer levert / uendret", ""},
+		{formatInt(snap.RateLimited), "avvist, for mange forespørsler", ""},
 	}
 	for _, category := range stats.Categories {
 		if b := snap.Upstream[category]; b.Requests > 0 {

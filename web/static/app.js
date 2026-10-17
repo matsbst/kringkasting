@@ -26,8 +26,12 @@ const ICONS = {
     ).join("") + "</svg>",
 };
 
+const BUTTON = "relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer";
 const PRIMARY_BUTTON =
-  "relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors cursor-pointer";
+  `${BUTTON} bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85`;
+// one of several results: the titles and artwork lead, not ten black buttons
+const QUIET_BUTTON =
+  `${BUTTON} bg-ink/8 text-ink hover:bg-ink/12 dark:bg-ink-dark/12 dark:text-ink-dark dark:hover:bg-ink-dark/18`;
 
 function readChoice() {
   try {
@@ -143,11 +147,13 @@ function renderControl(control) {
   // an app that only exists on phones is no choice on a computer
   if (chosen && (!availableHere(chosen) || desktopAction(chosen) === "phone")) chosen = null;
   const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
+  const quiet = control.hasAttribute("data-quiet");
+  const style = quiet ? QUIET_BUTTON : PRIMARY_BUTTON;
 
   if (!chosen) {
     const podcast = control.dataset.defaultIcon ?? control.querySelector("button svg")?.outerHTML ?? "";
     control.dataset.defaultIcon = podcast;
-    control.innerHTML = `<button type="button" data-open-dialog="${dialog.id}" data-pulse class="${PRIMARY_BUTTON} px-3 py-2">${podcast} Abonner i app${pulse}</button>`;
+    control.innerHTML = `<button type="button" data-open-dialog="${dialog.id}" data-pulse class="${style} px-3 py-2">${podcast} Abonner i app${pulse}</button>`;
     return;
   }
   if (!control.dataset.defaultIcon) {
@@ -167,7 +173,7 @@ function renderControl(control) {
   link.dataset.umamiEvent = `app-${chosen.dataset.app}`;
   link.dataset.umamiEventApp = chosen.dataset.appName;
   link.dataset.umamiEventHandling = "aapne";
-  link.className = `${PRIMARY_BUTTON} rounded-r-none px-3 py-2`;
+  link.className = `${style} rounded-r-none px-3 py-2`;
   link.append(icon, copying ? ` Kopier lenke til ${chosen.dataset.appName}` : ` Åpne i ${chosen.dataset.appName}`);
   link.insertAdjacentHTML("beforeend", pulse);
   const switcher = document.createElement("button");
@@ -175,7 +181,7 @@ function renderControl(control) {
   switcher.dataset.openDialog = dialog.id;
   switcher.setAttribute("aria-label", "Velg en annen podkast-app");
   switcher.className =
-    `${PRIMARY_BUTTON} rounded-l-none border-l border-canvas/25 dark:border-canvas-dark/25 px-2 py-2`;
+    `${style} rounded-l-none border-l ${quiet ? "border-ink/10 dark:border-ink-dark/15" : "border-canvas/25 dark:border-canvas-dark/25"} px-2 py-2`;
   switcher.innerHTML = ICONS.chevron;
   control.replaceChildren(link, switcher);
 }
@@ -267,20 +273,22 @@ async function copyText(text, container = document.body) {
 function pastePanel(dialog) {
   let panel = dialog.querySelector("[data-paste-panel]");
   if (panel) return panel;
-  const back = dialog.querySelector("[data-qr-back]").cloneNode(true);
+  // the QR view's header: back button, artwork, podcast and a subtitle
+  const header = dialog.querySelector("[data-qr-panel] [data-panel-header]").cloneNode(true);
+  const back = header.querySelector("[data-qr-back]");
   delete back.dataset.qrBack;
   back.dataset.pasteBack = "";
+  header.querySelector("h2").id = `${dialog.id}-paste-title`;
   panel = document.createElement("div");
   panel.className = "p-2";
   panel.dataset.pastePanel = "";
   panel.hidden = true;
-  panel.innerHTML = `<div class="flex items-center gap-1 px-1 pt-1 pb-2"><h2 id="${dialog.id}-paste-title" class="text-sm font-semibold text-ink-2 dark:text-ink-2-dark"></h2></div>
-<p role="status" data-paste-status class="mx-3 flex items-center gap-2 text-base font-medium"></p>
-<div class="mx-3 mt-2"><input readonly data-paste-url aria-label="RSS-lenke" class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"/></div>
+  panel.innerHTML = `<p role="status" data-paste-status class="mx-3 flex items-center gap-2 text-base font-medium"></p>
+<div class="mx-3 mt-2"><input readonly data-paste-url aria-label="RSS-lenke" class="w-full rounded-lg border border-line dark:border-line-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm text-ink-2 dark:text-ink-2-dark"/></div>
 <ol class="mx-3 mt-4 list-decimal space-y-1 pl-5 text-sm text-ink-2 dark:text-ink-2-dark"><li data-paste-step-open></li><li data-paste-step-paste></li></ol>
 <a data-paste-open class="mt-4 flex w-full items-center justify-center min-h-12 rounded-lg bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 text-base font-semibold transition-colors"></a>
-<button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Lukk</button>`;
-  panel.firstElementChild.prepend(back);
+<button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Avbryt</button>`;
+  panel.prepend(header);
   dialog.append(panel);
   return panel;
 }
@@ -291,7 +299,7 @@ async function startPaste(dialog, app) {
   // copy first, while this is still the click
   const copying = copyText(feedUrl, dialog.open ? dialog : document.body);
   const panel = pastePanel(dialog);
-  panel.querySelector("h2").textContent = app.dataset.appName;
+  panel.querySelector("[data-panel-subtitle]").textContent = app.dataset.appName;
   panel.querySelector("[data-paste-url]").value = feedUrl;
   const [first, second] = pasteSteps(app);
   panel.querySelector("[data-paste-step-open]").textContent = first;
@@ -310,12 +318,16 @@ async function startPaste(dialog, app) {
   open.textContent = openLabel(app);
   const status = panel.querySelector("[data-paste-status]");
   status.textContent = "";
+  // the dismiss says what it means: nothing done yet, or done
+  const close = panel.querySelector("[data-close-dialog]");
+  close.textContent = "Avbryt";
   if (!dialog.open) openDialog(dialog);
   showView(dialog, "paste");
   if (await copying) {
     status.innerHTML = ICONS.checkDraw;
     status.append("RSS-lenken er kopiert");
-    (open.hidden ? panel.querySelector("[data-close-dialog]") : open).focus();
+    close.textContent = "Ferdig";
+    (open.hidden ? close : open).focus();
   } else {
     status.textContent = `Kunne ikke kopiere automatisk. Marker lenken og kopier den (${MAC ? "⌘C" : "Ctrl+C"}):`;
     const field = panel.querySelector("[data-paste-url]");
@@ -545,6 +557,10 @@ function setupSearch(root) {
   const status = root.querySelector("[data-search-status]");
   const icon = root.querySelector("[data-search-icon]");
   const searchIcon = icon.innerHTML;
+  const hero = document.querySelector("[data-hero]");
+  // the pitch steps aside on a deliberate search (Søk, Enter, a suggestion)
+  // rather than while typing, so the field doesn't jump under the cursor
+  const compactHero = (on) => hero?.toggleAttribute("data-compact", on);
   let results = root.querySelector("[data-search-results]");
   // the how-it-works section, kept to restore when the query is cleared
   let intro = results.querySelector("section.mt-28") ? results.innerHTML : null;
@@ -576,6 +592,7 @@ function setupSearch(root) {
     const request = ++latest;
 
     if (trimmed.length < MIN_QUERY_LENGTH) {
+      compactHero(false);
       setLoading(false);
       status.textContent = "";
       if (intro === null) {
@@ -619,6 +636,11 @@ function setupSearch(root) {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (input.value.trim().length >= MIN_QUERY_LENGTH) {
+      compactHero(true);
+      // on a phone, put the keyboard away so the results show
+      if (!POINTER_DEVICE.matches) input.blur();
+    }
     run(input.value);
   });
   input.addEventListener("input", () => {
@@ -629,6 +651,7 @@ function setupSearch(root) {
     const suggestion = event.target instanceof Element && event.target.closest("[data-suggestion]");
     if (!suggestion) return;
     input.value = suggestion.dataset.suggestion;
+    compactHero(true);
     run(input.value);
   });
 }
