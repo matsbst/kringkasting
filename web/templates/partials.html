@@ -32,7 +32,11 @@ app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
 </span>
 <dialog id="{{.DialogID}}" aria-labelledby="{{.DialogID}}-title" class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark">
 <div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]" data-dialog-main>
-<h2 id="{{.DialogID}}-title" class="px-3 pt-3 pb-2 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Velg podkast-app</h2>
+{{/* names the podcast, so the sheet that covers the page on a phone still shows what is being subscribed to */}}
+<div class="flex items-center gap-3 px-3 pt-3 pb-3">
+{{if .ImageURL}}<img src="{{.ImageURL}}" alt="" width="48" height="48" class="size-12 shrink-0 rounded-lg object-cover"/>{{end}}
+<h2 id="{{.DialogID}}-title" class="min-w-0"><span class="block font-semibold leading-snug line-clamp-2">{{.Title}}</span> <span class="block text-sm text-ink-2 dark:text-ink-2-dark">Velg podkast-app</span></h2>
+</div>
 {{if .StreamOnly}}<p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de fleste andre apper.</p>{{end}}
 <ul>
 {{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-platforms="{{.Platforms}}"{{if .Desktop}} data-desktop="{{.Desktop}}"{{end}}{{if .DesktopHref}} data-desktop-href="{{.DesktopHref}}"{{end}} data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}{{.Name}}<span class="ml-auto flex items-center gap-2 text-ink-3 dark:text-ink-3-dark">{{if and $.StreamOnly (eq .ID "apple")}}<span class="text-xs">anbefalt</span>{{end}}{{/* app.js says here what the row does on a computer */}}<span data-desktop-note hidden class="text-sm"></span></span></a></li>
