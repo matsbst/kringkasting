@@ -4,7 +4,7 @@
   "author": "matsbst (fork of NRSS by Olav Sundfør)",
   "description": "RSS feeds for NRK's podcasts. Search for a podcast and get an open RSS feed with the full episode archive, ready to use in any podcast app.",
   "tagline": "NRK-podkaster som åpne RSS-strømmer",
-  "version": "2.0.11",
+  "version": "2.0.12",
   "healthCheckPath": "/",
   "httpPort": 8000,
   "manifestVersion": 2,
