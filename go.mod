@@ -3,7 +3,7 @@ module github.com/matsbst/kringkasting
 go 1.27.2
 
 require (
-	github.com/fxamacker/cbor/v2 v2.9.4
+	github.com/fxamacker/cbor/v2 v2.9.6
 	github.com/go-webauthn/webauthn v0.18.2
 	modernc.org/sqlite v1.60.1
 	rsc.io/qr v0.2.0
