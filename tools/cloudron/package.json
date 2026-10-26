@@ -3,6 +3,6 @@
   "private": true,
   "description": "The Cloudron CLI used by the deploy job, pinned with a lockfile",
   "dependencies": {
-    "cloudron": "9.0.3"
+    "cloudron": "9.0.4"
   }
 }
