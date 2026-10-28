@@ -257,7 +257,7 @@ func TestAppPlatforms(t *testing.T) {
 
 // On a computer, each app says what works there: Apple Podcasts and
 // Pocket Casts take a pasted link, Downcast (Mac) and YouTube Music (web)
-// open, and apps only on phones get the QR code. And app.js finds each
+// open, and apps only on phones use the shared QR handoff. And app.js finds each
 // card's dialog right after its subscribe button.
 func TestAppDesktopActions(t *testing.T) {
 	a, _ := linkApp(t)
@@ -285,7 +285,7 @@ func TestDialogNamesPodcast(t *testing.T) {
 	a, _ := linkApp(t)
 	_, html := fetch(t, a, "/?query=radio.nrk.no/podkast/sentralbordet", "desktop")
 	card := regexp.MustCompile(`<h3[^>]*>([^<]+)</h3>`).FindStringSubmatch(html)
-	heading := regexp.MustCompile(`<h2 id="[^"]+-title"[^>]*><span[^>]*>([^<]+)</span> <span[^>]*>Velg podkast-app</span></h2>`).FindStringSubmatch(html)
+	heading := regexp.MustCompile(`<h2 id="[^"]+-title"[^>]*><span[^>]*>([^<]+)</span> <span[^>]*>Velg hvordan du vil abonnere</span></h2>`).FindStringSubmatch(html)
 	if card == nil || heading == nil || heading[1] != card[1] {
 		t.Fatalf("dialog heading %q, want the card title %q", heading, card)
 	}

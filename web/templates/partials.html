@@ -29,8 +29,7 @@ the query so far. */}}
 </div>
 </form>{{end}}
 
-{{/* One search hit. The subscribe control starts as "Abonner i app";
-app.js switches it to "Åpne i <app>" when a preferred app is stored. */}}
+{{/* One search hit. Abonner always opens the chooser. */}}
 {{define "card"}}
 {{/* on phones the actions run the full width under image and text, so
 they stay on one line */}}
@@ -45,20 +44,21 @@ they stay on one line */}}
 <div class="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2">
 {{/* without JavaScript the app list can't open: offer the feed itself. It comes first: app.js finds the dialog as the button's next sibling */}}<noscript><a href="{{.FeedURL}}" class="inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85 transition-colors px-3 py-2">{{template "icon-podcast"}} RSS-lenke</a></noscript>
 <span class="inline-flex mr-1" data-subscribe data-feed-url="{{.FeedURL}}"{{if .Quiet}} data-quiet{{end}}>
-<button type="button" data-open-dialog="{{.DialogID}}" class="relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold {{if .Quiet}}bg-ink/8 text-ink hover:bg-ink/12 dark:bg-ink-dark/12 dark:text-ink-dark dark:hover:bg-ink-dark/18{{else}}bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85{{end}} transition-colors cursor-pointer px-3 py-2">{{template "icon-podcast"}} Abonner i app</button>
+<button type="button" data-open-dialog="{{.DialogID}}" class="relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold {{if .Quiet}}bg-ink/8 text-ink hover:bg-ink/12 dark:bg-ink-dark/12 dark:text-ink-dark dark:hover:bg-ink-dark/18{{else}}bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85{{end}} transition-colors cursor-pointer px-3 py-2">{{template "icon-podcast"}} Abonner</button>
 </span>
 <dialog id="{{.DialogID}}" aria-labelledby="{{.DialogID}}-title" class="sheet fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-full rounded-t-2xl sm:inset-0 sm:m-auto sm:h-fit sm:w-96 sm:rounded-xl border-0 sm:border sm:border-line-strong sm:dark:border-line-strong-dark p-0 bg-canvas dark:bg-canvas-dark text-ink dark:text-ink-dark">
 <div class="p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]" data-dialog-main>
 {{/* names the podcast, so the sheet that covers the page on a phone still shows what is being subscribed to */}}
 <div class="flex items-center gap-3 px-3 pt-3 pb-3">
 {{if .ImageURL}}<img src="{{.ImageURL}}" alt="" width="48" height="48" class="size-12 shrink-0 rounded-lg object-cover"/>{{end}}
-<h2 id="{{.DialogID}}-title" class="min-w-0"><span class="block font-semibold leading-snug line-clamp-2">{{.Title}}</span> <span class="block text-sm text-ink-2 dark:text-ink-2-dark">Velg podkast-app</span></h2>
+<h2 id="{{.DialogID}}-title" class="min-w-0"><span class="block font-semibold leading-snug line-clamp-2">{{.Title}}</span> <span class="block text-sm text-ink-2 dark:text-ink-2-dark">Velg hvordan du vil abonnere</span></h2>
 </div>
 {{if .StreamOnly}}<p class="mx-1 mb-1 rounded-lg bg-ink/5 dark:bg-ink-dark/8 px-3 py-2 text-sm text-ink-2 dark:text-ink-2-dark">NRK tilbyr denne serien kun som direktestrøm. Den kan spilles i Apple Podcasts, men fungerer ikke i de fleste andre apper.</p>{{end}}
 <ul>
-{{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-platforms="{{.Platforms}}"{{if .Desktop}} data-desktop="{{.Desktop}}"{{end}}{{if .DesktopHref}} data-desktop-href="{{.DesktopHref}}"{{end}} data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}{{.Name}}<span class="ml-auto flex items-center gap-2 text-ink-3 dark:text-ink-3-dark">{{if and $.StreamOnly (eq .ID "apple")}}<span class="text-xs">anbefalt</span>{{end}}{{/* app.js says here what the row does on a computer */}}<span data-desktop-note hidden class="text-sm"></span></span></a></li>
+<li data-desktop-heading hidden class="px-3 pt-4 pb-1 text-sm font-semibold text-ink-2 dark:text-ink-2-dark">Bruk på datamaskinen</li>
+{{range .Apps}}<li><a href="{{.Href}}" data-app="{{.ID}}" data-app-name="{{.Name}}" data-platforms="{{.Platforms}}"{{if .Desktop}} data-desktop="{{.Desktop}}"{{end}}{{if .DesktopHref}} data-desktop-href="{{.DesktopHref}}"{{end}} data-umami-event="app-{{.ID}}" data-umami-event-app="{{.Name}}" data-umami-event-handling="velg" class="flex items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors">{{.Icon}}<span data-action-label>{{.Name}}</span><span class="ml-auto flex items-center gap-2 text-ink-3 dark:text-ink-3-dark">{{if and $.StreamOnly (eq .ID "apple")}}<span class="text-xs">anbefalt</span>{{end}}<span data-desktop-note hidden class="text-sm"></span></span></a></li>
 {{end}}<li aria-disabled="true" class="flex items-center gap-3 min-h-12 px-3 select-none"><span class="opacity-45">{{.SpotifyIcon}}</span><span class="text-base text-ink-3 dark:text-ink-3-dark">Spotify</span><span class="ml-auto text-sm text-ink-2 dark:text-ink-2-dark">støtter ikke RSS</span></li>
-<li class="mt-1 border-t border-line dark:border-line-dark pt-1">
+<li data-copy-row class="mt-1 border-t border-line dark:border-line-dark pt-1">
 <button type="button" data-copy data-umami-event="kopier-rss" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-copy"}}<span data-copy-label>Kopier RSS-lenke</span></button>
 <p role="status" class="sr-only" data-copy-status></p>
 <div class="px-3 pb-2" data-copy-fallback hidden>
@@ -66,8 +66,8 @@ they stay on one line */}}
 <input readonly value="{{.FeedURL}}" aria-label="RSS-lenke" class="w-full rounded-lg border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark px-2.5 py-2 text-sm"/>
 </div>
 </li>
-{{/* computers only: app.js shows it where the pointer is a mouse */}}
-<li data-qr-row hidden><button type="button" data-qr-open data-umami-event="qr-mobil" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-qr"}}Åpne på mobilen<span class="ml-auto text-ink-3 dark:text-ink-3-dark">{{template "icon-chevron-right"}}</span></button></li>
+{{/* computers only: app.js shows one QR handoff for phone-only apps */}}
+<li data-qr-row hidden><button type="button" data-qr-open data-umami-event="qr-mobil" class="flex w-full items-center gap-3 min-h-12 px-3 rounded-lg text-base hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">{{template "icon-qr"}}Vis QR-kode for mobil<span class="ml-auto text-ink-3 dark:text-ink-3-dark">{{template "icon-chevron-right"}}</span></button></li>
 </ul>
 <button type="button" data-close-dialog class="mt-1 flex w-full items-center justify-center min-h-12 rounded-lg text-base font-medium text-ink-2 dark:text-ink-2-dark hover:bg-hover dark:hover:bg-hover-dark transition-colors cursor-pointer">Avbryt</button>
 </div>
@@ -85,8 +85,6 @@ they stay on one line */}}
 <button type="button" data-share data-title="{{.Title}}" data-url="{{.ShareURL}}" class="inline-flex items-center gap-1.5 px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark hover:text-ink dark:hover:text-ink-dark transition-colors cursor-pointer">{{template "icon-share"}}<span data-share-label>Del</span></button>
 <a href="{{.NrkURL}}" class="px-1.5 py-1.5 text-sm text-ink-2 dark:text-ink-2-dark underline underline-offset-2 hover:text-ink dark:hover:text-ink-dark transition-colors">Hos NRK</a>
 </div>
-{{/* filled by app.js from this browser's own memory of subscriptions */}}
-<p class="mt-2 inline-flex items-center gap-1.5 text-sm text-ink-2 dark:text-ink-2-dark" data-subscribed hidden></p>
 </div>
 </article>
 {{end}}
@@ -134,7 +132,7 @@ loads and no-JS clients, and returned alone by /api/search/fragment. */}}
 <h2 class="text-xl font-semibold mb-6">Slik funker det</h2>
 <ol class="grid sm:grid-cols-3 gap-3">
 <li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">01</p><h3 class="mt-5 font-semibold">Søk</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Finn NRK-podkasten du vil høre på, eller lim inn en lenke fra NRK.</p></li>
-<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">02</p><h3 class="mt-5 font-semibold">Abonner</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Trykk «Abonner i app» og velg podkast-appen din.</p></li>
+<li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">02</p><h3 class="mt-5 font-semibold">Abonner</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Trykk «Abonner» og velg podkast-app eller kopier RSS-lenken.</p></li>
 <li class="rounded-2xl bg-ink/5 dark:bg-ink-dark/8 p-6"><p class="text-5xl font-extralight text-ink-3 dark:text-ink-3-dark tabular-nums leading-none">03</p><h3 class="mt-5 font-semibold">Hør</h3><p class="mt-1 text-sm text-ink-2 dark:text-ink-2-dark">Podkasten dukker opp i appen din, med hele arkivet.</p></li>
 </ol>
 </section>

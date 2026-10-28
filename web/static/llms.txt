@@ -6,9 +6,9 @@ The website is in Norwegian (bokmål). Kringkasting does not select, rank or edi
 
 ## Using it
 
-- [Search for a podcast](https://kringkast.ing/): search by name, or paste a link to a podcast, season or episode from radio.nrk.no or the NRK app (Del → Kopier lenke). "Abonner i app" opens the feed in Apple Podcasts, Overcast, Pocket Casts, Castro, Downcast, Podcast Addict, AntennaPod, Anytime Player or YouTube Music, or copies the RSS address for any other app. On a computer, a QR code hands the subscription over to the phone. Spotify does not support RSS feeds.
+- [Search for a podcast](https://kringkast.ing/): search by name, or paste a link to a podcast, season or episode from radio.nrk.no or the NRK app (Del → Kopier lenke). "Abonner" opens a chooser with podcast apps and an RSS copy option. On a computer, it also offers a QR code for mobile and shows only desktop-compatible app actions. Spotify does not support RSS feeds.
 - [Feed address format](https://kringkast.ing/api/feeds/sentralbordet): `/api/feeds/{seriesId}` for a podcast or radio series, where seriesId is the slug in NRK's own address (radio.nrk.no/podkast/{seriesId}), and `/api/feeds/{seriesId}/sesong/{seasonId}` for a season NRK publishes as a show of its own.
-- [Privacy](https://kringkast.ing/personvern): no accounts and no tracking; the chosen app, and which podcasts were sent to an app, are remembered only in the visitor's browser.
+- [Privacy](https://kringkast.ing/personvern): no accounts. The subscribe chooser does not store app choices or a history of podcasts sent to apps.
 
 ## What the feeds contain
 

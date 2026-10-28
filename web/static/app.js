@@ -1,19 +1,21 @@
 // Progressive enhancement for Kringkasting. Every page works without this
 // script: the server renders search results and all subscribe links. This
-// adds search-as-you-type, the subscribe dialog with a remembered app, a
-// QR code to continue on the phone, and share/copy buttons. Event delegation keeps it working for results
-// inserted later.
+// adds search-as-you-type, the subscribe dialog, a QR code to continue
+// on the phone, and share/copy buttons. Event delegation keeps it working
+// for results inserted later.
 
-const STORAGE_KEY = "kringkasting:podcast-app";
-// feeds sent to an app from here: { "/api/feeds/<id>": { app, name } }
-const SENT_KEY = "kringkasting:sent";
-const CHANGE_EVENT = "kringkasting:podcast-app-changed";
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 
+// Remove app preferences and send status left by earlier versions.
+try {
+  localStorage.removeItem("kringkasting:podcast-app");
+  localStorage.removeItem("kringkasting:sent");
+} catch {
+  // Storage may be unavailable in private browsing.
+}
+
 const ICONS = {
-  chevron:
-    '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6l6 -6"></path></svg>',
   check:
     '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10"></path></svg>',
   checkDraw:
@@ -26,63 +28,10 @@ const ICONS = {
     ).join("") + "</svg>",
 };
 
-const BUTTON = "relative inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer";
-const PRIMARY_BUTTON =
-  `${BUTTON} bg-ink text-canvas hover:bg-ink/80 dark:bg-ink-dark dark:text-canvas-dark dark:hover:bg-ink-dark/85`;
-// one of several results: the titles and artwork lead, not ten black buttons
-const QUIET_BUTTON =
-  `${BUTTON} bg-ink/8 text-ink hover:bg-ink/12 dark:bg-ink-dark/12 dark:text-ink-dark dark:hover:bg-ink-dark/18`;
-
-function readChoice() {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeChoice(id) {
-  try {
-    localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    // storage unavailable (private mode): the choice lasts for this page
-  }
-  dispatchEvent(new Event(CHANGE_EVENT));
-}
-
-function readSent() {
-  try {
-    return JSON.parse(localStorage.getItem(SENT_KEY) ?? "{}") ?? {};
-  } catch {
-    return {};
-  }
-}
-
-/** remember that this feed was sent to an app, in this browser only */
-function recordSent(feedUrl, app) {
-  const sent = readSent();
-  sent[new URL(feedUrl, location.href).pathname] = { app: app.dataset.app, name: app.dataset.appName };
-  try {
-    localStorage.setItem(SENT_KEY, JSON.stringify(sent));
-  } catch {
-    // storage unavailable: nothing to remember
-  }
-}
-
-/** "Sendt til Overcast" under a card whose feed went to an app */
-function renderSent(control) {
-  const line = control.closest("article")?.querySelector("[data-subscribed]");
-  if (!line) return;
-  const entry = readSent()[new URL(control.dataset.feedUrl, location.href).pathname];
-  line.hidden = !entry;
-  if (!entry) return;
-  line.innerHTML = ICONS.check;
-  line.append(` Sendt til ${entry.name}`);
-}
-
 // ---------------------------------------------------------------- subscribe
 
-// a phone lists only the apps that exist for it; computers list them all
+// a phone lists apps supported on its platform; computers list desktop
+// options and offer one QR handoff for phone-only apps
 // (iPadOS reports itself as a Mac, but with touch; Macs have none)
 const PLATFORM = /Android/i.test(navigator.userAgent)
   ? "android"
@@ -98,7 +47,9 @@ const SYSTEM = MAC ? "mac" : /Windows/.test(navigator.userAgent) ? "windows" : "
 const PASTE_KEYS = MAC ? "⌘V" : "Ctrl+V";
 
 function availableHere(app) {
-  return COMPUTER || (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
+  return COMPUTER
+    ? desktopAction(app) !== "phone"
+    : (app.dataset.platforms ?? "").split(" ").includes(PLATFORM);
 }
 
 /**
@@ -120,7 +71,7 @@ function pasteSteps(app) {
   switch (app.dataset.app) {
     case "apple":
       return MAC
-        ? ["Åpne Podkaster. Vinduet «Følg et program via URL» åpnes.", `Lim inn lenken (${PASTE_KEYS}) og velg Følg.`]
+        ? ["Åpne Podkaster hvis appen er installert, og velg «Følg et program via URL».", `Lim inn lenken (${PASTE_KEYS}) og velg Følg.`]
         : ["Åpne Apple Podcasts og velg Fil › Følg et program via URL.", `Lim inn lenken (${PASTE_KEYS}) og velg Følg.`];
     case "pocketcasts":
       return [
@@ -135,68 +86,6 @@ function pasteSteps(app) {
 function openLabel(app) {
   if (app.dataset.app === "apple" && MAC) return "Åpne Podkaster";
   return app.dataset.desktopHref?.startsWith("https:") ? `Åpne ${app.dataset.appName} på nett` : `Åpne ${app.dataset.appName}`;
-}
-
-/** render a card's control: "Abonner i app", or "Åpne i <app>" + chevron */
-function renderControl(control) {
-  renderSent(control);
-  const dialog = control.nextElementSibling;
-  if (!(dialog instanceof HTMLDialogElement)) return;
-  // a choice made on another platform (e.g. synced) counts as none here
-  let chosen = dialog.querySelector(`a[data-app="${CSS.escape(readChoice() ?? "")}"]`);
-  // an app that only exists on phones is no choice on a computer
-  if (chosen && (!availableHere(chosen) || desktopAction(chosen) === "phone")) chosen = null;
-  const pulse = '<span class="pulse-ring border-ink/60 dark:border-ink-dark/60" aria-hidden="true" hidden></span>';
-  const quiet = control.hasAttribute("data-quiet");
-  const style = quiet ? QUIET_BUTTON : PRIMARY_BUTTON;
-
-  if (!chosen) {
-    const podcast = control.dataset.defaultIcon ?? control.querySelector("button svg")?.outerHTML ?? "";
-    control.dataset.defaultIcon = podcast;
-    control.innerHTML = `<button type="button" data-open-dialog="${dialog.id}" data-pulse class="${style} px-3 py-2">${podcast} Abonner i app${pulse}</button>`;
-    return;
-  }
-  if (!control.dataset.defaultIcon) {
-    control.dataset.defaultIcon = control.querySelector("button svg")?.outerHTML ?? "";
-  }
-  const icon = chosen.querySelector("svg").cloneNode(true);
-  icon.setAttribute("width", "15");
-  icon.setAttribute("height", "15");
-  // says what it does: an app that needs the link pasted gets a copy
-  // button, the others a link that opens the app
-  const copying = copies(chosen);
-  const link = document.createElement(copying ? "button" : "a");
-  if (copying) link.type = "button";
-  else link.href = chosen.getAttribute("href");
-  link.dataset.chosenApp = chosen.dataset.app;
-  link.dataset.pulse = "";
-  link.dataset.umamiEvent = `app-${chosen.dataset.app}`;
-  link.dataset.umamiEventApp = chosen.dataset.appName;
-  link.dataset.umamiEventHandling = "aapne";
-  link.className = `${style} rounded-r-none px-3 py-2`;
-  link.append(icon, copying ? ` Kopier lenke til ${chosen.dataset.appName}` : ` Åpne i ${chosen.dataset.appName}`);
-  link.insertAdjacentHTML("beforeend", pulse);
-  const switcher = document.createElement("button");
-  switcher.type = "button";
-  switcher.dataset.openDialog = dialog.id;
-  switcher.setAttribute("aria-label", "Velg en annen podkast-app");
-  switcher.className =
-    `${style} rounded-l-none border-l ${quiet ? "border-ink/10 dark:border-ink-dark/15" : "border-canvas/25 dark:border-canvas-dark/25"} px-2 py-2`;
-  switcher.innerHTML = ICONS.chevron;
-  control.replaceChildren(link, switcher);
-}
-
-function renderControls(root = document) {
-  root.querySelectorAll("[data-subscribe]").forEach(renderControl);
-}
-
-/** restart the pulse-ring animation on the tapped control */
-function pulse(element) {
-  const ring = element.querySelector(".pulse-ring");
-  if (!ring) return;
-  const fresh = ring.cloneNode();
-  fresh.hidden = false;
-  ring.replaceWith(fresh);
 }
 
 function feedUrlOf(element) {
@@ -336,7 +225,7 @@ async function startPaste(dialog, app) {
   }
 }
 
-// a computer: the QR code hands the subscription over to the phone
+// a touch keyboard should close when a search is submitted
 const POINTER_DEVICE = matchMedia("(hover: hover) and (pointer: fine)");
 
 /** show one view of a subscribe dialog: "main" (the apps), "qr", "paste" */
@@ -354,16 +243,27 @@ function showView(dialog, view) {
 function openDialog(dialog) {
   resetCopy(dialog);
   showView(dialog, "main");
-  dialog.querySelector("[data-qr-row]").hidden = !POINTER_DEVICE.matches;
-  // on a computer, rows that don't simply open the app say what they do
+  const list = dialog.querySelector("[data-dialog-main] ul");
+  const copyRow = list.querySelector("[data-copy-row]");
+  const qrRow = list.querySelector("[data-qr-row]");
+  qrRow.hidden = !COMPUTER;
+  list.querySelector("[data-desktop-heading]").hidden = !COMPUTER;
+  copyRow.className = COMPUTER ? "" : "mt-1 border-t border-line dark:border-line-dark pt-1";
+  if (COMPUTER) list.prepend(copyRow, qrRow);
+  else list.append(copyRow, qrRow);
+  // Name the action without implying that a native app is installed.
   dialog.querySelectorAll("a[data-app]").forEach((app) => {
     const note = app.querySelector("[data-desktop-note]");
-    if (!note) return;
+    const label = app.querySelector("[data-action-label]");
+    label.textContent = COMPUTER ? app.dataset.appName : `Åpne i ${app.dataset.appName}`;
     const action = desktopAction(app);
-    note.textContent = action === "phone" ? "på mobilen" : action.startsWith("copy") ? "kopierer lenken" : "";
+    note.textContent = COMPUTER
+      ? action.startsWith("copy") ? "kopierer RSS-lenke"
+        : app.getAttribute("href").startsWith("https:") ? "åpner nettside" : "krever installert app"
+      : "";
     note.hidden = !note.textContent;
+    app.closest("li").hidden = !availableHere(app);
   });
-  dialog.querySelectorAll("a[data-app]").forEach((app) => (app.closest("li").hidden = !availableHere(app)));
   dialog.showModal();
 }
 
@@ -434,33 +334,7 @@ document.addEventListener("click", (event) => {
 
   const opener = target.closest("[data-open-dialog]");
   if (opener) {
-    if (opener.hasAttribute("data-pulse")) pulse(opener);
     openDialog(document.getElementById(opener.dataset.openDialog));
-    return;
-  }
-
-  const chosen = target.closest("[data-chosen-app]");
-  if (chosen) {
-    pulse(chosen);
-    const dialog = chosen.closest("[data-subscribe]").nextElementSibling;
-    const app = dialog.querySelector(`a[data-app="${CSS.escape(chosen.dataset.chosenApp)}"]`);
-    if (app && copies(app)) {
-      startPaste(dialog, app);
-      return;
-    }
-    if (app) recordSent(feedUrlOf(chosen), app);
-    // only the line: replacing the link mid-click would cancel its navigation
-    renderSent(chosen.closest("[data-subscribe]"));
-    return;
-  }
-
-  // the paste panel's "Åpne Podkaster": the link opens the app
-  const pasteOpen = target.closest("[data-paste-open]");
-  if (pasteOpen) {
-    const dialog = pasteOpen.closest("dialog");
-    const app = dialog.querySelector(`a[data-app="${CSS.escape(pasteOpen.dataset.pasteApp)}"]`);
-    if (app) recordSent(feedUrlOf(app), app);
-    renderSent(dialog.previousElementSibling);
     return;
   }
   if (target.closest("[data-paste-back]")) {
@@ -473,9 +347,7 @@ document.addEventListener("click", (event) => {
   const app = target.closest("dialog a[data-app]");
   if (app) {
     const dialog = app.closest("dialog");
-    const control = dialog.previousElementSibling;
-    // on a computer: an app only on phones goes there by QR code, one
-    // that needs the link pasted gets it copied first
+    // An app that needs the link pasted gets it copied first.
     if (desktopAction(app) === "phone") {
       event.preventDefault();
       showView(dialog, "qr");
@@ -484,17 +356,11 @@ document.addEventListener("click", (event) => {
     }
     if (copies(app)) {
       event.preventDefault();
-      writeChoice(app.dataset.app);
       startPaste(dialog, app);
       return;
     }
-    recordSent(feedUrlOf(app), app);
-    writeChoice(app.dataset.app);
     dialog.close();
-    // the opener was replaced by the split control, so native focus
-    // restoration has nowhere to go: place focus deliberately. The row is
-    // a link; navigation to the deep link continues natively.
-    setTimeout(() => control?.querySelector("a, button")?.focus(), 0);
+    // The row is a link; navigation to the app or website continues natively.
     return;
   }
 
@@ -543,12 +409,6 @@ document.addEventListener("keydown", (event) => {
   input.select();
 });
 
-// keep every card in sync when a choice is made here or in another tab
-addEventListener(CHANGE_EVENT, () => renderControls());
-addEventListener("storage", (event) => {
-  if (event.key === STORAGE_KEY || event.key === SENT_KEY) renderControls();
-});
-
 // ------------------------------------------------------------------ search
 
 function setupSearch(root) {
@@ -576,7 +436,6 @@ function setupSearch(root) {
     results.innerHTML = html;
     const inner = results.querySelector("[data-search-results]");
     if (inner) results.replaceChildren(...inner.childNodes);
-    renderControls(results);
   };
 
   const skeleton = () =>
@@ -656,7 +515,6 @@ function setupSearch(root) {
   });
 }
 
-renderControls();
 document.querySelectorAll("[data-search]").forEach(setupSearch);
 
 // arriving from a scanned QR code: open that feed's subscribe dialog, once

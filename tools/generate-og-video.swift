@@ -188,7 +188,10 @@ func searchScene(_ context: CGContext, time: Double) {
     let bw = 252 * scale, bh = 64 * scale
     let bx = 836 + (252 - bw) / 2, by = 352 + lift + (64 - bh) / 2
     rounded(context, bx, by, bw, bh, radius: 12, fill: ink)
-    text(context, "Abonner i app", x: bx + 40, baseline: by + 41, size: 25, color: white, weight: 600)
+    let buttonLabel = "Abonner"
+    let labelWidth = textWidth(textLine(buttonLabel, size: 25, color: white, weight: 600))
+    text(context, buttonLabel, x: bx + (bw - labelWidth) / 2,
+         baseline: by + 41, size: 25, color: white, weight: 600)
     context.restoreGState()
 }
 

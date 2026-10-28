@@ -241,13 +241,13 @@ type appLink struct {
 	Href     template.URL
 	Icon     template.HTML
 	// Platforms the app exists on, space-separated ("ios android"). On a
-	// phone, app.js hides the others; computers list every app.
+	// phone, app.js hides the others; computers show supported desktop actions.
 	Platforms string
 	// Desktop is what the row does on a computer, per system ("mac",
 	// "windows", "linux", or "*" for any): "open" follows the link,
 	// "copy" copies the feed URL to paste into the app or site and shows
 	// how, "copy-open" also offers to open it (DesktopHref, else Href).
-	// A system not listed gets the QR code: the app is only on phones.
+	// A system not listed uses the shared QR handoff instead of an app row.
 	Desktop     string
 	DesktopHref template.URL
 }
