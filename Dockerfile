@@ -1,7 +1,7 @@
 # Build stage: runs natively on the build machine and cross-compiles, so
 # multi-arch images need no emulation. Tailwind's standalone CLI builds the
 # stylesheet; no Node needed.
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 # libstdc++/libgcc: runtime for the Tailwind CLI (musl build)
@@ -17,7 +17,7 @@ RUN ./tools/build-css.sh \
 # Runtime: small Alpine base. curl stays because existing compose.yaml
 # files run `curl` as their healthcheck; sqlite is for backups
 # (`sqlite3 … ".backup …"`); su-exec drops root after fixing data ownership.
-FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
 RUN apk add --no-cache ca-certificates curl sqlite su-exec tzdata \
   # same user and ids as the previous cloudron/base image, so existing
   # data volumes stay readable
