@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 )
 
 // staticFiles serves the embedded static files with the Deno version's
@@ -36,6 +38,7 @@ var contentTypes = map[string]string{
 	".ico":  "image/vnd.microsoft.icon",
 	".js":   "text/javascript; charset=UTF-8",
 	".css":  "text/css; charset=UTF-8",
+	".mp4":  "video/mp4",
 }
 
 func newStaticFiles(root fs.FS) (*staticFiles, error) {
@@ -105,6 +108,12 @@ func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, urlPath, ori
 	}
 	if file.contentType != "" {
 		h.Set("Content-Type", file.contentType)
+	}
+	// Video players and link preview crawlers may request a byte range.
+	// ServeContent handles Range and HEAD while retaining our cache headers.
+	if path.Ext(urlPath) == ".mp4" {
+		http.ServeContent(w, r, path.Base(urlPath), time.Time{}, bytes.NewReader(file.body))
+		return true
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(file.body)
