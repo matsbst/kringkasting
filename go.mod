@@ -5,7 +5,7 @@ go 1.27.2
 require (
 	github.com/fxamacker/cbor/v2 v2.10.0
 	github.com/go-webauthn/webauthn v0.18.2
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 	rsc.io/qr v0.2.0
 )
 
