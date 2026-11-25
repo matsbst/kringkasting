@@ -1,6 +1,6 @@
 module github.com/matsbst/kringkasting
 
-go 1.27.2
+go 1.27.4
 
 require (
 	github.com/fxamacker/cbor/v2 v2.10.0
